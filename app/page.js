@@ -66,8 +66,7 @@ export default async function HomePage() {
 
       <ContentSection
         title="Active studies"
-        actionHref="/trials"
-        actionLabel="All trials"
+        titleHref="/trials"
       >
         {trials.length === 0 && (
           <p className="text-sm text-slate-600">No recruiting trials are listed yet. Please check back soon.</p>
@@ -82,8 +81,7 @@ export default async function HomePage() {
       {news && news.length > 0 && (
         <ContentSection
           title="News"
-          actionHref="/news"
-          actionLabel="All news"
+          titleHref="/news"
         >
           <div className="space-y-3">
             {news.slice(0, 3).map((post) => (
@@ -97,7 +95,7 @@ export default async function HomePage() {
   )
 }
 
-function ContentSection({ eyebrow, title, description, actionHref, actionLabel, children }) {
+function ContentSection({ eyebrow, title, titleHref, description, actionHref, actionLabel, children }) {
   return (
     <section className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-4">
@@ -105,17 +103,18 @@ function ContentSection({ eyebrow, title, description, actionHref, actionLabel, 
           {eyebrow && (
             <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">{eyebrow}</p>
           )}
-          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900 sm:text-3xl">{title}</h2>
+          {titleHref ? (
+            <Link
+              href={titleHref}
+              className="text-2xl font-semibold tracking-[-0.02em] text-slate-900 sm:text-3xl hover:text-blue-700 hover:underline decoration-2 underline-offset-4 transition"
+            >
+              {title}
+            </Link>
+          ) : (
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900 sm:text-3xl">{title}</h2>
+          )}
           {description && <p className="max-w-3xl text-sm text-slate-600">{description}</p>}
         </div>
-        {actionHref && actionLabel && (
-          <Link
-            href={actionHref}
-            className="text-sm font-semibold text-slate-800 transition hover:text-black hover:underline"
-          >
-            {actionLabel}
-          </Link>
-        )}
       </header>
       {children}
     </section>
