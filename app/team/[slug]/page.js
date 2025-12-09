@@ -33,31 +33,53 @@ export default async function TeamMemberPage({ params }) {
     ? await getPublicationsForResearchersDisplay([profileForPublications], 200)
     : null
 
+  const initials = profile.name
+    ?.split(' ')
+    .map(n => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || '?'
+
   return (
-    <main className="max-w-4xl mx-auto px-4 py-10 space-y-6">
-      <div className="flex flex-wrap gap-6 items-start">
-        <AvatarLarge photo={profile.photo} name={profile.name} />
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900">{profile.name}</h1>
-          {profile.role && <p className="text-lg text-gray-700">{profile.role}</p>}
-          <div className="flex flex-wrap gap-3 text-sm text-blue-700">
+    <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-10">
+      {/* Profile header */}
+      <div className="flex flex-wrap gap-8 items-start">
+        <div className="team-photo w-40 h-40 text-4xl">
+          {profile.photo ? (
+            <Image
+              src={urlFor(profile.photo).width(240).height(240).fit('crop').url()}
+              alt={profile.name}
+              width={160}
+              height={160}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span className="font-semibold text-[#aaa]">{initials}</span>
+          )}
+        </div>
+        <div className="space-y-3 flex-1">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">{profile.name}</h1>
+            {profile.role && <p className="text-lg text-[#666] mt-1">{profile.role}</p>}
+          </div>
+          <div className="flex flex-wrap gap-3 text-sm font-medium">
             {profile.email && (
-              <a className="hover:underline" href={`mailto:${profile.email}`}>
+              <a className="text-purple hover:underline" href={`mailto:${profile.email}`}>
                 Email
               </a>
             )}
             {profile.twitter && (
-              <a className="hover:underline" href={`https://twitter.com/${profile.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
+              <a className="text-purple hover:underline" href={`https://twitter.com/${profile.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
                 X / Twitter
               </a>
             )}
             {profile.linkedin && (
-              <a className="hover:underline" href={profile.linkedin} target="_blank" rel="noopener noreferrer">
+              <a className="text-purple hover:underline" href={profile.linkedin} target="_blank" rel="noopener noreferrer">
                 LinkedIn
               </a>
             )}
             {profile.orcid && (
-              <a className="hover:underline" href={`https://orcid.org/${profile.orcid.replace('https://orcid.org/', '')}`} target="_blank" rel="noopener noreferrer">
+              <a className="text-purple hover:underline" href={`https://orcid.org/${profile.orcid.replace('https://orcid.org/', '')}`} target="_blank" rel="noopener noreferrer">
                 ORCID
               </a>
             )}
@@ -66,9 +88,9 @@ export default async function TeamMemberPage({ params }) {
       </div>
 
       {profile.bio && (
-        <section className="space-y-2">
-          <h2 className="text-xl font-semibold text-gray-900">Biography</h2>
-          <p className="text-gray-700 leading-relaxed whitespace-pre-line">{profile.bio}</p>
+        <section className="space-y-3">
+          <h2 className="text-xl font-bold tracking-tight">Biography</h2>
+          <p className="text-[#555] leading-relaxed whitespace-pre-line max-w-3xl">{profile.bio}</p>
         </section>
       )}
 
@@ -81,8 +103,11 @@ export default async function TeamMemberPage({ params }) {
       />
 
       <div>
-        <Link href="/team" className="text-blue-700 hover:underline text-sm">
-          ← Back to team
+        <Link href="/team" className="arrow-link text-[13px]">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="rotate-180">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+          Back to team
         </Link>
       </div>
     </main>
@@ -92,9 +117,9 @@ export default async function TeamMemberPage({ params }) {
 function PublicationsSection({ publicationsBundle, hasQuery, researchers }) {
   if (!hasQuery) {
     return (
-      <section className="space-y-2">
-        <h2 className="text-xl font-semibold text-gray-900">Publications</h2>
-        <p className="text-gray-600 text-sm">Add a PubMed query in Sanity to show this researcher&apos;s publications.</p>
+      <section className="space-y-3">
+        <h2 className="text-xl font-bold tracking-tight">Publications</h2>
+        <p className="text-[#666] text-sm">Add a PubMed query in Sanity to show this researcher&apos;s publications.</p>
       </section>
     )
   }
@@ -105,14 +130,14 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers }) {
   const provenance = publicationsBundle?.provenance || {}
 
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-gray-900">Publications (last 3 years)</h2>
-        <span className="text-sm text-gray-600">{total} found</span>
+        <h2 className="text-xl font-bold tracking-tight">Publications (last 3 years)</h2>
+        <span className="text-sm text-[#666] font-medium">{total} found</span>
       </div>
 
       {total === 0 && (
-        <p className="text-gray-600 text-sm">No publications found in the last 3 years for the current PubMed query.</p>
+        <p className="text-[#666] text-sm">No publications found in the last 3 years for the current PubMed query.</p>
       )}
 
       {total > 0 && <YearSections years={years} byYear={byYear} researchers={researchers} provenance={provenance} />}
@@ -122,7 +147,7 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers }) {
 
 function YearSections({ years, byYear, researchers, provenance }) {
   return (
-    <div className="divide-y divide-gray-200">
+    <div className="space-y-2">
       {years.map((year) => (
         <YearBlock key={year} year={year} pubs={byYear[year]} researchers={researchers} provenance={provenance} />
       ))}
@@ -133,17 +158,17 @@ function YearSections({ years, byYear, researchers, provenance }) {
 function YearBlock({ year, pubs, researchers, provenance }) {
   const sorted = sortPublications(pubs)
   return (
-    <section className="py-3">
+    <section className="border border-black/[0.06] bg-white">
       <details className="group">
-        <summary className="flex w-full cursor-pointer list-none items-center justify-between text-left">
-          <div className="flex items-center gap-3">
-            <span className="text-lg font-semibold text-gray-900">{year}</span>
-            <span className="text-sm text-gray-500">{sorted.length} items</span>
+        <summary className="flex w-full cursor-pointer list-none items-center justify-between text-left px-6 py-4 hover:bg-[#fafafa] transition-colors">
+          <div className="flex items-center gap-4">
+            <span className="text-2xl font-bold text-purple">{year}</span>
+            <span className="text-sm text-[#888] font-medium">{sorted.length} publications</span>
           </div>
-          <span className="text-lg text-blue-700 hidden group-open:inline" aria-hidden>-</span>
-          <span className="text-lg text-blue-700 group-open:hidden" aria-hidden>+</span>
+          <span className="text-purple text-lg font-bold hidden group-open:inline" aria-hidden>−</span>
+          <span className="text-purple text-lg font-bold group-open:hidden" aria-hidden>+</span>
         </summary>
-        <div className="mt-3 divide-y divide-gray-200">
+        <div className="border-t border-black/[0.06] divide-y divide-black/[0.06]">
           {sorted.map((pub) => (
             <PublicationItem key={pub.pmid || pub.title} pub={pub} researchers={researchers} provenance={provenance} />
           ))}
@@ -158,23 +183,23 @@ function PublicationItem({ pub, researchers, provenance }) {
   const matchedResearchers = findResearchersForPub(pub, researchers, provenance)
 
   return (
-    <article className="p-4 space-y-2">
-      <div className="flex flex-wrap items-start gap-3">
-        <div className="flex-1 min-w-[240px]">
-          <h4 className="text-base font-semibold text-gray-900">{pub.title}</h4>
-          <p className="text-sm text-gray-700">{pub.authors?.join(', ')}</p>
-          <p className="text-sm text-gray-600">
-            {pub.journal} {pub.year && `• ${pub.year}`}
+    <article className="p-6 space-y-3">
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="flex-1 min-w-[240px] space-y-1">
+          <h4 className="text-base font-semibold text-[#1a1a1a] leading-snug">{pub.title}</h4>
+          <p className="text-sm text-[#666]">{pub.authors?.join(', ')}</p>
+          <p className="text-xs text-[#888] font-medium">
+            {pub.journal} {pub.year && `· ${pub.year}`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {shareButtons.map((btn) => (
             <a
               key={btn.platform}
               href={btn.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-blue-700 hover:bg-blue-50"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-purple hover:bg-purple/5 transition-colors"
               aria-label={btn.ariaLabel}
             >
               {shareIcons[btn.icon] ? (
@@ -188,7 +213,7 @@ function PublicationItem({ pub, researchers, provenance }) {
             href={pub.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="h-9 px-3 inline-flex items-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm"
+            className="h-9 px-4 inline-flex items-center border border-black/[0.08] text-[#1a1a1a] hover:border-purple hover:text-purple text-sm font-medium transition-colors"
           >
             PubMed
           </a>
@@ -197,7 +222,7 @@ function PublicationItem({ pub, researchers, provenance }) {
               href={`https://doi.org/${pub.doi}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="h-9 px-3 inline-flex items-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm"
+              className="h-9 px-4 inline-flex items-center border border-black/[0.08] text-[#1a1a1a] hover:border-purple hover:text-purple text-sm font-medium transition-colors"
             >
               DOI
             </a>
@@ -205,21 +230,21 @@ function PublicationItem({ pub, researchers, provenance }) {
         </div>
       </div>
       {matchedResearchers.length > 0 && (
-        <div className="flex flex-wrap gap-3 text-sm text-gray-700">
+        <div className="flex flex-wrap gap-2 text-sm">
           {matchedResearchers.map((r) => (
             <Link
               key={r._id}
               href={r.slug?.current ? `/team/${r.slug.current}` : '#'}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 hover:bg-gray-50"
+              className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors"
             >
               <AvatarSmall photo={r.photo} name={r.name} />
-              <span className="text-blue-700">{r.name}</span>
+              <span className="text-purple font-medium">{r.name}</span>
             </Link>
           ))}
         </div>
       )}
       {pub.laySummary && (
-        <p className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded p-3">
+        <p className="text-sm text-[#666] bg-[#F5F3F0] border border-black/[0.06] p-4">
           {pub.laySummary}
         </p>
       )}
@@ -272,43 +297,47 @@ function findResearchersForPub(pub, researchers = [], provenance = {}) {
 function ActiveStudies({ studies }) {
   const list = studies || []
   return (
-    <section className="space-y-3">
+    <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-gray-900">Active studies</h2>
-        <span className="text-sm text-gray-600">{list.length} listed</span>
+        <h2 className="text-xl font-bold tracking-tight">Active studies</h2>
+        <span className="text-sm text-[#666] font-medium">{list.length} listed</span>
       </div>
       {list.length === 0 ? (
-        <p className="text-gray-600 text-sm">No active studies currently linked to this researcher.</p>
+        <p className="text-[#666] text-sm">No active studies currently linked to this researcher.</p>
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-5 md:grid-cols-2">
           {list.map((study) => (
-            <div key={study._id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm space-y-2">
+            <div key={study._id} className="p-5 bg-white border border-black/[0.06] space-y-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-gray-900">{study.title}</h3>
-                  {study.condition && <p className="text-sm text-gray-700">{study.condition}</p>}
+                  <h3 className="text-lg font-semibold text-[#1a1a1a]">{study.title}</h3>
+                  {study.condition && <p className="text-sm text-[#666]">{study.condition}</p>}
                 </div>
                 {study.status && (
-                  <span className={`text-xs px-2 py-1 rounded-full ${statusStyles[study.status] || 'bg-gray-100 text-gray-700'}`}>
+                  <span className={`text-[11px] px-3 py-1 rounded-full font-semibold ${statusStyles[study.status] || statusStyles.closed}`}>
                     {prettyStatus(study.status)}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3 text-sm text-blue-700">
-                <Link href="/trials" className="hover:underline">
-                  View trials page
+              <div className="flex items-center gap-4 text-sm">
+                <Link href="/trials" className="arrow-link text-[13px]">
+                  View trials
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
                 </Link>
-                {study.nctId ? (
+                {study.nctId && (
                   <a
-                    className="hover:underline"
+                    className="arrow-link text-[13px]"
                     href={`https://clinicaltrials.gov/study/${study.nctId}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
                     ClinicalTrials.gov
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
                   </a>
-                ) : (
-                  <span className="text-gray-500">No registry link</span>
                 )}
               </div>
             </div>
@@ -320,13 +349,13 @@ function ActiveStudies({ studies }) {
 }
 
 const statusStyles = {
-  recruiting: 'bg-green-100 text-green-800',
-  coming_soon: 'bg-yellow-100 text-yellow-800',
-  closed: 'bg-gray-100 text-gray-700',
-  RECRUITING: 'bg-green-100 text-green-800',
-  NOT_YET_RECRUITING: 'bg-yellow-100 text-yellow-800',
-  ACTIVE_NOT_RECRUITING: 'bg-blue-100 text-blue-800',
-  COMPLETED: 'bg-gray-100 text-gray-700',
+  recruiting: 'text-emerald-800 bg-emerald-50 ring-1 ring-emerald-200',
+  coming_soon: 'text-amber-800 bg-amber-50 ring-1 ring-amber-200',
+  closed: 'text-[#666] bg-[#f5f5f5] ring-1 ring-[#ddd]',
+  RECRUITING: 'text-emerald-800 bg-emerald-50 ring-1 ring-emerald-200',
+  NOT_YET_RECRUITING: 'text-amber-800 bg-amber-50 ring-1 ring-amber-200',
+  ACTIVE_NOT_RECRUITING: 'text-purple bg-purple/10 ring-1 ring-purple/30',
+  COMPLETED: 'text-[#666] bg-[#f5f5f5] ring-1 ring-[#ddd]',
 }
 
 function prettyStatus(status) {
@@ -340,26 +369,6 @@ function prettyStatus(status) {
     COMPLETED: 'Completed',
   }
   return map[status] || status || 'Status'
-}
-
-function AvatarLarge({ photo, name }) {
-  if (photo) {
-    const src = urlFor(photo).width(240).height(240).fit('crop').url()
-    return (
-      <Image
-        src={src}
-        alt={name}
-        width={160}
-        height={160}
-        className="h-40 w-40 rounded-full object-cover border border-gray-200"
-      />
-    )
-  }
-  return (
-    <div className="h-40 w-40 rounded-full bg-gray-200 text-2xl font-semibold text-gray-600 flex items-center justify-center">
-      {name?.slice(0, 2)?.toUpperCase() || '?'}
-    </div>
-  )
 }
 
 function AvatarSmall({ photo, name }) {
@@ -376,9 +385,8 @@ function AvatarSmall({ photo, name }) {
     )
   }
   return (
-    <span className="h-6 w-6 rounded-full bg-gray-200 text-xs flex items-center justify-center text-gray-600">
+    <span className="h-6 w-6 rounded-full bg-[#E8E5E0] text-xs flex items-center justify-center text-[#888] font-semibold">
       {name?.slice(0, 1)?.toUpperCase() || '?'}
     </span>
   )
 }
-

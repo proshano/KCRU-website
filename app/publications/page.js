@@ -43,15 +43,20 @@ export default async function PublicationsPage() {
   const { publications, byYear, years } = buildDisplayFromPublications(pubsWithSummaries)
 
   return (
-    <main className="max-w-5xl mx-auto px-4 py-10 space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Publications by our investigators (last 3 years)
-        </h1>
+    <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
+      <header className="flex justify-between items-center">
+        <div>
+          <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
+            Research Output
+          </h2>
+          <h1 className="text-4xl font-bold tracking-tight">Publications</h1>
+          <p className="text-sm text-[#666] mt-2">Last 3 years from our investigators</p>
+        </div>
+        <span className="text-sm text-[#666] font-medium">{publications.length} publications</span>
       </header>
 
       {publications.length === 0 && (
-        <p className="text-gray-500">No publications found yet. Add PubMed queries to researchers or an affiliation in Site Settings.</p>
+        <p className="text-[#666]">No publications found yet. Add PubMed queries to researchers or an affiliation in Site Settings.</p>
       )}
 
       <YearSections years={years} byYear={byYear} researchers={researcherChips} provenance={provenance} />
@@ -61,7 +66,7 @@ export default async function PublicationsPage() {
 
 function YearSections({ years, byYear, researchers, provenance }) {
   return (
-    <div className="divide-y divide-gray-200">
+    <div className="space-y-2">
       {years.map((year) => (
         <YearBlock
           key={year}
@@ -77,17 +82,17 @@ function YearSections({ years, byYear, researchers, provenance }) {
 
 function YearBlock({ year, pubs, researchers, provenance }) {
   return (
-    <section className="py-4">
-      <details className="group">
-        <summary className="flex w-full cursor-pointer list-none items-center justify-between text-left">
-          <div className="flex items-center gap-3">
-            <span className="text-xl font-semibold text-gray-900">{year}</span>
-            <span className="text-sm text-gray-500">{pubs.length} items</span>
+    <section className="border border-black/[0.06] bg-white">
+      <details className="group" open>
+        <summary className="flex w-full cursor-pointer list-none items-center justify-between text-left px-6 py-4 hover:bg-[#fafafa] transition-colors">
+          <div className="flex items-center gap-4">
+            <span className="text-2xl font-bold text-purple">{year}</span>
+            <span className="text-sm text-[#888] font-medium">{pubs.length} publications</span>
           </div>
-          <span className="text-lg text-blue-700 hidden group-open:inline" aria-hidden>-</span>
-          <span className="text-lg text-blue-700 group-open:hidden" aria-hidden>+</span>
+          <span className="text-purple text-lg font-bold hidden group-open:inline" aria-hidden>−</span>
+          <span className="text-purple text-lg font-bold group-open:hidden" aria-hidden>+</span>
         </summary>
-        <div className="mt-3 divide-y divide-gray-200">
+        <div className="border-t border-black/[0.06] divide-y divide-black/[0.06]">
           {pubs.map((pub) => (
             <PublicationItem
               key={pub.pmid}
@@ -107,23 +112,23 @@ function PublicationItem({ pub, researchers, provenance }) {
   const matchedResearchers = findResearchersForPub(pub, researchers, provenance)
 
   return (
-    <article className="p-4 space-y-2">
-      <div className="flex flex-wrap items-start gap-3">
-        <div className="flex-1 min-w-[240px]">
-          <h3 className="text-lg font-semibold text-gray-900">{pub.title}</h3>
-          <p className="text-sm text-gray-600">{pub.authors?.join(', ')}</p>
-          <p className="text-sm text-gray-500">
-            {pub.journal} {pub.year && `• ${pub.year}`}
+    <article className="p-6 space-y-3">
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="flex-1 min-w-[240px] space-y-1">
+          <h3 className="text-lg font-semibold text-[#1a1a1a] leading-snug">{pub.title}</h3>
+          <p className="text-sm text-[#666]">{pub.authors?.join(', ')}</p>
+          <p className="text-xs text-[#888] font-medium">
+            {pub.journal} {pub.year && `· ${pub.year}`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {shareButtons.map((btn) => (
             <a
               key={btn.platform}
               href={btn.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-blue-700 hover:bg-blue-50"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-purple hover:bg-purple/5 transition-colors"
               aria-label={btn.ariaLabel}
             >
               {shareIcons[btn.icon] ? (
@@ -137,7 +142,7 @@ function PublicationItem({ pub, researchers, provenance }) {
             href={pub.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="h-9 px-3 inline-flex items-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm"
+            className="h-9 px-4 inline-flex items-center border border-black/[0.08] text-[#1a1a1a] hover:border-purple hover:text-purple text-sm font-medium transition-colors"
           >
             PubMed
           </a>
@@ -146,7 +151,7 @@ function PublicationItem({ pub, researchers, provenance }) {
               href={`https://doi.org/${pub.doi}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="h-9 px-3 inline-flex items-center rounded-full border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm"
+              className="h-9 px-4 inline-flex items-center border border-black/[0.08] text-[#1a1a1a] hover:border-purple hover:text-purple text-sm font-medium transition-colors"
             >
               DOI
             </a>
@@ -154,21 +159,21 @@ function PublicationItem({ pub, researchers, provenance }) {
         </div>
       </div>
       {matchedResearchers.length > 0 && (
-        <div className="flex flex-wrap gap-3 text-sm text-gray-700">
+        <div className="flex flex-wrap gap-2 text-sm">
           {matchedResearchers.map((r) => (
             <Link
               key={r._id}
               href={r.slug?.current ? `/team/${r.slug.current}` : '#'}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-1 hover:bg-gray-50"
+              className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors"
             >
               <Avatar photo={r.photo} name={r.name} />
-              <span className="text-blue-700">{r.name}</span>
+              <span className="text-purple font-medium">{r.name}</span>
             </Link>
           ))}
         </div>
       )}
       {pub.laySummary && (
-        <p className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded p-3">
+        <p className="text-sm text-[#666] bg-[#F5F3F0] border border-black/[0.06] p-4">
           {pub.laySummary}
         </p>
       )}
@@ -260,9 +265,8 @@ function Avatar({ photo, name }) {
     )
   }
   return (
-    <span className="h-6 w-6 rounded-full bg-gray-200 text-xs flex items-center justify-center text-gray-600">
+    <span className="h-6 w-6 rounded-full bg-[#E8E5E0] text-xs flex items-center justify-center text-[#888] font-semibold">
       {name?.slice(0, 1)?.toUpperCase() || '?'}
     </span>
   )
 }
-

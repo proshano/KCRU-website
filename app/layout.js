@@ -1,6 +1,5 @@
 import Link from 'next/link'
-import Image from 'next/image'
-import { sanityFetch, queries, urlFor } from '@/lib/sanity'
+import { sanityFetch, queries } from '@/lib/sanity'
 import './globals.css'
 
 export const metadata = {
@@ -9,12 +8,11 @@ export const metadata = {
 }
 
 const navLinks = [
-  { href: '/', label: 'Home' },
   { href: '/trials', label: 'Studies' },
   { href: '/team', label: 'Investigators' },
   { href: '/publications', label: 'Publications' },
-  { href: '/news', label: 'News' },
   { href: '/capabilities', label: 'Capabilities' },
+  { href: '/news', label: 'News' },
   { href: '/contact', label: 'Contact' },
 ]
 
@@ -24,73 +22,65 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang="en">
-      <body className="bg-slate-50 text-gray-900 antialiased">
-        <div className="min-h-screen">
-          <header className="border-b border-slate-200/80 bg-white/80 backdrop-blur">
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-              <Link href="/" aria-label="Home" className="flex items-center gap-2 text-blue-700">
-                <span className="sr-only">Home</span>
+      <body>
+        <div className="min-h-screen flex flex-col">
+          {/* Institutional bar */}
+          {affiliations.length > 0 && (
+            <div className="bg-purple py-2.5 px-6 md:px-12 flex flex-wrap gap-x-6 gap-y-1 text-xs font-medium tracking-wide text-white/90">
+              {affiliations.map((aff, idx) => (
+                <span key={aff._key || aff.name || idx} className="flex items-center gap-2">
+                  {idx > 0 && <span className="opacity-50 hidden sm:inline">•</span>}
+                  {aff.url ? (
+                    <Link href={aff.url} className="hover:text-white transition-colors">
+                      {aff.name}
+                    </Link>
+                  ) : (
+                    <span>{aff.name}</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Navigation */}
+          <nav className="sticky top-0 z-50 bg-background border-b border-black/[0.06] px-6 md:px-12 py-5">
+            <div className="max-w-[1400px] mx-auto flex justify-between items-center">
+              <Link href="/" className="font-bold text-base tracking-tight">
+                {settings?.unitName || 'London Kidney Clinical Research'}
               </Link>
-              <nav className="flex flex-wrap items-center gap-6 text-lg lg:text-xl font-semibold text-slate-800 tracking-tight">
+              <div className="hidden md:flex gap-9 text-sm font-medium text-[#444]">
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="transition hover:text-blue-700 hover:underline decoration-2 underline-offset-4"
+                    className="nav-link"
                   >
                     {link.label}
                   </Link>
                 ))}
-              </nav>
+              </div>
             </div>
-          </header>
+          </nav>
 
-          <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+          {/* Main content */}
+          <main className="flex-1">{children}</main>
 
-          <footer className="border-t border-gray-200 bg-white py-6">
-            <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 text-sm text-gray-600 tracking-tight">
-              {affiliations.length > 0 && (
-                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-700">
-                  <span className="text-slate-500">Affiliations:</span>
-                  {affiliations.map((aff) => {
-                    if (!aff) return null
-                    const logoUrl = aff.logo?.asset?._ref ? urlFor(aff.logo).width(64).height(64).url() : null
-                    const content = (
-                      <div className="flex items-center gap-2">
-                        {logoUrl && (
-                          <Image
-                            src={logoUrl}
-                            alt={aff.name || 'Affiliation'}
-                            width={32}
-                            height={32}
-                            className="h-8 w-8 rounded object-contain"
-                          />
-                        )}
-                        {aff.name && <span className="text-xs font-semibold text-slate-700">{aff.name}</span>}
-                      </div>
-                    )
-                    return aff.url ? (
-                      <Link key={aff._key || aff.name} href={aff.url} className="hover:text-blue-700 flex items-center gap-2">
-                        {content}
-                      </Link>
-                    ) : (
-                      <div key={aff._key || aff.name} className="flex items-center gap-2">
-                        {content}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <span>© {new Date().getFullYear()} Pavel Roshanov</span>
-                <div className="flex gap-3">
-                  <Link href="/trials" className="hover:text-blue-700">Trials</Link>
-                  <Link href="/team" className="hover:text-blue-700">Investigators</Link>
-                  <Link href="/publications" className="hover:text-blue-700">Publications</Link>
-                  <Link href="/news" className="hover:text-blue-700">News</Link>
-                  <Link href="/capabilities" className="hover:text-blue-700">Capabilities</Link>
-                  <Link href="/contact" className="hover:text-blue-700">Contact</Link>
-                </div>
+          {/* Footer */}
+          <footer className="border-t border-black/[0.08] py-12 px-6 md:px-12 text-sm text-[#888] font-medium mt-12">
+            <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div>
+                © {new Date().getFullYear()} {settings?.unitName || 'London Kidney Clinical Research'}
+                {affiliations.length > 0 && (
+                  <span className="hidden sm:inline">
+                    {' · '}
+                    {affiliations.map((aff) => aff.name).join(' · ')}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-6">
+                <Link href="/contact" className="hover:text-purple transition-colors">Privacy</Link>
+                <Link href="/contact" className="hover:text-purple transition-colors">Accessibility</Link>
+                <Link href="/contact" className="hover:text-purple transition-colors">Contact</Link>
               </div>
             </div>
           </footer>
@@ -99,4 +89,3 @@ export default async function RootLayout({ children }) {
     </html>
   )
 }
-

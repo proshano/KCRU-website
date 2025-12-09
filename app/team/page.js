@@ -8,53 +8,70 @@ export default async function TeamPage() {
   const researchers = await sanityFetch(queries.allResearchers)
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-10 space-y-6">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Investigators</h1>
+    <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
+      <header className="flex justify-between items-center">
+        <div>
+          <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
+            Our Team
+          </h2>
+          <h1 className="text-4xl font-bold tracking-tight">Investigators</h1>
+        </div>
+        <span className="text-sm text-[#666] font-medium">{researchers?.length || 0} members</span>
       </header>
 
       {(!researchers || researchers.length === 0) && (
-        <p className="text-gray-500">No team members found yet.</p>
+        <p className="text-[#666]">No team members found yet.</p>
       )}
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {researchers?.map((person) => (
-          <article key={person._id} className="rounded-lg border border-gray-200 bg-white shadow-sm p-4 space-y-3">
-            {person.slug?.current ? (
-              <div className="space-y-3">
-                <Link
-                  href={`/team/${person.slug.current}`}
-                  className="group block space-y-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg"
-                >
-                  <CardContent person={person} />
-                </Link>
-                <SocialLinks person={person} />
+      <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+        {researchers?.map((person) => {
+          const slugValue = typeof person.slug === 'string' ? person.slug : person.slug?.current
+          const href = slugValue ? `/team/${slugValue}` : null
+          const initials = person.name
+            ?.split(' ')
+            .map(n => n[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase() || '?'
+
+          const content = (
+            <div className="team-member">
+              <div className="team-photo">
+                {person.photo ? (
+                  <Image
+                    src={urlFor(person.photo).width(200).height(200).fit('crop').url()}
+                    alt={person.name || 'Researcher'}
+                    width={200}
+                    height={200}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-[28px] font-semibold text-[#aaa]">{initials}</span>
+                )}
               </div>
-            ) : (
-              <div className="space-y-3">
-                <CardContent person={person} />
-                <SocialLinks person={person} />
+              <div className="text-sm font-semibold text-[#1a1a1a]">
+                {person.name}
               </div>
-            )}
-          </article>
-        ))}
+              <div className="text-xs text-[#888] mt-0.5 font-medium">
+                {person.role || 'Researcher'}
+              </div>
+              {person.bio && (
+                <p className="text-xs text-[#666] mt-2 line-clamp-2 text-left">{person.bio}</p>
+              )}
+              <SocialLinks person={person} />
+            </div>
+          )
+
+          return href ? (
+            <Link key={person._id} href={href}>
+              {content}
+            </Link>
+          ) : (
+            <div key={person._id}>{content}</div>
+          )
+        })}
       </div>
     </main>
-  )
-}
-
-function CardContent({ person }) {
-  return (
-    <>
-      <div className="flex items-center gap-3">
-        <Avatar photo={person.photo} name={person.name} />
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900 group-hover:text-blue-700">{person.name}</h2>
-          {person.role && <p className="text-sm text-gray-600">{person.role}</p>}
-        </div>
-      </div>
-      {person.bio && <p className="text-sm text-gray-700 line-clamp-3">{person.bio}</p>}
-    </>
   )
 }
 
@@ -62,43 +79,37 @@ function SocialLinks({ person }) {
   const hasLinks = person.twitter || person.linkedin || person.orcid
   if (!hasLinks) return null
   return (
-    <div className="flex flex-wrap gap-3 text-sm text-blue-700">
+    <div className="flex flex-wrap gap-2 mt-2 text-xs text-purple font-medium">
       {person.twitter && (
-        <a href={`https://twitter.com/${person.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
-          X / Twitter
+        <a
+          href={`https://twitter.com/${person.twitter.replace('@', '')}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          X
         </a>
       )}
       {person.linkedin && (
-        <a href={person.linkedin} target="_blank" rel="noopener noreferrer" className="hover:underline">
+        <a
+          href={person.linkedin}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
           LinkedIn
         </a>
       )}
       {person.orcid && (
-        <a href={`https://orcid.org/${person.orcid.replace('https://orcid.org/', '')}`} target="_blank" rel="noopener noreferrer" className="hover:underline">
+        <a
+          href={`https://orcid.org/${person.orcid.replace('https://orcid.org/', '')}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
           ORCID
         </a>
       )}
     </div>
   )
 }
-
-function Avatar({ photo, name }) {
-  if (photo) {
-    const src = urlFor(photo).width(120).height(120).fit('crop').url()
-    return (
-      <Image
-        src={src}
-        alt={name}
-        width={56}
-        height={56}
-        className="h-14 w-14 rounded-full object-cover"
-      />
-    )
-  }
-  return (
-    <div className="h-14 w-14 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-sm font-semibold">
-      {name?.slice(0, 2)?.toUpperCase() || '?'}
-    </div>
-  )
-}
-

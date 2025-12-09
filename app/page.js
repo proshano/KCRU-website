@@ -1,274 +1,186 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
+import { getPublicationsForResearchersDisplay } from '@/lib/publications'
+import FeaturedStudy from './components/FeaturedStudy'
 
 export const revalidate = 3600
 
 export default async function HomePage() {
   const [settings, trials = [], researchers = [], news = []] = await Promise.all([
     sanityFetch(queries.siteSettings),
-    sanityFetch(queries.recruitingTrials),
+    sanityFetch(queries.trialSummaries),
     sanityFetch(queries.allResearchers),
     sanityFetch(queries.recentNews),
   ])
 
+  // Get publications for the ticker
+  let publications = []
+  try {
+    const pubData = await getPublicationsForResearchersDisplay(researchers, 30)
+    publications = pubData?.publications || []
+  } catch (e) {
+    console.error('Failed to fetch publications:', e)
+  }
+
+  // Filter recruiting trials for featured study
+  const recruitingTrials = trials.filter(t => t.status === 'recruiting')
+
+  // Stats from data
+  const stats = [
+    {
+      value: trials.reduce((sum, t) => sum + (t.patientTarget || 0), 0) || '500+',
+      label: 'Patients in\nactive trials'
+    },
+    { value: '40+', label: 'Collaborating\nspecialties' },
+    { value: recruitingTrials.length || trials.length, label: 'Active\nstudies' },
+    { value: `${publications.length}+`, label: 'Publications\n(3-year)' },
+  ]
+
   return (
-    <main className="relative mx-auto max-w-6xl space-y-10 px-6 py-8 lg:py-10">
-      <div className="pointer-events-none absolute -left-32 top-12 h-72 w-72 rounded-full bg-gradient-to-br from-slate-100 via-white to-transparent blur-3xl" aria-hidden />
-      <div className="pointer-events-none absolute -right-20 bottom-10 h-80 w-80 rounded-full bg-gradient-to-tl from-slate-200 via-white to-transparent blur-3xl" aria-hidden />
+    <>
+      {/* Hero Section */}
+      <section className="px-6 md:px-12 pt-12 pb-6 max-w-[1400px] mx-auto">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+          {/* Left side - Hero content */}
+          <div className="flex flex-col">
+            <h1 className="text-4xl sm:text-5xl font-bold leading-[1.1] tracking-tight mb-5">
+              {settings?.tagline?.split(' ').slice(0, 3).join(' ') || 'Advancing care for'}
+              <br />
+              <span className="text-purple">
+                {settings?.tagline?.split(' ').slice(3, 5).join(' ') || 'kidney disease'}
+              </span>
+              <br />
+              {settings?.tagline?.split(' ').slice(5).join(' ') || 'through rigorous research'}
+            </h1>
+            <p className="text-[17px] leading-relaxed text-[#555] max-w-[440px] mb-8">
+              {settings?.description || 'We conduct large pragmatic trials focused on patients with kidney failure—a population facing exceptional risks yet underrepresented in medical evidence.'}
+            </p>
 
-      <section className="relative overflow-hidden rounded-[32px] border border-slate-200/70 bg-white/70 shadow-[0_25px_80px_-50px_rgba(15,23,42,0.55)] backdrop-blur-2xl">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/70 via-white/40 to-slate-50/70" aria-hidden />
-        <div className="relative grid items-start gap-10 px-7 py-10 sm:px-10 lg:grid-cols-[1.1fr_1fr] lg:px-12 lg:py-14">
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <h1 className="text-4xl font-extrabold leading-tight tracking-[-0.035em] text-slate-900 sm:text-5xl lg:text-6xl">
-                {settings?.unitName || 'London Kidney Clinical Trials'}
-              </h1>
-              <p className="max-w-3xl text-lg text-slate-600 sm:text-xl">
-                {settings?.tagline || 'Fighting kidney disease through research.'}
-              </p>
+            {/* CTA Buttons */}
+            <div className="flex flex-wrap gap-3.5 mb-0">
+              <Link href="/trials" className="btn-primary">
+                View Active Studies
+              </Link>
+              <Link href="/contact" className="btn-secondary">
+                Refer a Patient
+              </Link>
+              <Link href="/capabilities" className="btn-secondary">
+                Partner With Us
+              </Link>
             </div>
 
-            <div className="pt-1">
-              <AvatarHoneycomb researchers={researchers} />
-            </div>
+            {/* Featured Study Card */}
+            {recruitingTrials.length > 0 && (
+              <FeaturedStudy trials={recruitingTrials} />
+            )}
           </div>
 
-          <div className="grid grid-cols-12 auto-rows-[minmax(140px,1fr)] gap-4">
-            <BentoCard
-              href="/trials"
-              label="Active trials"
-              sublabel="See recruiting and upcoming studies"
-              className="col-span-12 sm:col-span-7 lg:row-span-2"
-            />
-            <BentoCard
-              href="/publications"
-              label="Publications"
-              sublabel="Latest outputs and five-year view"
-              className="col-span-12 sm:col-span-5"
-            />
-            <BentoCard
-              href="/team"
-              label="Investigators"
-              sublabel="Profiles and contact routes"
-              className="col-span-12 sm:col-span-5"
-            />
-            <BentoCard
-              href="/capabilities"
-              label="Capabilities"
-              sublabel="What we offer for sponsors & partners"
-              className="col-span-12 sm:col-span-7"
-            />
+          {/* Right side - Team showcase */}
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em]">
+                Our Investigators
+              </h2>
+              <Link href="/team" className="arrow-link text-[13px]">
+                All profiles
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+              </Link>
+            </div>
+
+            {/* Team Grid - 4x3 */}
+            <div className="grid grid-cols-4 gap-5">
+              {researchers.slice(0, 12).map((researcher) => {
+                const slugValue = typeof researcher.slug === 'string' ? researcher.slug : researcher.slug?.current
+                const href = slugValue ? `/team/${slugValue}` : '/team'
+                const initials = researcher.name
+                  ?.split(' ')
+                  .map(n => n[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase() || '?'
+
+                return (
+                  <Link key={researcher._id} href={href} className="team-member">
+                    <div className="team-photo">
+                      {researcher.photo ? (
+                        <Image
+                          src={urlFor(researcher.photo).width(140).height(140).fit('crop').url()}
+                          alt={researcher.name || 'Researcher'}
+                          width={140}
+                          height={140}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-[22px] font-semibold text-[#aaa]">{initials}</span>
+                      )}
+                    </div>
+                    <div className="text-[13px] font-semibold text-[#1a1a1a] whitespace-nowrap overflow-hidden text-ellipsis">
+                      {researcher.name}
+                    </div>
+                    <div className="text-[11px] text-[#888] mt-0.5 font-medium">
+                      {researcher.role || 'Researcher'}
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
           </div>
         </div>
       </section>
 
-      <ContentSection
-        title="Active studies"
-        titleHref="/trials"
-      >
-        {trials.length === 0 && (
-          <p className="text-sm text-slate-600">No recruiting trials are listed yet. Please check back soon.</p>
-        )}
-        <div className="space-y-2">
-          {trials.slice(0, 3).map((trial) => (
-            <TrialCard key={trial._id} trial={trial} />
+      {/* Stats Bar */}
+      <div className="bg-white border-t border-b border-black/[0.06]">
+        <div className="max-w-[1400px] mx-auto grid grid-cols-2 lg:grid-cols-4">
+          {stats.map((stat, idx) => (
+            <div
+              key={idx}
+              className={`py-7 px-6 md:px-12 flex items-center gap-4 ${
+                idx < 3 ? 'border-r border-black/[0.06]' : ''
+              } ${idx === 1 ? 'lg:border-r' : ''} ${idx >= 2 ? 'border-t lg:border-t-0 border-black/[0.06]' : ''}`}
+            >
+              <div className="text-[32px] font-bold text-purple tracking-tight leading-none">
+                {stat.value}
+              </div>
+              <div className="text-[13px] text-[#666] font-medium leading-tight whitespace-pre-line">
+                {stat.label}
+              </div>
+            </div>
           ))}
         </div>
-      </ContentSection>
+      </div>
 
-      {news && news.length > 0 && (
-        <ContentSection
-          title="News"
-          titleHref="/news"
-        >
-          <div className="space-y-3">
-            {news.slice(0, 3).map((post) => (
-              <NewsCard key={post._id} post={post} />
+      {/* Publications Ticker */}
+      {publications.length > 0 && (
+        <div className="ticker-wrapper">
+          <div className="ticker">
+            {/* First set */}
+            {publications.slice(0, 6).map((pub, idx) => (
+              <div key={`a-${idx}`} className="flex items-center gap-3 px-12 whitespace-nowrap text-white text-sm font-medium">
+                <span className="w-1.5 h-1.5 bg-purple rounded-full flex-shrink-0" />
+                <span>
+                  <span className="text-purple-light">{pub.year}</span>
+                  {' — '}
+                  {pub.title?.length > 80 ? pub.title.slice(0, 80) + '...' : pub.title}
+                </span>
+              </div>
+            ))}
+            {/* Duplicate for seamless loop */}
+            {publications.slice(0, 6).map((pub, idx) => (
+              <div key={`b-${idx}`} className="flex items-center gap-3 px-12 whitespace-nowrap text-white text-sm font-medium">
+                <span className="w-1.5 h-1.5 bg-purple rounded-full flex-shrink-0" />
+                <span>
+                  <span className="text-purple-light">{pub.year}</span>
+                  {' — '}
+                  {pub.title?.length > 80 ? pub.title.slice(0, 80) + '...' : pub.title}
+                </span>
+              </div>
             ))}
           </div>
-        </ContentSection>
+        </div>
       )}
-
-    </main>
-  )
-}
-
-function ContentSection({ eyebrow, title, titleHref, description, actionHref, actionLabel, children }) {
-  return (
-    <section className="space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          {eyebrow && (
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">{eyebrow}</p>
-          )}
-          {titleHref ? (
-            <Link
-              href={titleHref}
-              className="text-2xl font-semibold tracking-[-0.02em] text-slate-900 sm:text-3xl hover:text-blue-700 hover:underline decoration-2 underline-offset-4 transition"
-            >
-              {title}
-            </Link>
-          ) : (
-            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900 sm:text-3xl">{title}</h2>
-          )}
-          {description && <p className="max-w-3xl text-sm text-slate-600">{description}</p>}
-        </div>
-      </header>
-      {children}
-    </section>
-  )
-}
-
-function TrialCard({ trial }) {
-  const status = (trial.status || 'recruiting').toLowerCase()
-  const statusStyles =
-    status === 'recruiting'
-      ? 'text-emerald-800 bg-emerald-50/80 ring-1 ring-emerald-200/80'
-      : status === 'active'
-      ? 'text-slate-900 bg-slate-100 ring-1 ring-slate-200'
-      : 'text-slate-700 bg-slate-100 ring-1 ring-slate-200'
-
-  const slug = trial.slug?.current || trial.slug
-  const isRecruiting = status === 'recruiting'
-
-  return (
-    <Link
-      href={slug ? `/trials/${slug}` : '/trials'}
-      className="group relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-[0_25px_80px_-55px_rgba(15,23,42,0.7)] backdrop-blur-xl transition hover:-translate-y-1 hover:scale-[1.01] hover:shadow-[0_25px_80px_-45px_rgba(15,23,42,0.8)]"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1">
-          <span
-            className={`relative inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold ${statusStyles}`}
-          >
-            {isRecruiting && (
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              </span>
-            )}
-            {trial.status || 'Recruiting'}
-          </span>
-          <h3 className="text-xl font-semibold leading-tight text-slate-900">{trial.title}</h3>
-          <p className="text-sm text-slate-600">
-            {trial.purpose || trial.condition || 'Patient-facing summary available.'}
-          </p>
-          <p className="text-xs text-slate-500 uppercase">
-            {trial.condition ? `${trial.condition}` : 'Kidney research'}{' '}
-            {trial.principalInvestigator?.name ? `· PI: ${trial.principalInvestigator.name}` : ''}
-          </p>
-        </div>
-        <span className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-900 text-sm font-semibold text-white shadow-sm transition group-hover:-translate-y-0.5 group-hover:shadow-lg">
-          →
-        </span>
-      </div>
-    </Link>
-  )
-}
-
-function AvatarCircle({ photo, name, sizeClass = 'h-12 w-12' }) {
-  if (photo) {
-    const src = urlFor(photo).width(140).height(140).fit('crop').url()
-    return (
-      <div className={`${sizeClass} overflow-hidden rounded-full bg-slate-100 ring-2 ring-white shadow-sm transition group-hover/avatar:scale-[1.06] group-hover/avatar:shadow-md`}>
-        <Image src={src} alt={name || 'Researcher'} width={140} height={140} className="h-full w-full object-cover" />
-      </div>
-    )
-  }
-
-  return (
-    <div className={`flex ${sizeClass} items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600 ring-2 ring-white shadow-sm transition group-hover/avatar:scale-[1.06] group-hover/avatar:shadow-md`}>
-      {name?.slice(0, 1)?.toUpperCase() || '?'}
-    </div>
-  )
-}
-
-function AvatarHoneycomb({ researchers = [] }) {
-  const list = researchers
-
-  if (list.length === 0) return <p className="text-sm text-slate-600">No investigators listed yet.</p>
-
-  const offsets = [0, 8, 16, 8, -4, 12]
-
-  return (
-    <div className="flex max-w-4xl flex-wrap gap-4">
-      {list.map((r, idx) => {
-        const slugValue = typeof r.slug === 'string' ? r.slug : r.slug?.current
-        const href = slugValue && slugValue.trim() ? `/team/${slugValue}` : '/team'
-        const offset = offsets[idx % offsets.length]
-        return (
-          <Link
-            key={r._id || slugValue || r.name || idx}
-            href={href}
-            className="group/avatar relative inline-flex transition duration-200 ease-out"
-            style={{ transform: `translateY(${offset}px)` }}
-          >
-            <span className="block overflow-hidden rounded-full border border-white/80 bg-slate-200 shadow-sm ring-1 ring-slate-200/60">
-              <AvatarCircle photo={r.photo} name={r.name} sizeClass="h-16 w-16" />
-            </span>
-          </Link>
-        )
-      })}
-    </div>
-  )
-}
-
-function BentoCard({ href, label, sublabel, className = '' }) {
-  return (
-    <Link
-      href={href}
-      className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-[0_20px_70px_-50px_rgba(15,23,42,0.6)] backdrop-blur-xl transition hover:-translate-y-1 hover:scale-[1.02] hover:shadow-[0_20px_70px_-40px_rgba(15,23,42,0.7)] ${className}`}
-    >
-      <div className="space-y-2">
-        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Navigate</p>
-        <h3 className="text-xl font-semibold text-slate-900">{label}</h3>
-        {sublabel && <p className="text-sm text-slate-600">{sublabel}</p>}
-      </div>
-      <div className="mt-4 flex justify-end">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-900 text-white shadow-sm transition group-hover:-translate-y-0.5 group-hover:shadow-lg">
-          →
-        </span>
-      </div>
-    </Link>
-  )
-}
-
-function NewsCard({ post }) {
-  const slug = post.slug?.current
-  const href = slug ? `/news/${slug}` : '#'
-  
-  return (
-    <Link
-      href={href}
-      className="group block rounded-2xl border border-slate-200/70 bg-white/70 p-5 shadow-[0_20px_70px_-55px_rgba(15,23,42,0.7)] backdrop-blur-xl transition hover:-translate-y-1 hover:scale-[1.01] hover:shadow-[0_20px_70px_-45px_rgba(15,23,42,0.8)]"
-    >
-      <div className="space-y-2">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          {post.publishedAt && (
-            <time dateTime={post.publishedAt}>
-              {new Date(post.publishedAt).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-              })}
-            </time>
-          )}
-          {post.author?.name && (
-            <>
-              <span>•</span>
-              <span>{post.author.name}</span>
-            </>
-          )}
-        </div>
-        <h3 className="text-lg font-semibold leading-tight text-slate-900 group-hover:text-blue-700">
-          {post.title}
-        </h3>
-        {post.excerpt && (
-          <p className="text-sm text-slate-600 line-clamp-2">{post.excerpt}</p>
-        )}
-      </div>
-    </Link>
+    </>
   )
 }

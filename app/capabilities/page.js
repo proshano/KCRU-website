@@ -21,12 +21,16 @@ export default async function CapabilitiesPage() {
   } = data
 
   return (
-    <main className="mx-auto max-w-5xl space-y-8 px-6 py-10">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold text-slate-900">Capabilities</h1>
+    <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-10">
+      <header>
+        <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
+          For Sponsors & Partners
+        </h2>
+        <h1 className="text-4xl font-bold tracking-tight">Capabilities</h1>
+        <p className="text-[#666] mt-3 max-w-2xl">{introduction}</p>
       </header>
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid gap-5 md:grid-cols-2">
         <CapabilityCard title="Therapeutic areas" content={asList(therapeuticAreas)} />
         <CapabilityCard title="Core capabilities" content={asList(coreCapabilities)} />
         <CapabilityCard title="Infrastructure" content={infrastructure} />
@@ -37,17 +41,18 @@ export default async function CapabilitiesPage() {
         <CapabilityCard title="Additional services" content={asList(additionalServices)} />
       </section>
 
-      <section className="rounded-2xl bg-slate-50 px-5 py-5 ring-1 ring-slate-200">
-        <h2 className="text-lg font-semibold text-slate-900">Work with us</h2>
-        <div className="mt-3 flex flex-wrap gap-3 text-sm font-semibold text-blue-700">
+      <section className="p-6 bg-gradient-to-br from-[#F5F3F0] to-[#EEEBE6]">
+        <h2 className="text-lg font-bold text-[#1a1a1a]">Work with us</h2>
+        <p className="text-sm text-[#666] mt-1 mb-4">Get in touch to discuss partnership opportunities.</p>
+        <div className="flex flex-wrap gap-3">
           {contactEmail && (
-            <a className="rounded-full bg-white px-3 py-1 ring-1 ring-blue-100" href={`mailto:${contactEmail}`}>
-              Contact email
+            <a className="btn-primary" href={`mailto:${contactEmail}`}>
+              Contact via email
             </a>
           )}
           {contactPhone && (
-            <a className="rounded-full bg-white px-3 py-1 ring-1 ring-blue-100" href={`tel:${contactPhone}`}>
-              Contact phone
+            <a className="btn-secondary" href={`tel:${contactPhone}`}>
+              Call us
             </a>
           )}
         </div>
@@ -59,9 +64,9 @@ export default async function CapabilitiesPage() {
 function CapabilityCard({ title, content }) {
   if (!content) return null
   return (
-    <div className="rounded-2xl bg-white px-4 py-4 ring-1 ring-slate-200">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">{title}</h3>
-      <div className="mt-2 text-sm text-slate-700 leading-relaxed">{content}</div>
+    <div className="p-5 bg-white border border-black/[0.06]">
+      <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888] mb-3">{title}</h3>
+      <div className="text-sm text-[#555] leading-relaxed">{content}</div>
     </div>
   )
 }
@@ -84,8 +89,8 @@ function asList(value) {
           if (item.area) {
             return (
               <li key={key}>
-                <div className="font-semibold">{item.area}</div>
-                {item.description && <p className="text-slate-600 text-sm">{item.description}</p>}
+                <div className="font-semibold text-[#1a1a1a]">{item.area}</div>
+                {item.description && <p className="text-[#666] text-sm">{item.description}</p>}
               </li>
             )
           }
@@ -93,7 +98,7 @@ function asList(value) {
           if (item.metric) {
             return (
               <li key={key}>
-                <span className="font-semibold">{item.metric}: </span>
+                <span className="font-semibold text-[#1a1a1a]">{item.metric}: </span>
                 {item.value}
               </li>
             )
@@ -102,8 +107,8 @@ function asList(value) {
           if (item.service) {
             return (
               <li key={key}>
-                <div className="font-semibold">{item.service}</div>
-                {item.description && <p className="text-slate-600 text-sm">{item.description}</p>}
+                <div className="font-semibold text-[#1a1a1a]">{item.service}</div>
+                {item.description && <p className="text-[#666] text-sm">{item.description}</p>}
               </li>
             )
           }
