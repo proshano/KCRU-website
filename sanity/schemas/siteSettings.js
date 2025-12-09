@@ -28,6 +28,22 @@ export default {
       type: 'image'
     },
     {
+      name: 'affiliations',
+      title: 'Affiliations (optional)',
+      type: 'array',
+      of: [
+        {
+          type: 'object',
+          fields: [
+            { name: 'name', title: 'Name', type: 'string' },
+            { name: 'url', title: 'URL', type: 'url' },
+            { name: 'logo', title: 'Logo', type: 'image' }
+          ]
+        }
+      ],
+      description: 'e.g., Western University, London Health Sciences Centre'
+    },
+    {
       name: 'contactEmail',
       title: 'Contact Email',
       type: 'string'
