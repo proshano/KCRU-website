@@ -51,7 +51,8 @@ export default async function RootLayout({ children }) {
           <footer className="border-t border-gray-200 bg-white py-6">
             <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 text-sm text-gray-600 tracking-tight">
               {affiliations.length > 0 && (
-                <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-700">
+                  <span className="text-slate-500">Affiliations:</span>
                   {affiliations.map((aff) => {
                     if (!aff) return null
                     const logoUrl = aff.logo?.asset?._ref ? urlFor(aff.logo).width(64).height(64).url() : null
