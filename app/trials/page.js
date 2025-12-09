@@ -17,9 +17,7 @@ export default async function TrialsPage() {
   const patientTrials = await sanityFetch(queries.trialSummaries)
 
   return (
-    <main className="space-y-10">
-      <header className="space-y-2" />
-
+    <main className="space-y-8">
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-semibold text-gray-900">Patient-facing studies</h2>
