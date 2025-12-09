@@ -19,8 +19,7 @@ export default async function TrialsPage() {
   return (
     <main className="space-y-10">
       <header className="space-y-2">
-        <p className="text-sm uppercase tracking-wide text-blue-700 font-semibold">Clinical Trials</p>
-        <h1 className="text-3xl font-bold text-gray-900">Current studies</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Studies</h1>
       </header>
 
       <section className="space-y-4">
