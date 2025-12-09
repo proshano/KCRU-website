@@ -156,7 +156,7 @@ function TrialCard({ trial }) {
           <p className="text-sm text-slate-600">
             {trial.purpose || trial.condition || 'Patient-facing summary available.'}
           </p>
-          <p className="text-xs uppercase tracking-[0.24em] text-slate-500">
+          <p className="text-xs text-slate-500 uppercase">
             {trial.condition ? `${trial.condition}` : 'Kidney research'}{' '}
             {trial.principalInvestigator?.name ? `· PI: ${trial.principalInvestigator.name}` : ''}
           </p>
