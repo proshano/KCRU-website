@@ -9,11 +9,13 @@ export default async function CapabilitiesPage() {
     headline = 'Capabilities for sponsors and partners',
     introduction = 'We combine investigator-led expertise with operational readiness to run high-quality kidney research.',
     therapeuticAreas = [],
+    coreCapabilities = [],
     infrastructure,
     patientVolume,
-    trackRecord,
+    trackRecord = [],
     regulatoryExperience,
     previousSponsors = [],
+    additionalServices = [],
     contactName,
     contactEmail,
     contactPhone,
@@ -29,11 +31,13 @@ export default async function CapabilitiesPage() {
 
       <section className="grid gap-4 md:grid-cols-2">
         <CapabilityCard title="Therapeutic areas" content={asList(therapeuticAreas)} />
+        <CapabilityCard title="Core capabilities" content={asList(coreCapabilities)} />
         <CapabilityCard title="Infrastructure" content={infrastructure} />
         <CapabilityCard title="Patient volume" content={patientVolume} />
-        <CapabilityCard title="Track record" content={trackRecord} />
+        <CapabilityCard title="Track record" content={asList(trackRecord)} />
         <CapabilityCard title="Regulatory experience" content={regulatoryExperience} />
         <CapabilityCard title="Previous sponsors" content={asList(previousSponsors)} />
+        <CapabilityCard title="Additional services" content={asList(additionalServices)} />
       </section>
 
       <section className="rounded-2xl bg-slate-50 px-5 py-5 ring-1 ring-slate-200">
@@ -74,10 +78,45 @@ function asList(value) {
   if (Array.isArray(value) && value.length === 0) return null
   if (Array.isArray(value)) {
     return (
-      <ul className="list-disc space-y-1 pl-5">
-        {value.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
+      <ul className="list-disc space-y-2 pl-5">
+        {value.map((item, idx) => {
+          if (item == null) return null
+
+          if (typeof item === 'string' || typeof item === 'number') {
+            return <li key={`${item}-${idx}`}>{item}</li>
+          }
+
+          const key = item._key || item.area || item.metric || item.service || idx
+
+          if (item.area) {
+            return (
+              <li key={key}>
+                <div className="font-semibold">{item.area}</div>
+                {item.description && <p className="text-slate-600 text-sm">{item.description}</p>}
+              </li>
+            )
+          }
+
+          if (item.metric) {
+            return (
+              <li key={key}>
+                <span className="font-semibold">{item.metric}: </span>
+                {item.value}
+              </li>
+            )
+          }
+
+          if (item.service) {
+            return (
+              <li key={key}>
+                <div className="font-semibold">{item.service}</div>
+                {item.description && <p className="text-slate-600 text-sm">{item.description}</p>}
+              </li>
+            )
+          }
+
+          return <li key={key}>{String(item)}</li>
+        })}
       </ul>
     )
   }
