@@ -28,6 +28,42 @@ export default {
       type: 'image'
     },
     {
+      name: 'llmProvider',
+      title: 'LLM Provider (for summaries)',
+      type: 'string',
+      initialValue: 'openrouter',
+      options: {
+        list: [
+          { title: 'OpenRouter', value: 'openrouter' },
+          { title: 'OpenAI', value: 'openai' },
+          { title: 'Together', value: 'together' },
+          { title: 'Groq', value: 'groq' },
+          { title: 'Ollama', value: 'ollama' },
+          { title: 'Anthropic', value: 'anthropic' }
+        ]
+      },
+      description: 'Defaults to OpenRouter; leave blank to use environment defaults'
+    },
+    {
+      name: 'llmModel',
+      title: 'LLM Model',
+      type: 'string',
+      description: 'e.g., openrouter/gpt-4o-mini or meta-llama/llama-3.1-8b-instruct:free'
+    },
+    {
+      name: 'llmApiKey',
+      title: 'LLM API Key (server-only)',
+      type: 'string',
+      description: 'Optional override. Leave blank to use server env vars.'
+    },
+    {
+      name: 'llmSystemPrompt',
+      title: 'LLM System Prompt',
+      type: 'text',
+      rows: 4,
+      description: 'Optional custom instructions for publication summaries.'
+    },
+    {
       name: 'affiliations',
       title: 'Affiliations (optional)',
       type: 'array',

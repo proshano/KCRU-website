@@ -23,7 +23,12 @@ export default async function PublicationsPage() {
     ])
   }
 
-  const pubsWithSummaries = await addLaySummaries(combinedPubs)
+  const pubsWithSummaries = await addLaySummaries(combinedPubs, {
+    provider: settings.llmProvider,
+    model: settings.llmModel,
+    apiKey: settings.llmApiKey,
+    systemPrompt: settings.llmSystemPrompt
+  })
   const { publications, byYear, years } = buildDisplayFromPublications(pubsWithSummaries)
 
   return (
