@@ -16,7 +16,6 @@ export default async function CapabilitiesPage() {
     regulatoryExperience,
     previousSponsors = [],
     additionalServices = [],
-    contactName,
     contactEmail,
     contactPhone,
   } = data
@@ -24,8 +23,7 @@ export default async function CapabilitiesPage() {
   return (
     <main className="mx-auto max-w-5xl space-y-8 px-6 py-10">
       <header className="space-y-2">
-        <h1 className="text-3xl font-bold text-slate-900">{headline}</h1>
-        <p className="text-slate-700">{introduction}</p>
+        <h1 className="text-3xl font-bold text-slate-900">Capabilities</h1>
       </header>
 
       <section className="grid gap-4 md:grid-cols-2">
@@ -41,21 +39,17 @@ export default async function CapabilitiesPage() {
 
       <section className="rounded-2xl bg-slate-50 px-5 py-5 ring-1 ring-slate-200">
         <h2 className="text-lg font-semibold text-slate-900">Work with us</h2>
-        <p className="mt-1 text-sm text-slate-700">
-          Reach out to discuss feasibility, site selection, or collaborations for new studies.
-        </p>
         <div className="mt-3 flex flex-wrap gap-3 text-sm font-semibold text-blue-700">
           {contactEmail && (
             <a className="rounded-full bg-white px-3 py-1 ring-1 ring-blue-100" href={`mailto:${contactEmail}`}>
-              {contactEmail}
+              Contact email
             </a>
           )}
           {contactPhone && (
             <a className="rounded-full bg-white px-3 py-1 ring-1 ring-blue-100" href={`tel:${contactPhone}`}>
-              {contactPhone}
+              Contact phone
             </a>
           )}
-          {contactName && <span className="rounded-full bg-white px-3 py-1 ring-1 ring-slate-200 text-slate-700">{contactName}</span>}
         </div>
       </section>
     </main>
