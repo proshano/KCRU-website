@@ -26,7 +26,7 @@ export default async function HomePage() {
                 {settings?.unitName || 'London Kidney Clinical Trials'}
               </h1>
               <p className="max-w-3xl text-lg text-slate-600 sm:text-xl">
-                Kidney specialists fighting disease through research.
+                {settings?.tagline || 'Fighting kidney disease through research.'}
               </p>
             </div>
 
