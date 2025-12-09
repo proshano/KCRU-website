@@ -3,15 +3,14 @@ import { sanityFetch, queries } from '@/lib/sanity'
 export const revalidate = 3600 // 1 hour
 
 export default async function TrainingPage() {
-  const [opportunities, alumni] = await Promise.all([
-    sanityFetch(queries.openOpportunities),
-    sanityFetch(queries.featuredAlumni)
+  const [opportunities] = await Promise.all([
+    sanityFetch(queries.openOpportunities)
   ])
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-10 space-y-8">
       <header className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Opportunities & alumni</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Opportunities</h1>
         <p className="text-gray-600">Open roles, how to apply, and highlights from past trainees.</p>
       </header>
 
@@ -30,44 +29,7 @@ export default async function TrainingPage() {
         </div>
       </section>
 
-      <section className="space-y-4">
-        <h2 className="text-2xl font-semibold text-gray-900">Featured alumni</h2>
-        {(!alumni || alumni.length === 0) && (
-          <p className="text-gray-500">Add alumni in Sanity to showcase past trainees.</p>
-        )}
-        <div className="grid gap-4 sm:grid-cols-2">
-          {alumni?.map((person) => (
-            <article key={person._id} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{person.name}</h3>
-                  <p className="text-sm text-gray-600">{person.trainingType?.toUpperCase()} {person.yearCompleted && `• ${person.yearCompleted}`}</p>
-                </div>
-              </div>
-              {person.currentPosition && (
-                <p className="text-sm text-gray-700">
-                  {person.currentPosition}{person.currentOrganization ? `, ${person.currentOrganization}` : ''}
-                </p>
-              )}
-              {person.testimonial && (
-                <blockquote className="text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded p-3">
-                  “{person.testimonial}”
-                </blockquote>
-              )}
-              {person.linkedin && (
-                <a
-                  href={person.linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-700 hover:underline"
-                >
-                  LinkedIn
-                </a>
-              )}
-            </article>
-          ))}
-        </div>
-      </section>
+      {/* Alumni section removed as requested */}
     </main>
   )
 }
