@@ -1,6 +1,6 @@
 export default {
   name: 'trialSummary',
-  title: 'Trial Summary (Patient-Facing)',
+  title: 'Studies',
   type: 'document',
   fields: [
     {
