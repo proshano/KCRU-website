@@ -10,8 +10,7 @@ export default async function NewsPage() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-10 space-y-6">
       <header className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Latest News & Updates</h1>
-        <p className="text-gray-600">Stay up to date with the latest research, trials, and announcements from our team.</p>
+        <h1 className="text-3xl font-bold text-gray-900">News</h1>
       </header>
 
       {(!newsPosts || newsPosts.length === 0) && (
