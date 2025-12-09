@@ -65,11 +65,9 @@ export default async function HomePage() {
       </section>
 
       <ContentSection
-        eyebrow="Clinical focus"
-        title="Trials now recruiting"
+        title="Active studies"
         actionHref="/trials"
         actionLabel="All trials"
-        description="Active and upcoming studies with eligibility and contacts up front."
       >
         {trials.length === 0 && (
           <p className="text-sm text-slate-600">No recruiting trials are listed yet. Please check back soon.</p>
@@ -83,11 +81,9 @@ export default async function HomePage() {
 
       {news && news.length > 0 && (
         <ContentSection
-          eyebrow="Updates"
-          title="Latest news"
+          title="News"
           actionHref="/news"
           actionLabel="All news"
-          description="Recent announcements, research updates, and stories from our team."
         >
           <div className="space-y-3">
             {news.slice(0, 3).map((post) => (
@@ -231,11 +227,7 @@ function BentoCard({ href, label, sublabel, className = '' }) {
         <h3 className="text-xl font-semibold text-slate-900">{label}</h3>
         {sublabel && <p className="text-sm text-slate-600">{sublabel}</p>}
       </div>
-      <div className="mt-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span className="h-1.5 w-1.5 rounded-full bg-slate-900/70" />
-          Updated weekly
-        </div>
+      <div className="mt-4 flex justify-end">
         <span className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-900 text-white shadow-sm transition group-hover:-translate-y-0.5 group-hover:shadow-lg">
           →
         </span>
