@@ -9,6 +9,12 @@ export const revalidate = 86400 // 24 hours
 export default async function PublicationsPage() {
   const settings = (await sanityFetch(queries.siteSettings)) || {}
   const researchers = await sanityFetch(queries.allResearchers)
+  const researcherChips = (researchers || []).map((r) => ({
+    _id: r._id,
+    name: r.name,
+    slug: r.slug,
+    photo: r.photo
+  }))
 
   // Always use researcher queries; optionally augment with affiliation if present
   const researcherBundle = await getPublicationsForResearchersDisplay(researchers || [], 2000)
@@ -43,7 +49,7 @@ export default async function PublicationsPage() {
         <p className="text-gray-500">No publications found yet. Add PubMed queries to researchers or an affiliation in Site Settings.</p>
       )}
 
-      <YearSections years={years} byYear={byYear} researchers={researchers} provenance={provenance} />
+      <YearSections years={years} byYear={byYear} researchers={researcherChips} provenance={provenance} />
     </main>
   )
 }
