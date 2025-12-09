@@ -1,0 +1,1572 @@
+[
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "unitName",
+        "type": "string",
+        "title": "Research Unit Name"
+      },
+      {
+        "name": "tagline",
+        "type": "string"
+      },
+      {
+        "rows": 4,
+        "name": "description",
+        "type": "text",
+        "title": "About / Description"
+      },
+      {
+        "name": "logo",
+        "type": "image"
+      },
+      {
+        "name": "contactEmail",
+        "type": "string"
+      },
+      {
+        "name": "phone",
+        "type": "string"
+      },
+      {
+        "rows": 3,
+        "name": "address",
+        "type": "text"
+      },
+      {
+        "description": "e.g., Western University, London Health Sciences Centre",
+        "name": "institutionAffiliation",
+        "type": "string"
+      },
+      {
+        "fields": [
+          {
+            "validation": [
+              {
+                "rules": [
+                  {
+                    "flag": "uri",
+                    "constraint": {
+                      "options": {
+                        "scheme": [
+                          "/^http$/",
+                          "/^https$/"
+                        ],
+                        "allowRelative": false,
+                        "relativeOnly": false,
+                        "allowCredentials": false
+                      }
+                    }
+                  }
+                ],
+                "level": "error"
+              }
+            ],
+            "name": "twitter",
+            "type": "url",
+            "title": "Twitter/X"
+          },
+          {
+            "validation": [
+              {
+                "rules": [
+                  {
+                    "flag": "uri",
+                    "constraint": {
+                      "options": {
+                        "scheme": [
+                          "/^http$/",
+                          "/^https$/"
+                        ],
+                        "allowRelative": false,
+                        "relativeOnly": false,
+                        "allowCredentials": false
+                      }
+                    }
+                  }
+                ],
+                "level": "error"
+              }
+            ],
+            "name": "linkedin",
+            "type": "url",
+            "title": "LinkedIn"
+          },
+          {
+            "validation": [
+              {
+                "rules": [
+                  {
+                    "flag": "uri",
+                    "constraint": {
+                      "options": {
+                        "scheme": [
+                          "/^http$/",
+                          "/^https$/"
+                        ],
+                        "allowRelative": false,
+                        "relativeOnly": false,
+                        "allowCredentials": false
+                      }
+                    }
+                  }
+                ],
+                "level": "error"
+              }
+            ],
+            "name": "github",
+            "type": "url",
+            "title": "GitHub"
+          },
+          {
+            "validation": [
+              {
+                "rules": [
+                  {
+                    "flag": "uri",
+                    "constraint": {
+                      "options": {
+                        "scheme": [
+                          "/^http$/",
+                          "/^https$/"
+                        ],
+                        "allowRelative": false,
+                        "relativeOnly": false,
+                        "allowCredentials": false
+                      }
+                    }
+                  }
+                ],
+                "level": "error"
+              }
+            ],
+            "name": "youtube",
+            "type": "url",
+            "title": "YouTube"
+          }
+        ],
+        "name": "socialLinks",
+        "type": "object",
+        "title": "Social Media Links"
+      },
+      {
+        "description": "Used for fetching unit publications, e.g., \"Lilibeth Caberto Kidney Clinical Research Unit\"",
+        "name": "pubmedAffiliation",
+        "type": "string",
+        "title": "PubMed Affiliation Search Term"
+      }
+    ],
+    "name": "siteSettings",
+    "type": "document"
+  },
+  {
+    "fields": [
+      {
+        "description": "e.g., \"Partner With Us on Clinical Research\"",
+        "name": "headline",
+        "type": "string"
+      },
+      {
+        "rows": 4,
+        "name": "introduction",
+        "type": "text"
+      },
+      {
+        "of": [
+          {
+            "fields": [
+              {
+                "name": "area",
+                "type": "string"
+              },
+              {
+                "rows": 2,
+                "name": "description",
+                "type": "text"
+              }
+            ],
+            "type": "object"
+          }
+        ],
+        "name": "therapeuticAreas",
+        "type": "array",
+        "title": "Therapeutic Focus Areas"
+      },
+      {
+        "description": "e.g., \"Phase I-IV clinical trials\", \"Pragmatic trials\", \"Biomarker studies\"",
+        "of": [
+          {
+            "type": "string"
+          }
+        ],
+        "name": "coreCapabilities",
+        "type": "array"
+      },
+      {
+        "description": "e.g., \"Trials Completed: 45\", \"Average Enrollment Rate: 2.3 patients/site/month\"",
+        "of": [
+          {
+            "fields": [
+              {
+                "name": "metric",
+                "type": "string"
+              },
+              {
+                "name": "value",
+                "type": "string"
+              }
+            ],
+            "type": "object"
+          }
+        ],
+        "name": "trackRecord",
+        "type": "array",
+        "title": "Track Record Highlights"
+      },
+      {
+        "options": {
+          "layout": "tags"
+        },
+        "description": "e.g., Health Canada, FDA IND, GCP certified",
+        "of": [
+          {
+            "type": "string"
+          }
+        ],
+        "name": "regulatoryExperience",
+        "type": "array"
+      },
+      {
+        "options": {
+          "layout": "tags"
+        },
+        "description": "Companies you've worked with (if shareable)",
+        "of": [
+          {
+            "type": "string"
+          }
+        ],
+        "name": "previousSponsors",
+        "type": "array",
+        "title": "Previous Sponsors/Partners"
+      },
+      {
+        "description": "e.g., Consulting, Protocol development, Site feasibility",
+        "of": [
+          {
+            "fields": [
+              {
+                "name": "service",
+                "type": "string"
+              },
+              {
+                "rows": 2,
+                "name": "description",
+                "type": "text"
+              }
+            ],
+            "type": "object"
+          }
+        ],
+        "name": "additionalServices",
+        "type": "array"
+      },
+      {
+        "name": "contactName",
+        "type": "string",
+        "title": "Partnership Contact Name"
+      },
+      {
+        "name": "contactEmail",
+        "type": "string",
+        "title": "Partnership Contact Email"
+      },
+      {
+        "name": "contactPhone",
+        "type": "string",
+        "title": "Partnership Contact Phone"
+      }
+    ],
+    "name": "capabilities",
+    "type": "document",
+    "title": "Capabilities (For Sponsors)"
+  },
+  {
+    "fields": [
+      {
+        "description": "e.g., \"Refer a Patient\"",
+        "name": "headline",
+        "type": "string"
+      },
+      {
+        "rows": 3,
+        "name": "introduction",
+        "type": "text"
+      },
+      {
+        "of": [
+          {
+            "fields": [
+              {
+                "name": "service",
+                "type": "string"
+              },
+              {
+                "rows": 2,
+                "name": "description",
+                "type": "text"
+              },
+              {
+                "rows": 2,
+                "name": "referralCriteria",
+                "type": "text"
+              }
+            ],
+            "type": "object"
+          }
+        ],
+        "name": "clinicalServices",
+        "type": "array"
+      },
+      {
+        "rows": 3,
+        "description": "Info about referring patients for research studies",
+        "name": "researchReferrals",
+        "type": "text"
+      },
+      {
+        "description": "Step-by-step referral process",
+        "of": [
+          {
+            "marks": {
+              "annotations": [
+                {
+                  "i18nTitleKey": "inputs.portable-text.annotation.link",
+                  "options": {
+                    "modal": {
+                      "type": "popover"
+                    }
+                  },
+                  "fields": [
+                    {
+                      "validation": [
+                        {
+                          "rules": [
+                            {
+                              "flag": "uri",
+                              "constraint": {
+                                "options": {
+                                  "scheme": [
+                                    "/^http$/",
+                                    "/^https$/",
+                                    "/^tel$/",
+                                    "/^mailto$/"
+                                  ],
+                                  "allowRelative": true,
+                                  "relativeOnly": false,
+                                  "allowCredentials": false
+                                }
+                              }
+                            }
+                          ],
+                          "level": "error"
+                        }
+                      ],
+                      "description": "A valid web, email, phone, or relative link.",
+                      "name": "href",
+                      "type": "url",
+                      "title": "Link"
+                    }
+                  ],
+                  "name": "link",
+                  "type": "object"
+                }
+              ],
+              "decorators": [
+                {
+                  "value": "strong",
+                  "title": "Strong"
+                },
+                {
+                  "value": "em",
+                  "title": "Italic"
+                },
+                {
+                  "value": "code",
+                  "title": "Code"
+                },
+                {
+                  "value": "underline",
+                  "title": "Underline"
+                },
+                {
+                  "value": "strike-through",
+                  "title": "Strike"
+                }
+              ]
+            },
+            "lists": [
+              {
+                "value": "bullet",
+                "title": "Bulleted list"
+              },
+              {
+                "value": "number",
+                "title": "Numbered list"
+              }
+            ],
+            "styles": [
+              {
+                "value": "normal",
+                "title": "Normal"
+              },
+              {
+                "value": "h1",
+                "title": "Heading 1"
+              },
+              {
+                "value": "h2",
+                "title": "Heading 2"
+              },
+              {
+                "value": "h3",
+                "title": "Heading 3"
+              },
+              {
+                "value": "h4",
+                "title": "Heading 4"
+              },
+              {
+                "value": "h5",
+                "title": "Heading 5"
+              },
+              {
+                "value": "h6",
+                "title": "Heading 6"
+              },
+              {
+                "value": "blockquote",
+                "title": "Quote"
+              }
+            ],
+            "of": [],
+            "type": "block"
+          }
+        ],
+        "name": "howToRefer",
+        "type": "array",
+        "title": "How to Refer"
+      },
+      {
+        "name": "referralFax",
+        "type": "string",
+        "title": "Referral Fax Number"
+      },
+      {
+        "name": "referralPhone",
+        "type": "string",
+        "title": "Referral Phone Number"
+      },
+      {
+        "name": "referralEmail",
+        "type": "string"
+      },
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "uri",
+                "constraint": {
+                  "options": {
+                    "scheme": [
+                      "/^http$/",
+                      "/^https$/"
+                    ],
+                    "allowRelative": false,
+                    "relativeOnly": false,
+                    "allowCredentials": false
+                  }
+                }
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "description": "Link to downloadable referral form if applicable",
+        "name": "referralFormUrl",
+        "type": "url",
+        "title": "Referral Form URL"
+      },
+      {
+        "options": {
+          "accept": ".pdf"
+        },
+        "name": "referralForm",
+        "type": "file",
+        "title": "Referral Form (PDF)"
+      },
+      {
+        "rows": 3,
+        "name": "urgentReferrals",
+        "type": "text",
+        "title": "Urgent Referral Instructions"
+      },
+      {
+        "description": "e.g., \"Southwestern Ontario\"",
+        "name": "geographicArea",
+        "type": "string",
+        "title": "Geographic Area Served"
+      }
+    ],
+    "name": "referralInfo",
+    "type": "document",
+    "title": "Referral Information (For Physicians)"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "name",
+        "type": "string",
+        "title": "Full Name"
+      },
+      {
+        "options": {
+          "source": "name"
+        },
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "custom"
+              },
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "slug",
+        "type": "slug"
+      },
+      {
+        "description": "e.g., Principal Investigator, Research Associate, PhD Student",
+        "name": "role",
+        "type": "string",
+        "title": "Role/Title"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "name": "photo",
+        "type": "image"
+      },
+      {
+        "name": "email",
+        "type": "string"
+      },
+      {
+        "rows": 4,
+        "name": "bio",
+        "type": "text",
+        "title": "Biography"
+      },
+      {
+        "description": "Use full PubMed syntax (Boolean + field tags). Examples: \n- Smith J[Author] AND (\"Western University\"[Affiliation] OR \"University of Western Ontario\"[Affiliation])\n- (\"Doe J\"[Author] OR \"Doe John\"[Author]) AND London[Affiliation] AND 2020:2025[dp]\nTip: combine OR variants for institution names; include [Author]/[Affiliation]/[dp] for date ranges.",
+        "name": "pubmedQuery",
+        "type": "string",
+        "title": "PubMed Search Query"
+      },
+      {
+        "name": "orcid",
+        "type": "string",
+        "title": "ORCID"
+      },
+      {
+        "name": "twitter",
+        "type": "string",
+        "title": "Twitter/X Handle"
+      },
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "uri",
+                "constraint": {
+                  "options": {
+                    "scheme": [
+                      "/^http$/",
+                      "/^https$/"
+                    ],
+                    "allowRelative": false,
+                    "relativeOnly": false,
+                    "allowCredentials": false
+                  }
+                }
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "linkedin",
+        "type": "url",
+        "title": "LinkedIn URL"
+      },
+      {
+        "description": "Lower numbers appear first",
+        "name": "order",
+        "type": "number",
+        "title": "Display Order"
+      }
+    ],
+    "name": "researcher",
+    "type": "document"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "title",
+        "type": "string"
+      },
+      {
+        "options": {
+          "source": "title"
+        },
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "custom"
+              },
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "slug",
+        "type": "slug"
+      },
+      {
+        "name": "publishedAt",
+        "type": "datetime",
+        "title": "Published Date"
+      },
+      {
+        "to": [
+          {
+            "type": "researcher"
+          }
+        ],
+        "name": "author",
+        "type": "reference"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "name": "featuredImage",
+        "type": "image"
+      },
+      {
+        "rows": 3,
+        "description": "Brief summary for listing pages",
+        "name": "excerpt",
+        "type": "text"
+      },
+      {
+        "of": [
+          {
+            "marks": {
+              "annotations": [
+                {
+                  "i18nTitleKey": "inputs.portable-text.annotation.link",
+                  "options": {
+                    "modal": {
+                      "type": "popover"
+                    }
+                  },
+                  "fields": [
+                    {
+                      "validation": [
+                        {
+                          "rules": [
+                            {
+                              "flag": "uri",
+                              "constraint": {
+                                "options": {
+                                  "scheme": [
+                                    "/^http$/",
+                                    "/^https$/",
+                                    "/^tel$/",
+                                    "/^mailto$/"
+                                  ],
+                                  "allowRelative": true,
+                                  "relativeOnly": false,
+                                  "allowCredentials": false
+                                }
+                              }
+                            }
+                          ],
+                          "level": "error"
+                        }
+                      ],
+                      "description": "A valid web, email, phone, or relative link.",
+                      "name": "href",
+                      "type": "url",
+                      "title": "Link"
+                    }
+                  ],
+                  "name": "link",
+                  "type": "object"
+                }
+              ],
+              "decorators": [
+                {
+                  "value": "strong",
+                  "title": "Strong"
+                },
+                {
+                  "value": "em",
+                  "title": "Italic"
+                },
+                {
+                  "value": "code",
+                  "title": "Code"
+                },
+                {
+                  "value": "underline",
+                  "title": "Underline"
+                },
+                {
+                  "value": "strike-through",
+                  "title": "Strike"
+                }
+              ]
+            },
+            "lists": [
+              {
+                "value": "bullet",
+                "title": "Bulleted list"
+              },
+              {
+                "value": "number",
+                "title": "Numbered list"
+              }
+            ],
+            "styles": [
+              {
+                "value": "normal",
+                "title": "Normal"
+              },
+              {
+                "value": "h1",
+                "title": "Heading 1"
+              },
+              {
+                "value": "h2",
+                "title": "Heading 2"
+              },
+              {
+                "value": "h3",
+                "title": "Heading 3"
+              },
+              {
+                "value": "h4",
+                "title": "Heading 4"
+              },
+              {
+                "value": "h5",
+                "title": "Heading 5"
+              },
+              {
+                "value": "h6",
+                "title": "Heading 6"
+              },
+              {
+                "value": "blockquote",
+                "title": "Quote"
+              }
+            ],
+            "of": [],
+            "type": "block"
+          },
+          {
+            "options": {
+              "hotspot": true
+            },
+            "type": "image"
+          }
+        ],
+        "name": "body",
+        "type": "array"
+      },
+      {
+        "options": {
+          "layout": "tags"
+        },
+        "of": [
+          {
+            "type": "string"
+          }
+        ],
+        "name": "tags",
+        "type": "array"
+      }
+    ],
+    "name": "newsPost",
+    "type": "document"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "regex",
+                "constraint": {
+                  "pattern": "/^NCT\\d{8}$/",
+                  "name": "NCT format",
+                  "invert": false
+                }
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "description": "e.g., NCT12345678 (optional for non-registered studies)",
+        "name": "nctId",
+        "type": "string",
+        "title": "NCT ID"
+      },
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "description": "Plain language title (not the official title)",
+        "name": "title",
+        "type": "string",
+        "title": "Patient-Friendly Title"
+      },
+      {
+        "options": {
+          "source": "title"
+        },
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "custom"
+              },
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "slug",
+        "type": "slug"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "Recruiting",
+              "value": "recruiting"
+            },
+            {
+              "title": "Coming Soon",
+              "value": "coming_soon"
+            },
+            {
+              "title": "Closed",
+              "value": "closed"
+            }
+          ]
+        },
+        "name": "status",
+        "type": "string",
+        "title": "Recruitment Status"
+      },
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "description": "Inquiries will be sent here. Not displayed publicly.",
+        "name": "coordinatorEmail",
+        "type": "string"
+      },
+      {
+        "description": "In plain language, e.g., \"Kidney disease requiring dialysis\"",
+        "name": "condition",
+        "type": "string",
+        "title": "Condition Being Studied"
+      },
+      {
+        "rows": 4,
+        "description": "Explain in simple terms what the study is testing",
+        "name": "purpose",
+        "type": "text",
+        "title": "What is this study about?"
+      },
+      {
+        "description": "Plain-language eligibility criteria",
+        "of": [
+          {
+            "type": "string"
+          }
+        ],
+        "name": "whoCanJoin",
+        "type": "array",
+        "title": "Who can join?"
+      },
+      {
+        "description": "Key exclusion criteria in plain language",
+        "of": [
+          {
+            "type": "string"
+          }
+        ],
+        "name": "whoCannotJoin",
+        "type": "array",
+        "title": "Who cannot join?"
+      },
+      {
+        "rows": 4,
+        "description": "What participation involves (visits, procedures, time commitment)",
+        "name": "whatToExpect",
+        "type": "text",
+        "title": "What to expect"
+      },
+      {
+        "name": "duration",
+        "type": "string",
+        "title": "How long does participation last?"
+      },
+      {
+        "description": "e.g., \"Parking costs covered\" or \"Honorarium provided\"",
+        "name": "compensation",
+        "type": "string",
+        "title": "Compensation/Reimbursement"
+      },
+      {
+        "to": [
+          {
+            "type": "researcher"
+          }
+        ],
+        "name": "principalInvestigator",
+        "type": "reference"
+      },
+      {
+        "initialValue": false,
+        "name": "featured",
+        "type": "boolean",
+        "title": "Featured on homepage?"
+      }
+    ],
+    "name": "trialSummary",
+    "type": "document",
+    "title": "Trial Summary (Patient-Facing)"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "title",
+        "type": "string",
+        "title": "Position Title"
+      },
+      {
+        "options": {
+          "source": "title"
+        },
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "custom"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "slug",
+        "type": "slug"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "PhD Student",
+              "value": "phd"
+            },
+            {
+              "title": "MSc Student",
+              "value": "msc"
+            },
+            {
+              "title": "Postdoctoral Fellow",
+              "value": "postdoc"
+            },
+            {
+              "title": "Clinical Fellow",
+              "value": "clinical_fellow"
+            },
+            {
+              "title": "Research Assistant",
+              "value": "ra"
+            },
+            {
+              "title": "Summer Student",
+              "value": "summer"
+            },
+            {
+              "title": "Undergraduate Thesis",
+              "value": "undergrad"
+            },
+            {
+              "title": "Visiting Scholar",
+              "value": "visiting"
+            }
+          ]
+        },
+        "name": "type",
+        "type": "string",
+        "title": "Position Type"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "Open",
+              "value": "open"
+            },
+            {
+              "title": "Closed",
+              "value": "closed"
+            },
+            {
+              "title": "Always Accepting Inquiries",
+              "value": "ongoing"
+            }
+          ]
+        },
+        "initialValue": "open",
+        "name": "status",
+        "type": "string"
+      },
+      {
+        "of": [
+          {
+            "to": [
+              {
+                "type": "researcher"
+              }
+            ],
+            "type": "reference",
+            "title": "Reference to researcher"
+          }
+        ],
+        "name": "supervisor",
+        "type": "array",
+        "title": "Supervisor(s)"
+      },
+      {
+        "of": [
+          {
+            "marks": {
+              "annotations": [
+                {
+                  "i18nTitleKey": "inputs.portable-text.annotation.link",
+                  "options": {
+                    "modal": {
+                      "type": "popover"
+                    }
+                  },
+                  "fields": [
+                    {
+                      "validation": [
+                        {
+                          "rules": [
+                            {
+                              "flag": "uri",
+                              "constraint": {
+                                "options": {
+                                  "scheme": [
+                                    "/^http$/",
+                                    "/^https$/",
+                                    "/^tel$/",
+                                    "/^mailto$/"
+                                  ],
+                                  "allowRelative": true,
+                                  "relativeOnly": false,
+                                  "allowCredentials": false
+                                }
+                              }
+                            }
+                          ],
+                          "level": "error"
+                        }
+                      ],
+                      "description": "A valid web, email, phone, or relative link.",
+                      "name": "href",
+                      "type": "url",
+                      "title": "Link"
+                    }
+                  ],
+                  "name": "link",
+                  "type": "object"
+                }
+              ],
+              "decorators": [
+                {
+                  "value": "strong",
+                  "title": "Strong"
+                },
+                {
+                  "value": "em",
+                  "title": "Italic"
+                },
+                {
+                  "value": "code",
+                  "title": "Code"
+                },
+                {
+                  "value": "underline",
+                  "title": "Underline"
+                },
+                {
+                  "value": "strike-through",
+                  "title": "Strike"
+                }
+              ]
+            },
+            "lists": [
+              {
+                "value": "bullet",
+                "title": "Bulleted list"
+              },
+              {
+                "value": "number",
+                "title": "Numbered list"
+              }
+            ],
+            "styles": [
+              {
+                "value": "normal",
+                "title": "Normal"
+              },
+              {
+                "value": "h1",
+                "title": "Heading 1"
+              },
+              {
+                "value": "h2",
+                "title": "Heading 2"
+              },
+              {
+                "value": "h3",
+                "title": "Heading 3"
+              },
+              {
+                "value": "h4",
+                "title": "Heading 4"
+              },
+              {
+                "value": "h5",
+                "title": "Heading 5"
+              },
+              {
+                "value": "h6",
+                "title": "Heading 6"
+              },
+              {
+                "value": "blockquote",
+                "title": "Quote"
+              }
+            ],
+            "of": [],
+            "type": "block"
+          }
+        ],
+        "name": "description",
+        "type": "array"
+      },
+      {
+        "description": "e.g., \"Clinical trials methodology\", \"Health services research\"",
+        "name": "researchArea",
+        "type": "string"
+      },
+      {
+        "of": [
+          {
+            "type": "string"
+          }
+        ],
+        "name": "qualifications",
+        "type": "array"
+      },
+      {
+        "description": "e.g., \"Fully funded for 4 years\", \"Student must secure own funding\"",
+        "name": "funding",
+        "type": "string",
+        "title": "Funding Available?"
+      },
+      {
+        "description": "e.g., \"September 2025\" or \"Flexible\"",
+        "name": "startDate",
+        "type": "string"
+      },
+      {
+        "name": "deadline",
+        "type": "date",
+        "title": "Application Deadline"
+      },
+      {
+        "rows": 4,
+        "name": "howToApply",
+        "type": "text",
+        "title": "How to Apply"
+      },
+      {
+        "name": "contactEmail",
+        "type": "string"
+      }
+    ],
+    "name": "traineeOpportunity",
+    "type": "document"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "options": {
+          "hotspot": true
+        },
+        "name": "photo",
+        "type": "image"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "PhD",
+              "value": "phd"
+            },
+            {
+              "title": "MSc",
+              "value": "msc"
+            },
+            {
+              "title": "Postdoctoral Fellow",
+              "value": "postdoc"
+            },
+            {
+              "title": "Clinical Fellow",
+              "value": "clinical_fellow"
+            },
+            {
+              "title": "Research Assistant",
+              "value": "ra"
+            },
+            {
+              "title": "Undergraduate",
+              "value": "undergrad"
+            }
+          ]
+        },
+        "name": "trainingType",
+        "type": "string"
+      },
+      {
+        "name": "yearStarted",
+        "type": "number"
+      },
+      {
+        "name": "yearCompleted",
+        "type": "number"
+      },
+      {
+        "name": "thesisTitle",
+        "type": "string",
+        "title": "Thesis/Project Title"
+      },
+      {
+        "of": [
+          {
+            "to": [
+              {
+                "type": "researcher"
+              }
+            ],
+            "type": "reference",
+            "title": "Reference to researcher"
+          }
+        ],
+        "name": "supervisor",
+        "type": "array",
+        "title": "Supervisor(s)"
+      },
+      {
+        "description": "e.g., \"Assistant Professor, University of Toronto\"",
+        "name": "currentPosition",
+        "type": "string"
+      },
+      {
+        "name": "currentOrganization",
+        "type": "string"
+      },
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "uri",
+                "constraint": {
+                  "options": {
+                    "scheme": [
+                      "/^http$/",
+                      "/^https$/"
+                    ],
+                    "allowRelative": false,
+                    "relativeOnly": false,
+                    "allowCredentials": false
+                  }
+                }
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "name": "linkedin",
+        "type": "url",
+        "title": "LinkedIn URL"
+      },
+      {
+        "rows": 3,
+        "description": "Optional quote about their training experience",
+        "name": "testimonial",
+        "type": "text"
+      },
+      {
+        "initialValue": false,
+        "description": "Show on main training page",
+        "name": "featured",
+        "type": "boolean",
+        "title": "Featured?"
+      }
+    ],
+    "name": "alumnus",
+    "type": "document",
+    "title": "Trainee Alumni"
+  },
+  {
+    "fields": [
+      {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "presence",
+                "constraint": "required"
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "description": "e.g., \"London Health Sciences Centre - University Hospital\"",
+        "name": "name",
+        "type": "string",
+        "title": "Site Name"
+      },
+      {
+        "description": "e.g., \"LHSC-UH\"",
+        "name": "shortName",
+        "type": "string"
+      },
+      {
+        "options": {
+          "list": [
+            {
+              "title": "Academic Hospital",
+              "value": "academic_hospital"
+            },
+            {
+              "title": "Community Hospital",
+              "value": "community_hospital"
+            },
+            {
+              "title": "Dialysis Centre",
+              "value": "dialysis_centre"
+            },
+            {
+              "title": "Private Clinic",
+              "value": "private_clinic"
+            },
+            {
+              "title": "University",
+              "value": "university"
+            },
+            {
+              "title": "Research Institute",
+              "value": "research_institute"
+            }
+          ]
+        },
+        "name": "type",
+        "type": "string",
+        "title": "Site Type"
+      },
+      {
+        "name": "city",
+        "type": "string"
+      },
+      {
+        "name": "province",
+        "type": "string",
+        "title": "Province/State"
+      },
+      {
+        "options": {
+          "layout": "tags"
+        },
+        "description": "e.g., \"Phase I-IV trials\", \"Hemodialysis\", \"PD\", \"Biobanking\"",
+        "of": [
+          {
+            "type": "string"
+          }
+        ],
+        "name": "capabilities",
+        "type": "array",
+        "title": "Site Capabilities"
+      },
+      {
+        "fields": [
+          {
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "name": "hemodialysis",
+            "type": "number",
+            "title": "Hemodialysis Patients"
+          },
+          {
+            "name": "peritoneal",
+            "type": "number",
+            "title": "Peritoneal Dialysis Patients"
+          },
+          {
+            "name": "ckd",
+            "type": "number",
+            "title": "CKD Patients"
+          },
+          {
+            "name": "transplant",
+            "type": "number",
+            "title": "Transplant Patients"
+          }
+        ],
+        "name": "patientVolume",
+        "type": "object"
+      },
+      {
+        "initialValue": true,
+        "name": "active",
+        "type": "boolean",
+        "title": "Active Site?"
+      },
+      {
+        "name": "order",
+        "type": "number",
+        "title": "Display Order"
+      }
+    ],
+    "name": "site",
+    "type": "document",
+    "title": "Research Site"
+  }
+]
