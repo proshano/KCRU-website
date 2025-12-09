@@ -5,7 +5,9 @@ import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 export const revalidate = 3600 // 1 hour
 
 export default async function TeamPage() {
-  const researchers = await sanityFetch(queries.allResearchers)
+  const researchersRaw = await sanityFetch(queries.allResearchers)
+  // Strip Sanity data to plain JSON to break any circular references
+  const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">

@@ -58,8 +58,10 @@ export default async function NewsPostPage({ params }) {
   const slug = typeof slugRaw === 'string' ? decodeURIComponent(slugRaw).replace(/^\/+|\/+$/g, '') : ''
   if (!slug) return notFound()
 
-  const post = await sanityFetch(queries.newsPostBySlug, { slug })
-  if (!post) return notFound()
+  const postRaw = await sanityFetch(queries.newsPostBySlug, { slug })
+  if (!postRaw) return notFound()
+  // Strip Sanity data to plain JSON to break any circular references
+  const post = JSON.parse(JSON.stringify(postRaw))
 
   return (
     <main className="max-w-[900px] mx-auto px-6 md:px-12 py-12 space-y-8">

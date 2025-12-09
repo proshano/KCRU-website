@@ -17,7 +17,9 @@ const navLinks = [
 ]
 
 export default async function RootLayout({ children }) {
-  const settings = await sanityFetch(queries.siteSettings)
+  const settingsRaw = await sanityFetch(queries.siteSettings)
+  // Strip Sanity data to plain JSON to break any circular references
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
   const affiliations = settings?.affiliations || []
 
   return (

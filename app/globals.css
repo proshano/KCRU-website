@@ -136,17 +136,22 @@ a {
 }
 
 .team-photo {
-  width: 100%;
   aspect-ratio: 1;
   border-radius: 50%;
   background-color: #E8E5E0;
-  margin-bottom: 12px;
   overflow: hidden;
   border: 3px solid transparent;
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+/* When inside team-member card, fill the container */
+.team-member .team-photo {
+  width: 100%;
+  margin-bottom: 12px;
 }
 
 .team-member:hover .team-photo {

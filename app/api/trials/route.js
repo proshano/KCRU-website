@@ -25,8 +25,11 @@ export async function GET(request) {
     }
 
     // Get researchers from Sanity to search by their names
-    const researchers = await sanityFetch(queries.allResearchers)
-    const settings = await sanityFetch(queries.siteSettings)
+    const researchersRaw = await sanityFetch(queries.allResearchers)
+    const settingsRaw = await sanityFetch(queries.siteSettings)
+    // Strip Sanity data to plain JSON to break any circular references
+    const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
+    const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
 
     // Collect trials from multiple sources
     let allTrials = []

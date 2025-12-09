@@ -17,6 +17,19 @@ export default {
       type: 'string'
     },
     {
+      name: 'taglineHighlight',
+      title: 'Tagline Highlight',
+      type: 'string',
+      description: 'Exact text within the tagline to show in purple (optional).'
+    },
+    {
+      name: 'taglineHighlights',
+      title: 'Tagline Highlights (multiple)',
+      type: 'array',
+      of: [{ type: 'string' }],
+      description: 'Optional list of exact phrases to highlight in purple.'
+    },
+    {
       name: 'description',
       title: 'About / Description',
       type: 'text',

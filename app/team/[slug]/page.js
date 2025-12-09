@@ -16,11 +16,15 @@ export default async function TeamMemberPage({ params }) {
   const slugLower = slug.toLowerCase()
   const slugPattern = `^${slugLower}$`
 
-  const [profile, researchers] = await Promise.all([
+  const [profileRaw, researchersRaw] = await Promise.all([
     sanityFetch(queries.researcherBySlug, { slug, slugLower, slugPattern }),
     sanityFetch(queries.allResearchers)
   ])
-  if (!profile) return notFound()
+  if (!profileRaw) return notFound()
+
+  // Strip Sanity data to plain JSON to break any circular references
+  const profile = JSON.parse(JSON.stringify(profileRaw))
+  const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
 
   // Extract only the fields needed for publications to avoid circular references
   const profileForPublications = {
@@ -29,9 +33,21 @@ export default async function TeamMemberPage({ params }) {
     slug: profile.slug,
     pubmedQuery: profile.pubmedQuery
   }
-  const publicationsBundle = profile.pubmedQuery
-    ? await getPublicationsForResearchersDisplay([profileForPublications], 200)
-    : null
+  let publicationsBundle = null
+  if (profile.pubmedQuery) {
+    try {
+      publicationsBundle = await getPublicationsForResearchersDisplay([profileForPublications], 120)
+    } catch (err) {
+      console.error('Failed to load publications for researcher', profile.name, err)
+      publicationsBundle = {
+        publications: [],
+        byYear: {},
+        years: [],
+        provenance: {},
+        stats: { totalPublications: 0, yearsSpan: null }
+      }
+    }
+  }
 
   const initials = profile.name
     ?.split(' ')
@@ -41,10 +57,10 @@ export default async function TeamMemberPage({ params }) {
     .toUpperCase() || '?'
 
   return (
-    <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-10">
+    <main className="max-w-[900px] mx-auto px-6 md:px-12 py-12 space-y-10">
       {/* Profile header */}
       <div className="flex flex-wrap gap-8 items-start">
-        <div className="team-photo w-40 h-40 text-4xl">
+        <div className="w-40 h-40 rounded-full bg-[#E8E5E0] overflow-hidden flex-shrink-0 flex items-center justify-center">
           {profile.photo ? (
             <Image
               src={urlFor(profile.photo).width(240).height(240).fit('crop').url()}
@@ -54,7 +70,7 @@ export default async function TeamMemberPage({ params }) {
               className="w-full h-full object-cover"
             />
           ) : (
-            <span className="font-semibold text-[#aaa]">{initials}</span>
+            <span className="text-4xl font-semibold text-[#aaa]">{initials}</span>
           )}
         </div>
         <div className="space-y-3 flex-1">
@@ -99,7 +115,12 @@ export default async function TeamMemberPage({ params }) {
       <PublicationsSection
         publicationsBundle={publicationsBundle}
         hasQuery={Boolean(profile.pubmedQuery)}
-        researchers={researchers || []}
+        researchers={(researchers || []).map(r => ({
+          _id: r._id,
+          name: r.name,
+          slug: r.slug,
+          photo: r.photo
+        }))}
       />
 
       <div>
@@ -125,7 +146,7 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers }) {
   }
 
   const total = publicationsBundle?.publications?.length || 0
-  const years = publicationsBundle?.years || []
+  const years = Array.isArray(publicationsBundle?.years) ? publicationsBundle.years : []
   const byYear = publicationsBundle?.byYear || {}
   const provenance = publicationsBundle?.provenance || {}
 

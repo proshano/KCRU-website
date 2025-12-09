@@ -3,7 +3,9 @@ import { sanityFetch, queries } from '@/lib/sanity'
 export const revalidate = 3600
 
 export default async function CapabilitiesPage() {
-  const data = (await sanityFetch(queries.capabilities)) || {}
+  const dataRaw = (await sanityFetch(queries.capabilities)) || {}
+  // Strip Sanity data to plain JSON to break any circular references
+  const data = JSON.parse(JSON.stringify(dataRaw))
 
   const {
     headline = 'Capabilities for sponsors and partners',

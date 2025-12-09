@@ -4,8 +4,11 @@ import { sanityFetch, queries } from '@/lib/sanity'
 export const revalidate = 3600
 
 export default async function ContactPage() {
-  const settings = (await sanityFetch(queries.siteSettings)) || {}
-  const referral = (await sanityFetch(queries.referralInfo)) || {}
+  const settingsRaw = (await sanityFetch(queries.siteSettings)) || {}
+  const referralRaw = (await sanityFetch(queries.referralInfo)) || {}
+  // Strip Sanity data to plain JSON to break any circular references
+  const settings = JSON.parse(JSON.stringify(settingsRaw))
+  const referral = JSON.parse(JSON.stringify(referralRaw))
 
   const contacts = [
     settings.contactEmail && { label: 'Email', value: settings.contactEmail, href: `mailto:${settings.contactEmail}` },

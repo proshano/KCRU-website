@@ -15,7 +15,9 @@ const statusStyles = {
 }
 
 export default async function TrialsPage() {
-  const patientTrials = await sanityFetch(queries.trialSummaries)
+  const patientTrialsRaw = await sanityFetch(queries.trialSummaries)
+  // Strip Sanity data to plain JSON to break any circular references
+  const patientTrials = JSON.parse(JSON.stringify(patientTrialsRaw || []))
 
   // Separate recruiting from other trials
   const recruitingTrials = patientTrials?.filter(t => t.status === 'recruiting' || t.status === 'RECRUITING') || []

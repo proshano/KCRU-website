@@ -7,26 +7,47 @@ import Link from 'next/link'
 export const revalidate = 86400 // 24 hours
 
 export default async function PublicationsPage() {
-  const settings = (await sanityFetch(queries.siteSettings)) || {}
-  const researchers = await sanityFetch(queries.allResearchers)
-  const researcherChips = (researchers || []).map((r) => ({
+  const settingsRaw = (await sanityFetch(queries.siteSettings)) || {}
+  const researchersRaw = await sanityFetch(queries.allResearchers)
+  // Strip ALL Sanity data to plain JSON to break any circular references
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
+  const researcherChips = researchers.map((r) => ({
     _id: r._id,
     name: r.name,
     slug: r.slug,
     photo: r.photo
   }))
 
+  // Strip researchers to plain objects to avoid circular references
+  const strippedResearchers = (researchers || []).map(r => ({
+    _id: r._id,
+    name: r.name,
+    pubmedQuery: r.pubmedQuery
+  }))
+
   // Always use researcher queries; optionally augment with affiliation if present
-  const researcherBundle = await getPublicationsForResearchersDisplay(researchers || [], 2000)
-  let combinedPubs = researcherBundle.publications
+  let researcherBundle = { publications: [], provenance: {} }
+  try {
+    // Keep per-researcher cap reasonable to avoid huge payloads
+    researcherBundle = await getPublicationsForResearchersDisplay(strippedResearchers, 120)
+  } catch (err) {
+    console.error('Failed to load researcher publications', err)
+  }
+
+  let combinedPubs = researcherBundle.publications || []
   let provenance = researcherBundle.provenance || {}
 
   if (settings?.pubmedAffiliation) {
-    const affBundle = await getPublicationsForDisplay(settings.pubmedAffiliation, 80)
-    combinedPubs = dedupePublications([
-      ...(researcherBundle.publications || []),
-      ...(affBundle.publications || [])
-    ])
+    try {
+      const affBundle = await getPublicationsForDisplay(settings.pubmedAffiliation, 80)
+      combinedPubs = dedupePublications([
+        ...(researcherBundle.publications || []),
+        ...(affBundle.publications || [])
+      ])
+    } catch (err) {
+      console.error('Failed to load affiliation publications', err)
+    }
   }
 
   // Temporarily disable LLM summaries to avoid stack issues; set to true to re-enable
@@ -71,7 +92,7 @@ function YearSections({ years, byYear, researchers, provenance }) {
         <YearBlock
           key={year}
           year={year}
-          pubs={byYear[year]}
+          pubs={byYear[year] || []}
           researchers={researchers}
           provenance={provenance}
         />

@@ -7,17 +7,28 @@ import FeaturedStudy from './components/FeaturedStudy'
 export const revalidate = 3600
 
 export default async function HomePage() {
-  const [settings, trials = [], researchers = [], news = []] = await Promise.all([
+  const [settingsRaw, trialsRaw = [], researchersRaw = [], newsRaw = []] = await Promise.all([
     sanityFetch(queries.siteSettings),
     sanityFetch(queries.trialSummaries),
     sanityFetch(queries.allResearchers),
     sanityFetch(queries.recentNews),
   ])
 
-  // Get publications for the ticker
+  // Strip ALL Sanity data to plain JSON to break any circular references
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const trials = JSON.parse(JSON.stringify(trialsRaw || []))
+  const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
+  const news = JSON.parse(JSON.stringify(newsRaw || []))
+
+  // Get publications for the ticker - strip researchers to plain objects to avoid circular refs
   let publications = []
   try {
-    const pubData = await getPublicationsForResearchersDisplay(researchers, 30)
+    const strippedResearchers = (researchers || []).map(r => ({
+      _id: r._id,
+      name: r.name,
+      pubmedQuery: r.pubmedQuery
+    }))
+    const pubData = await getPublicationsForResearchersDisplay(strippedResearchers, 30)
     publications = pubData?.publications || []
   } catch (e) {
     console.error('Failed to fetch publications:', e)
@@ -25,6 +36,52 @@ export default async function HomePage() {
 
   // Filter recruiting trials for featured study
   const recruitingTrials = trials.filter(t => t.status === 'recruiting')
+
+  const tagline = settings?.tagline?.trim() || 'Fighting kidney disease through research.'
+  const taglineHighlight = settings?.taglineHighlight?.trim()
+  const taglineHighlights = Array.isArray(settings?.taglineHighlights)
+    ? settings.taglineHighlights.map(h => h?.trim()).filter(Boolean)
+    : []
+
+  const renderTagline = () => {
+    const highlights = []
+    if (taglineHighlight) highlights.push(taglineHighlight)
+    highlights.push(...taglineHighlights)
+
+    if (!highlights.length) return tagline
+
+    let parts = [tagline]
+
+    highlights.forEach(highlight => {
+      const nextParts = []
+      parts.forEach(part => {
+        if (typeof part !== 'string') {
+          nextParts.push(part)
+          return
+        }
+
+        if (!part.includes(highlight)) {
+          nextParts.push(part)
+          return
+        }
+
+        const splitParts = part.split(highlight)
+        splitParts.forEach((p, idx) => {
+          if (p) nextParts.push(p)
+          if (idx < splitParts.length - 1) {
+            nextParts.push(
+              <span key={`${highlight}-${idx}-${nextParts.length}`} className="text-purple">
+                {highlight}
+              </span>
+            )
+          }
+        })
+      })
+      parts = nextParts
+    })
+
+    return parts
+  }
 
   // Stats from data
   const stats = [
@@ -45,13 +102,7 @@ export default async function HomePage() {
           {/* Left side - Hero content */}
           <div className="flex flex-col">
             <h1 className="text-4xl sm:text-5xl font-bold leading-[1.1] tracking-tight mb-5">
-              {settings?.tagline?.split(' ').slice(0, 3).join(' ') || 'Advancing care for'}
-              <br />
-              <span className="text-purple">
-                {settings?.tagline?.split(' ').slice(3, 5).join(' ') || 'kidney disease'}
-              </span>
-              <br />
-              {settings?.tagline?.split(' ').slice(5).join(' ') || 'through rigorous research'}
+              {renderTagline()}
             </h1>
             <p className="text-[17px] leading-relaxed text-[#555] max-w-[440px] mb-8">
               {settings?.description || 'We conduct large pragmatic trials focused on patients with kidney failure—a population facing exceptional risks yet underrepresented in medical evidence.'}

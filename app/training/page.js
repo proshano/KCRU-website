@@ -3,9 +3,11 @@ import { sanityFetch, queries } from '@/lib/sanity'
 export const revalidate = 3600 // 1 hour
 
 export default async function TrainingPage() {
-  const [opportunities] = await Promise.all([
+  const [opportunitiesRaw] = await Promise.all([
     sanityFetch(queries.openOpportunities)
   ])
+  // Strip Sanity data to plain JSON to break any circular references
+  const opportunities = JSON.parse(JSON.stringify(opportunitiesRaw || []))
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
