@@ -1,5 +1,5 @@
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
-import { getPublicationsForDisplay, getPublicationsForResearchersDisplay } from '@/lib/publications'
+import { getPublicationsForDisplay, getPublicationsForResearchersDisplay, addLaySummaries } from '@/lib/publications'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -23,7 +23,8 @@ export default async function PublicationsPage() {
     ])
   }
 
-  const { publications, byYear, years } = buildDisplayFromPublications(combinedPubs)
+  const pubsWithSummaries = await addLaySummaries(combinedPubs)
+  const { publications, byYear, years } = buildDisplayFromPublications(pubsWithSummaries)
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-10 space-y-6">
