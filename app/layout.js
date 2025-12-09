@@ -30,7 +30,6 @@ export default async function RootLayout({ children }) {
             <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
               <Link href="/" aria-label="Home" className="flex items-center gap-2 text-blue-700">
                 <span className="sr-only">Home</span>
-                <span className="h-2.5 w-2.5 rounded-full bg-blue-700" aria-hidden />
               </Link>
               <nav className="flex flex-wrap items-center gap-5 text-sm font-semibold text-slate-700 tracking-tight">
                 {navLinks.map((link) => (
