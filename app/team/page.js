@@ -10,9 +10,7 @@ export default async function TeamPage() {
   return (
     <main className="max-w-6xl mx-auto px-4 py-10 space-y-6">
       <header className="space-y-2">
-        <p className="text-sm uppercase tracking-wide text-blue-700 font-semibold">Team</p>
-        <h1 className="text-3xl font-bold text-gray-900">Meet our researchers</h1>
-        <p className="text-gray-600">Clinicians, scientists, and staff driving kidney research.</p>
+        <h1 className="text-3xl font-bold text-gray-900">Investigators</h1>
       </header>
 
       {(!researchers || researchers.length === 0) && (

@@ -11,7 +11,6 @@ export default async function TrainingPage() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-10 space-y-8">
       <header className="space-y-2">
-        <p className="text-sm uppercase tracking-wide text-blue-700 font-semibold">Training</p>
         <h1 className="text-3xl font-bold text-gray-900">Opportunities & alumni</h1>
         <p className="text-gray-600">Open roles, how to apply, and highlights from past trainees.</p>
       </header>

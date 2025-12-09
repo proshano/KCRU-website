@@ -24,7 +24,6 @@ export default async function CapabilitiesPage() {
   return (
     <main className="mx-auto max-w-5xl space-y-8 px-6 py-10">
       <header className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Capabilities</p>
         <h1 className="text-3xl font-bold text-slate-900">{headline}</h1>
         <p className="text-slate-700">{introduction}</p>
       </header>

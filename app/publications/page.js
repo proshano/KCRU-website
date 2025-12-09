@@ -28,7 +28,6 @@ export default async function PublicationsPage() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-10 space-y-6">
       <header className="space-y-2">
-        <p className="text-sm uppercase tracking-wide text-blue-700 font-semibold">Publications</p>
         <h1 className="text-3xl font-bold text-gray-900">
           Publications by our investigators (last 3 years)
         </h1>

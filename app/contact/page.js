@@ -18,7 +18,6 @@ export default async function ContactPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-10 px-6 py-10">
       <header className="space-y-2">
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">Contact</p>
         <h1 className="text-3xl font-bold text-slate-900">Get in touch</h1>
         <p className="text-slate-700">
           Reach the team for collaborations, study referrals, or general inquiries.
