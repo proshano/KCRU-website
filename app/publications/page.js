@@ -31,9 +31,6 @@ export default async function PublicationsPage() {
         <h1 className="text-3xl font-bold text-gray-900">
           Publications by our investigators (last 3 years)
         </h1>
-        <p className="text-gray-600">
-          PubMed-sourced outputs from our investigators over the past three years, using researcher-specific queries and optional unit affiliation.
-        </p>
       </header>
 
       {publications.length === 0 && (
