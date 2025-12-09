@@ -45,7 +45,7 @@ export default function RootLayout({ children }) {
 
           <footer className="border-t border-gray-200 bg-white py-6">
             <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 text-sm text-gray-600 tracking-tight">
-              <span>© {new Date().getFullYear()} London Kidney Clinical Trials</span>
+              <span>© {new Date().getFullYear()} Pavel Roshanov</span>
               <div className="flex gap-3">
                 <Link href="/trials" className="hover:text-blue-700">Trials</Link>
                 <Link href="/team" className="hover:text-blue-700">Investigators</Link>
