@@ -29,12 +29,17 @@ export default async function PublicationsPage() {
     ])
   }
 
-  const pubsWithSummaries = await addLaySummaries(combinedPubs, {
-    provider: settings.llmProvider,
-    model: settings.llmModel,
-    apiKey: settings.llmApiKey,
-    systemPrompt: settings.llmSystemPrompt
-  })
+  // Temporarily disable LLM summaries to avoid stack issues; set to true to re-enable
+  const enableSummaries = false
+  const pubsWithSummaries = enableSummaries
+    ? await addLaySummaries(combinedPubs, {
+        provider: settings.llmProvider,
+        model: settings.llmModel,
+        apiKey: settings.llmApiKey,
+        systemPrompt: settings.llmSystemPrompt
+      })
+    : combinedPubs
+
   const { publications, byYear, years } = buildDisplayFromPublications(pubsWithSummaries)
 
   return (
