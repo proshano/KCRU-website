@@ -31,7 +31,7 @@ export default async function RootLayout({ children }) {
               <Link href="/" aria-label="Home" className="flex items-center gap-2 text-blue-700">
                 <span className="sr-only">Home</span>
               </Link>
-              <nav className="flex flex-wrap items-center gap-5 text-sm font-semibold text-slate-700 tracking-tight">
+              <nav className="flex flex-wrap items-center gap-6 text-lg lg:text-xl font-semibold text-slate-800 tracking-tight">
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
