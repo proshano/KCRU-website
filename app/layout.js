@@ -8,7 +8,7 @@ export const metadata = {
 
 const navLinks = [
   { href: '/', label: 'Home' },
-  { href: '/trials', label: 'Trials' },
+  { href: '/trials', label: 'Studies' },
   { href: '/team', label: 'Investigators' },
   { href: '/publications', label: 'Publications' },
   { href: '/news', label: 'News' },

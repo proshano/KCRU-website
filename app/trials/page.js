@@ -18,9 +18,7 @@ export default async function TrialsPage() {
 
   return (
     <main className="space-y-10">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold text-gray-900">Studies</h1>
-      </header>
+      <header className="space-y-2" />
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
