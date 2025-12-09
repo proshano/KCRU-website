@@ -21,7 +21,7 @@ export default async function TrialsPage() {
       <header className="space-y-2">
         <p className="text-sm uppercase tracking-wide text-blue-700 font-semibold">Clinical Trials</p>
         <h1 className="text-3xl font-bold text-gray-900">Current studies</h1>
-        <p className="text-gray-600">Patient-friendly summaries from Sanity.</p>
+        <p className="text-gray-600">Patient-friendly summaries.</p>
       </header>
 
       <section className="space-y-4">
