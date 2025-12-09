@@ -13,7 +13,7 @@ export default async function HomePage() {
   ])
 
   return (
-    <main className="relative mx-auto max-w-6xl space-y-12 px-6 py-8 lg:py-10">
+    <main className="relative mx-auto max-w-6xl space-y-10 px-6 py-8 lg:py-10">
       <div className="pointer-events-none absolute -left-32 top-12 h-72 w-72 rounded-full bg-gradient-to-br from-slate-100 via-white to-transparent blur-3xl" aria-hidden />
       <div className="pointer-events-none absolute -right-20 bottom-10 h-80 w-80 rounded-full bg-gradient-to-tl from-slate-200 via-white to-transparent blur-3xl" aria-hidden />
 
@@ -97,7 +97,7 @@ export default async function HomePage() {
 
 function ContentSection({ eyebrow, title, titleHref, description, actionHref, actionLabel, children }) {
   return (
-    <section className="space-y-5">
+    <section className="space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           {eyebrow && (
