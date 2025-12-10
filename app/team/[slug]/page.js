@@ -2,11 +2,10 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
-import { getPublicationsForResearchersDisplay } from '@/lib/publications'
+import { getCachedPublicationsDisplay } from '@/lib/publications'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 
-export const revalidate = 0
-export const dynamic = 'force-dynamic'
+export const revalidate = 86400 // use cache; refresh daily
 
 export default async function TeamMemberPage({ params }) {
   const resolvedParams = await params
@@ -16,27 +15,41 @@ export default async function TeamMemberPage({ params }) {
   const slugLower = slug.toLowerCase()
   const slugPattern = `^${slugLower}$`
 
-  const [profileRaw, researchersRaw] = await Promise.all([
+  const [profileRaw, researchersRaw, settingsRaw] = await Promise.all([
     sanityFetch(queries.researcherBySlug, { slug, slugLower, slugPattern }),
-    sanityFetch(queries.allResearchers)
+    sanityFetch(queries.allResearchers),
+    sanityFetch(queries.siteSettings),
   ])
   if (!profileRaw) return notFound()
 
   // Strip Sanity data to plain JSON to break any circular references
   const profile = JSON.parse(JSON.stringify(profileRaw))
   const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
 
   // Extract only the fields needed for publications to avoid circular references
-  const profileForPublications = {
-    _id: profile._id,
-    name: profile.name,
-    slug: profile.slug,
-    pubmedQuery: profile.pubmedQuery
-  }
+  const strippedResearchers = (researchers || []).map(r => ({
+    _id: r._id,
+    name: r.name,
+    slug: r.slug,
+    pubmedQuery: r.pubmedQuery
+  }))
   let publicationsBundle = null
   if (profile.pubmedQuery) {
     try {
-      publicationsBundle = await getPublicationsForResearchersDisplay([profileForPublications], 120)
+      const fullBundle = await getCachedPublicationsDisplay({
+        researchers: strippedResearchers,
+        affiliation: settings?.pubmedAffiliation || '',
+        maxPerResearcher: 120,
+        maxAffiliation: 80,
+      })
+      const filteredPubs = filterPublicationsForResearcher(fullBundle, profile._id, profile.name)
+      const display = buildDisplayFromPublications(filteredPubs)
+      publicationsBundle = {
+        ...display,
+        provenance: fullBundle?.provenance || {},
+        meta: fullBundle?.meta || {},
+      }
     } catch (err) {
       console.error('Failed to load publications for researcher', profile.name, err)
       publicationsBundle = {
@@ -149,11 +162,17 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers }) {
   const years = Array.isArray(publicationsBundle?.years) ? publicationsBundle.years : []
   const byYear = publicationsBundle?.byYear || {}
   const provenance = publicationsBundle?.provenance || {}
+  const generatedAt = publicationsBundle?.meta?.generatedAt
 
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-bold tracking-tight">Publications (last 3 years)</h2>
+        <div className="space-y-1">
+          <h2 className="text-xl font-bold tracking-tight">Publications (last 3 years)</h2>
+          <p className="text-xs text-[#888]">
+            {generatedAt ? `Updated ${new Date(generatedAt).toLocaleString()}` : 'Cache not yet generated'}
+          </p>
+        </div>
         <span className="text-sm text-[#666] font-medium">{total} found</span>
       </div>
 
@@ -180,7 +199,7 @@ function YearBlock({ year, pubs, researchers, provenance }) {
   const sorted = sortPublications(pubs)
   return (
     <section className="border border-black/[0.06] bg-white">
-      <details className="group">
+      <details className="group" open>
         <summary className="flex w-full cursor-pointer list-none items-center justify-between text-left px-6 py-4 hover:bg-[#fafafa] transition-colors">
           <div className="flex items-center gap-4">
             <span className="text-2xl font-bold text-purple">{year}</span>
@@ -207,7 +226,16 @@ function PublicationItem({ pub, researchers, provenance }) {
     <article className="p-6 space-y-3">
       <div className="flex flex-wrap items-start gap-4">
         <div className="flex-1 min-w-[240px] space-y-1">
-          <h4 className="text-base font-semibold text-[#1a1a1a] leading-snug">{pub.title}</h4>
+          <h3 className="text-lg font-semibold leading-snug">
+            <a
+              href={pub.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#1a1a1a] hover:text-purple transition-colors"
+            >
+              {pub.title}
+            </a>
+          </h3>
           <p className="text-sm text-[#666]">{pub.authors?.join(', ')}</p>
           <p className="text-xs text-[#888] font-medium">
             {pub.journal} {pub.year && `· ${pub.year}`}
@@ -230,24 +258,6 @@ function PublicationItem({ pub, researchers, provenance }) {
               )}
             </a>
           ))}
-          <a
-            href={pub.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="h-9 px-4 inline-flex items-center border border-black/[0.08] text-[#1a1a1a] hover:border-purple hover:text-purple text-sm font-medium transition-colors"
-          >
-            PubMed
-          </a>
-          {pub.doi && (
-            <a
-              href={`https://doi.org/${pub.doi}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="h-9 px-4 inline-flex items-center border border-black/[0.08] text-[#1a1a1a] hover:border-purple hover:text-purple text-sm font-medium transition-colors"
-            >
-              DOI
-            </a>
-          )}
         </div>
       </div>
       {matchedResearchers.length > 0 && (
@@ -271,6 +281,48 @@ function PublicationItem({ pub, researchers, provenance }) {
       )}
     </article>
   )
+}
+
+function filterPublicationsForResearcher(bundle, researcherId, researcherName) {
+  if (!bundle) return []
+  const provenance = bundle.provenance || {}
+  const pubs = bundle.publications || []
+  const fromProvenance = pubs.filter(pub => (provenance[pub.pmid] || []).includes(researcherId))
+  if (fromProvenance.length > 0) return fromProvenance
+
+  if (!researcherName) return []
+  const name = researcherName.toLowerCase()
+  const last = name.split(' ').slice(-1)[0]
+  return pubs.filter(pub => {
+    const authors = (pub.authors || []).map(a => a.toLowerCase())
+    return authors.some(a => a.includes(name) || a.includes(last))
+  })
+}
+
+function buildDisplayFromPublications(publications = []) {
+  const pubs = [...publications].sort((a, b) => {
+    const yearDiff = (b.year || 0) - (a.year || 0)
+    if (yearDiff !== 0) return yearDiff
+    const pmidA = parseInt(a.pmid, 10)
+    const pmidB = parseInt(b.pmid, 10)
+    if (!Number.isNaN(pmidA) && !Number.isNaN(pmidB)) {
+      return pmidB - pmidA // higher pmid tends to be newer
+    }
+    return (a.title || '').localeCompare(b.title || '')
+  })
+
+  const byYear = pubs.reduce((acc, pub) => {
+    const year = pub.year || 'Unknown'
+    if (!acc[year]) acc[year] = []
+    acc[year].push(pub)
+    return acc
+  }, {})
+
+  return {
+    publications: pubs,
+    byYear,
+    years: Object.keys(byYear).sort((a, b) => b - a)
+  }
 }
 
 function sortPublications(pubs = []) {

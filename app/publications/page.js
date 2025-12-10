@@ -1,5 +1,5 @@
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
-import { getPublicationsForDisplay, getPublicationsForResearchersDisplay, addLaySummaries } from '@/lib/publications'
+import { getCachedPublicationsDisplay, addLaySummaries } from '@/lib/publications'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -27,28 +27,20 @@ export default async function PublicationsPage() {
   }))
 
   // Always use researcher queries; optionally augment with affiliation if present
-  let researcherBundle = { publications: [], provenance: {} }
+  let bundle = { publications: [], provenance: {}, byYear: {}, years: [], meta: {} }
   try {
-    // Keep per-researcher cap reasonable to avoid huge payloads
-    researcherBundle = await getPublicationsForResearchersDisplay(strippedResearchers, 120)
+    bundle = await getCachedPublicationsDisplay({
+      researchers: strippedResearchers,
+      affiliation: settings?.pubmedAffiliation || '',
+      maxPerResearcher: 120,
+      maxAffiliation: 80,
+    })
   } catch (err) {
-    console.error('Failed to load researcher publications', err)
+    console.error('Failed to load cached publications', err)
   }
 
-  let combinedPubs = researcherBundle.publications || []
-  let provenance = researcherBundle.provenance || {}
-
-  if (settings?.pubmedAffiliation) {
-    try {
-      const affBundle = await getPublicationsForDisplay(settings.pubmedAffiliation, 80)
-      combinedPubs = dedupePublications([
-        ...(researcherBundle.publications || []),
-        ...(affBundle.publications || [])
-      ])
-    } catch (err) {
-      console.error('Failed to load affiliation publications', err)
-    }
-  }
+  const combinedPubs = bundle.publications || []
+  const provenance = bundle.provenance || {}
 
   // Temporarily disable LLM summaries to avoid stack issues; set to true to re-enable
   const enableSummaries = false
@@ -62,18 +54,32 @@ export default async function PublicationsPage() {
     : combinedPubs
 
   const { publications, byYear, years } = buildDisplayFromPublications(pubsWithSummaries)
+  const meta = bundle.meta || {}
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
       <header className="flex justify-between items-center">
-        <div>
-          <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
+        <div className="space-y-1">
+          <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em]">
             Research Output
           </h2>
           <h1 className="text-4xl font-bold tracking-tight">Publications</h1>
-          <p className="text-sm text-[#666] mt-2">Last 3 years from our investigators</p>
+          <p className="text-sm text-[#666]">
+            Last 3 years from our investigators{settings?.pubmedAffiliation ? ` + ${settings.pubmedAffiliation}` : ''}
+          </p>
+          <p className="text-xs text-[#888]">
+            {meta?.generatedAt ? `Updated ${new Date(meta.generatedAt).toLocaleString()}` : 'Cache not yet generated'}
+            {meta?.stale ? ' • refresh recommended' : ''}
+          </p>
         </div>
-        <span className="text-sm text-[#666] font-medium">{publications.length} publications</span>
+        <div className="text-right text-sm text-[#666] font-medium space-y-1">
+          <div>{publications.length} publications</div>
+          {meta?.counts?.combined ? (
+            <div className="text-xs text-[#888]">
+              {meta.counts.researchers || 0} via researchers{settings?.pubmedAffiliation ? ` • ${meta.counts.affiliation || 0} via affiliation` : ''}
+            </div>
+          ) : null}
+        </div>
       </header>
 
       {publications.length === 0 && (
@@ -191,19 +197,6 @@ function PublicationItem({ pub, researchers, provenance }) {
       )}
     </article>
   )
-}
-
-function dedupePublications(pubLists = []) {
-  const seen = new Set()
-  const result = []
-  for (const pub of pubLists) {
-    const key = pub.pmid || pub.doi || pub.title
-    if (key && !seen.has(key)) {
-      seen.add(key)
-      result.push(pub)
-    }
-  }
-  return result
 }
 
 function buildDisplayFromPublications(publications) {

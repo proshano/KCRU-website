@@ -54,15 +54,9 @@
 ### 1. PubMed (Publications)
 - Searches by affiliation or individual researcher queries
 - Returns title, authors, journal, DOI, abstract
-- Cached and refreshed daily
+- Cached to `runtime/pubmed-cache.json` and refreshed daily
 
-### 2. OpenAlex (Citation Metrics)
-- Free, open API with 250M+ works
-- Provides citation counts, h-index, i10-index
-- Enriches PubMed results with citation data
-- Can look up researchers by ORCID (most reliable) or name
-
-### 3. ClinicalTrials.gov (Active Trials)
+### 2. ClinicalTrials.gov (Active Trials)
 - Searches by institution and PI names
 - Returns trial status, phase, enrollment, sites
 - Filters: recruiting, active, completed
@@ -109,15 +103,17 @@ SANITY_API_TOKEN=your_token
       "path": "/api/trials?refresh=true",
       "schedule": "0 7 * * *"
     },
-    {
-      "path": "/api/metrics?refresh=true",
-      "schedule": "0 8 * * *"
-    }
   ]
 }
 ```
 
 Refreshes all data sources daily (staggered to avoid rate limits).
+
+## PubMed Cache (filesystem)
+- Cache file: `runtime/pubmed-cache.json` (metadata + publications + provenance)
+- Refresh manually: `npm run refresh:pubmed`
+- Configure: `PUBMED_API_KEY` (higher PubMed limits), `PUBMED_TIMEOUT_MS`, `PUBMED_RETRIES`, `PUBMED_MAX_PER_RESEARCHER`, `PUBMED_MAX_AFFILIATION`, `PUBMED_CACHE_MAX_AGE_MS`
+- Scheduling: run `npm run refresh:pubmed` daily via cron/PM2/host scheduler
 
 ## API Endpoints
 
@@ -125,12 +121,8 @@ Refreshes all data sources daily (staggered to avoid rate limits).
 |----------|---------|--------------|
 | `/api/publications` | PubMed publications | `?refresh=true` |
 | `/api/trials` | Clinical trials | `?refresh=true&status=active\|completed\|all` |
-| `/api/metrics` | Team citation metrics | `?refresh=true` |
 
 ## Tips
-
-### ORCID for Reliable Lookups
-Store researchers' ORCIDs in Sanity. OpenAlex lookups by ORCID are much more reliable than name-based searches.
 
 ### Caching Strategy
 - API routes cache in memory (resets on cold start)
@@ -139,5 +131,4 @@ Store researchers' ORCIDs in Sanity. OpenAlex lookups by ORCID are much more rel
 
 ### Rate Limits
 - PubMed: 3 requests/second without API key, 10 with
-- OpenAlex: 100,000 requests/day, be nice with delays
 - ClinicalTrials.gov: No published limits, be reasonable

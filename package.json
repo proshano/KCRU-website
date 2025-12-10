@@ -8,7 +8,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "refresh:pubmed": "node scripts/refresh-pubmed-cache.js"
   },
   "keywords": [],
   "author": "",
