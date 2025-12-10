@@ -39,14 +39,14 @@ export default async function TeamPage() {
             <div className="team-member">
               <div
                 className="team-photo mx-auto"
-                style={{ width: '105px', height: '105px' }}
+                style={{ width: '132px', height: '132px' }}
               >
                 {person.photo ? (
                   <Image
-                    src={urlFor(person.photo).width(132).height(132).fit('crop').url()}
+                    src={urlFor(person.photo).width(165).height(165).fit('crop').url()}
                     alt={person.name || 'Researcher'}
-                    width={132}
-                    height={132}
+                    width={165}
+                    height={165}
                     className="w-full h-full object-cover"
                   />
                 ) : (
