@@ -6,7 +6,7 @@ export default async function AccessibilityPage() {
   const settingsRaw = (await sanityFetch(queries.siteSettings)) || {}
   const settings = JSON.parse(JSON.stringify(settingsRaw))
 
-  const orgName = settings?.unitName || 'London Kidney Clinical Trials'
+  const orgName = settings?.unitName || 'London Kidney Clinical Research'
   const contactEmail = settings?.contactEmail
   const phone = settings?.phone
 

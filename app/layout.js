@@ -3,8 +3,8 @@ import { sanityFetch, queries } from '@/lib/sanity'
 import './globals.css'
 
 export const metadata = {
-  title: 'London Kidney Clinical Trials',
-  description: 'London Kidney Clinical Trials site powered by Next.js, Sanity, and Tailwind.',
+  title: 'London Kidney Clinical Research',
+  description: 'London Kidney Clinical Research site powered by Next.js, Sanity, and Tailwind.',
 }
 
 const navLinks = [
