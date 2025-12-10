@@ -6,6 +6,45 @@ export default {
   __experimental_actions: ['update', 'publish'],
   fields: [
     {
+      name: 'maintenanceMode',
+      title: 'Maintenance Mode',
+      type: 'object',
+      fields: [
+        {
+          name: 'enabled',
+          title: 'Enable Maintenance Mode',
+          type: 'boolean',
+          description: 'Turn on to show under construction page to visitors',
+          initialValue: false
+        },
+        {
+          name: 'password',
+          title: 'Access Password',
+          type: 'string',
+          description: 'Password for privileged access during maintenance'
+        },
+        {
+          name: 'title',
+          title: 'Title',
+          type: 'string',
+          initialValue: 'Under Construction'
+        },
+        {
+          name: 'message',
+          title: 'Message',
+          type: 'text',
+          rows: 3,
+          initialValue: 'We\'re updating our website. Enter the password to preview the new site.'
+        },
+        {
+          name: 'contactInfo',
+          title: 'Contact Information',
+          type: 'string',
+          initialValue: 'For access, contact the research unit.'
+        }
+      ]
+    },
+    {
       name: 'unitName',
       title: 'Research Unit Name',
       type: 'string',
