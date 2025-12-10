@@ -42,6 +42,13 @@ export default async function TeamMemberPage({ params }) {
         affiliation: settings?.pubmedAffiliation || '',
         maxPerResearcher: 120,
         maxAffiliation: 80,
+        summariesPerRun: Infinity,
+        llmOptions: {
+          provider: settings.llmProvider || 'openrouter',
+          model: settings.llmModel,
+          apiKey: settings.llmApiKey,
+          systemPrompt: settings.llmSystemPrompt
+        }
       })
       const filteredPubs = filterPublicationsForResearcher(fullBundle, profile._id, profile.name)
       const display = buildDisplayFromPublications(filteredPubs)
@@ -59,6 +66,23 @@ export default async function TeamMemberPage({ params }) {
         provenance: {},
         stats: { totalPublications: 0, yearsSpan: null }
       }
+    }
+  }
+
+  const formatGeneratedAt = (ts) => {
+    if (!ts) return null
+    try {
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'UTC',
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(new Date(ts))
+    } catch (err) {
+      console.error('Failed to format generatedAt', err)
+      return null
     }
   }
 
@@ -170,7 +194,7 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers }) {
         <div className="space-y-1">
           <h2 className="text-xl font-bold tracking-tight">Publications (last 3 years)</h2>
           <p className="text-xs text-[#888]">
-            {generatedAt ? `Updated ${new Date(generatedAt).toLocaleString()}` : 'Cache not yet generated'}
+              {generatedAt ? `Updated ${formatGeneratedAt(generatedAt)} UTC` : 'Cache not yet generated'}
           </p>
         </div>
         <span className="text-sm text-[#666] font-medium">{total} found</span>

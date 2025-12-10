@@ -1,5 +1,5 @@
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
-import { getCachedPublicationsDisplay, addLaySummaries } from '@/lib/publications'
+import { getCachedPublicationsDisplay } from '@/lib/publications'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -34,6 +34,13 @@ export default async function PublicationsPage() {
       affiliation: settings?.pubmedAffiliation || '',
       maxPerResearcher: 120,
       maxAffiliation: 80,
+      summariesPerRun: Infinity,
+      llmOptions: {
+        provider: settings.llmProvider || 'openrouter',
+        model: settings.llmModel,
+        apiKey: settings.llmApiKey,
+        systemPrompt: settings.llmSystemPrompt
+      }
     })
   } catch (err) {
     console.error('Failed to load cached publications', err)
@@ -42,19 +49,28 @@ export default async function PublicationsPage() {
   const combinedPubs = bundle.publications || []
   const provenance = bundle.provenance || {}
 
-  // Temporarily disable LLM summaries to avoid stack issues; set to true to re-enable
-  const enableSummaries = false
-  const pubsWithSummaries = enableSummaries
-    ? await addLaySummaries(combinedPubs, {
-        provider: settings.llmProvider,
-        model: settings.llmModel,
-        apiKey: settings.llmApiKey,
-        systemPrompt: settings.llmSystemPrompt
-      })
-    : combinedPubs
+  // Lay summaries are generated during cache refresh and stored with publications
+  const pubsWithSummaries = combinedPubs
 
   const { publications, byYear, years } = buildDisplayFromPublications(pubsWithSummaries)
   const meta = bundle.meta || {}
+
+  const formatGeneratedAt = (ts) => {
+    if (!ts) return null
+    try {
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'UTC',
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(new Date(ts))
+    } catch (err) {
+      console.error('Failed to format generatedAt', err)
+      return null
+    }
+  }
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
@@ -68,7 +84,7 @@ export default async function PublicationsPage() {
             Last 3 years from our investigators{settings?.pubmedAffiliation ? ` + ${settings.pubmedAffiliation}` : ''}
           </p>
           <p className="text-xs text-[#888]">
-            {meta?.generatedAt ? `Updated ${new Date(meta.generatedAt).toLocaleString()}` : 'Cache not yet generated'}
+            {meta?.generatedAt ? `Updated ${formatGeneratedAt(meta.generatedAt)} UTC` : 'Cache not yet generated'}
             {meta?.stale ? ' • refresh recommended' : ''}
           </p>
         </div>

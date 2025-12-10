@@ -20,10 +20,18 @@ async function main() {
       maxPerResearcher: MAX_PER_RESEARCHER,
       maxAffiliation: MAX_AFFILIATION,
       force: true,
+      summariesPerRun: Infinity,
+      llmOptions: {
+        provider: settings.llmProvider || 'openrouter',
+        model: settings.llmModel,
+        apiKey: settings.llmApiKey,
+        systemPrompt: settings.llmSystemPrompt
+      }
     })
 
     const count = result?.meta?.counts?.combined || result?.publications?.length || 0
-    console.log(`[pubmed] cache refreshed: ${count} publications; cache at ${result?.meta?.cachePath || 'runtime/pubmed-cache.json'}`)
+    const summariesGenerated = result?.meta?.summaries?.generated || 0
+    console.log(`[pubmed] cache refreshed: ${count} publications; summaries generated this run: ${summariesGenerated}; cache at ${result?.meta?.cachePath || 'runtime/pubmed-cache.json'}`)
   } catch (err) {
     console.error('[pubmed] cache refresh failed', err)
     process.exitCode = 1

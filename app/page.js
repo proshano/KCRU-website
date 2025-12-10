@@ -33,7 +33,14 @@ export default async function HomePage() {
       researchers: strippedResearchers,
       affiliation: settings?.pubmedAffiliation || '',
       maxPerResearcher: 120,
-      maxAffiliation: 80
+      maxAffiliation: 80,
+      summariesPerRun: Infinity,
+      llmOptions: {
+        provider: settings.llmProvider || 'openrouter',
+        model: settings.llmModel,
+        apiKey: settings.llmApiKey,
+        systemPrompt: settings.llmSystemPrompt
+      }
     })
     publications = pubData?.publications || []
     publicationsStats = pubData?.stats || publicationsStats
