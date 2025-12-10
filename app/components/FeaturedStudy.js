@@ -24,8 +24,8 @@ export default function FeaturedStudy({ trials = [] }) {
   if (trials.length === 0) return null
 
   const trial = trials[currentIndex]
-  const slugValue = typeof trial.slug === 'string' ? trial.slug : trial.slug?.current
-  const href = slugValue ? `/trials/${slugValue}` : '/trials'
+  // Temporary: route to the trials list until individual pages exist
+  const href = '/trials'
   const title = trial.title || 'Study'
   const desc = trial.purpose || trial.condition || 'Research study'
 

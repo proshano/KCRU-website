@@ -114,17 +114,27 @@ function TrialCard({ trial, featured = false }) {
         </div>
 
         {trial.nctId && (
-          <a
-            href={`https://clinicaltrials.gov/study/${trial.nctId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="arrow-link text-[13px] mt-2"
-          >
-            View on ClinicalTrials.gov
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-          </a>
+          featured ? (
+            // Avoid nested anchors when the whole card is wrapped by a Link
+            <span className="arrow-link text-[13px] mt-2 inline-flex items-center gap-1 text-[#5d2ea5]">
+              View on ClinicalTrials.gov
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </span>
+          ) : (
+            <a
+              href={`https://clinicaltrials.gov/study/${trial.nctId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="arrow-link text-[13px] mt-2"
+            >
+              View on ClinicalTrials.gov
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </a>
+          )
         )}
       </div>
     </div>
