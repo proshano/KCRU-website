@@ -48,15 +48,15 @@ export default function FeaturedStudy({ trials = [] }) {
         </div>
 
         {/* Description area - fixed height */}
-        <div style={{ height: '44px', overflow: 'hidden', marginTop: '4px' }}>
+        <div style={{ height: '44px', overflow: 'hidden', marginTop: '16px' }}>
           <div className="text-sm text-[#666] font-normal leading-relaxed line-clamp-2">
             {desc}
           </div>
         </div>
       </div>
 
-      {/* Link - positioned at bottom */}
-      <div className="absolute bottom-7 left-7">
+      {/* Link - placed after description with extra spacing */}
+      <div className="mt-8">
         <Link href={href} className="arrow-link text-[13px]">
           Learn more
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

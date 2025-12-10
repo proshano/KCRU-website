@@ -109,14 +109,14 @@ export default async function HomePage() {
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex flex-wrap gap-3.5 mb-0">
-              <Link href="/trials" className="btn-primary">
+            <div className="flex gap-3.5 mb-0">
+              <Link href="/trials" className="btn-primary text-center flex-1">
                 View Active Studies
               </Link>
-              <Link href="/contact" className="btn-secondary">
+              <Link href="/contact" className="btn-secondary text-center flex-1">
                 Refer a Patient
               </Link>
-              <Link href="/capabilities" className="btn-secondary">
+              <Link href="/capabilities" className="btn-secondary text-center flex-1">
                 Partner With Us
               </Link>
             </div>
@@ -131,7 +131,7 @@ export default async function HomePage() {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em]">
-                Our Team
+                Investigators
               </h2>
               <Link href="/team" className="arrow-link text-[13px]">
                 All profiles
@@ -209,25 +209,37 @@ export default async function HomePage() {
           <div className="ticker">
             {/* First set */}
             {publications.slice(0, 6).map((pub, idx) => (
-              <div key={`a-${idx}`} className="flex items-center gap-3 px-12 whitespace-nowrap text-white text-sm font-medium">
+              <a
+                key={`a-${idx}`}
+                href={pub.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-12 whitespace-nowrap text-white text-sm font-medium hover:text-purple-light transition-colors"
+              >
                 <span className="w-1.5 h-1.5 bg-purple rounded-full flex-shrink-0" />
                 <span>
                   <span className="text-purple-light">{pub.year}</span>
                   {' — '}
                   {pub.title?.length > 80 ? pub.title.slice(0, 80) + '...' : pub.title}
                 </span>
-              </div>
+              </a>
             ))}
             {/* Duplicate for seamless loop */}
             {publications.slice(0, 6).map((pub, idx) => (
-              <div key={`b-${idx}`} className="flex items-center gap-3 px-12 whitespace-nowrap text-white text-sm font-medium">
+              <a
+                key={`b-${idx}`}
+                href={pub.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 px-12 whitespace-nowrap text-white text-sm font-medium hover:text-purple-light transition-colors"
+              >
                 <span className="w-1.5 h-1.5 bg-purple rounded-full flex-shrink-0" />
                 <span>
                   <span className="text-purple-light">{pub.year}</span>
                   {' — '}
                   {pub.title?.length > 80 ? pub.title.slice(0, 80) + '...' : pub.title}
                 </span>
-              </div>
+              </a>
             ))}
           </div>
         </div>

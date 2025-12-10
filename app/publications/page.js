@@ -136,7 +136,16 @@ function PublicationItem({ pub, researchers, provenance }) {
     <article className="p-6 space-y-3">
       <div className="flex flex-wrap items-start gap-4">
         <div className="flex-1 min-w-[240px] space-y-1">
-          <h3 className="text-lg font-semibold text-[#1a1a1a] leading-snug">{pub.title}</h3>
+          <h3 className="text-lg font-semibold leading-snug">
+            <a
+              href={pub.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#1a1a1a] hover:text-purple transition-colors"
+            >
+              {pub.title}
+            </a>
+          </h3>
           <p className="text-sm text-[#666]">{pub.authors?.join(', ')}</p>
           <p className="text-xs text-[#888] font-medium">
             {pub.journal} {pub.year && `· ${pub.year}`}
@@ -159,24 +168,6 @@ function PublicationItem({ pub, researchers, provenance }) {
               )}
             </a>
           ))}
-          <a
-            href={pub.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="h-9 px-4 inline-flex items-center border border-black/[0.08] text-[#1a1a1a] hover:border-purple hover:text-purple text-sm font-medium transition-colors"
-          >
-            PubMed
-          </a>
-          {pub.doi && (
-            <a
-              href={`https://doi.org/${pub.doi}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="h-9 px-4 inline-flex items-center border border-black/[0.08] text-[#1a1a1a] hover:border-purple hover:text-purple text-sm font-medium transition-colors"
-            >
-              DOI
-            </a>
-          )}
         </div>
       </div>
       {matchedResearchers.length > 0 && (

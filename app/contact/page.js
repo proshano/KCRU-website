@@ -11,11 +11,11 @@ export default async function ContactPage() {
   const referral = JSON.parse(JSON.stringify(referralRaw))
 
   const contacts = [
-    settings.contactEmail && { label: 'Email', value: settings.contactEmail, href: `mailto:${settings.contactEmail}` },
+    settings.contactEmail && { label: 'General inquiries', value: 'Send email', href: `mailto:${settings.contactEmail}` },
     settings.phone && { label: 'Phone', value: settings.phone, href: `tel:${settings.phone}` },
     referral.referralPhone && { label: 'Referral phone', value: referral.referralPhone, href: `tel:${referral.referralPhone}` },
     referral.referralFax && { label: 'Referral fax', value: referral.referralFax },
-    referral.referralEmail && { label: 'Referral email', value: referral.referralEmail, href: `mailto:${referral.referralEmail}` },
+    referral.referralEmail && { label: 'Referral inquiries', value: 'Send email', href: `mailto:${referral.referralEmail}` },
   ].filter(Boolean)
 
   return (

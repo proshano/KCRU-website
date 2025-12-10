@@ -8,6 +8,7 @@ export const metadata = {
 }
 
 const navLinks = [
+  { href: '/', label: 'Home' },
   { href: '/trials', label: 'Studies' },
   { href: '/team', label: 'Team' },
   { href: '/publications', label: 'Publications' },
@@ -26,31 +27,16 @@ export default async function RootLayout({ children }) {
     <html lang="en">
       <body>
         <div className="min-h-screen flex flex-col">
-          {/* Institutional bar */}
-          {affiliations.length > 0 && (
-            <div className="bg-purple py-2.5 px-6 md:px-12 flex flex-wrap gap-x-6 gap-y-1 text-xs font-medium tracking-wide text-white/90">
-              {affiliations.map((aff, idx) => (
-                <span key={aff._key || aff.name || idx} className="flex items-center gap-2">
-                  {idx > 0 && <span className="opacity-50 hidden sm:inline">•</span>}
-                  {aff.url ? (
-                    <Link href={aff.url} className="hover:text-white transition-colors">
-                      {aff.name}
-                    </Link>
-                  ) : (
-                    <span>{aff.name}</span>
-                  )}
-                </span>
-              ))}
-            </div>
-          )}
+          {/* Purple accent bar */}
+          <div className="bg-purple h-10"></div>
 
           {/* Navigation */}
           <nav className="sticky top-0 z-50 bg-background border-b border-black/[0.06] px-6 md:px-12 py-5">
             <div className="max-w-[1400px] mx-auto flex justify-between items-center">
-              <Link href="/" className="font-bold text-base tracking-tight">
+              <Link href="/" className="font-bold text-base tracking-tight text-[#444]">
                 {settings?.unitName || 'London Kidney Clinical Research'}
               </Link>
-              <div className="hidden md:flex gap-9 text-sm font-medium text-[#444]">
+              <div className="hidden md:flex gap-9 text-base font-medium text-[#444]">
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
