@@ -21,7 +21,6 @@ export default async function RootLayout({ children }) {
   const settingsRaw = await sanityFetch(queries.siteSettings)
   // Strip Sanity data to plain JSON to break any circular references
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
-  const affiliations = settings?.affiliations || []
 
   return (
     <html lang="en">
@@ -54,17 +53,9 @@ export default async function RootLayout({ children }) {
           <main className="flex-1">{children}</main>
 
           {/* Footer */}
-          <footer className="border-t border-black/[0.08] py-12 px-6 md:px-12 text-sm text-[#888] font-medium mt-12">
+          <footer className="border-t border-black/[0.08] py-12 px-6 md:px-12 text-sm text-[#888] font-medium mt-6">
             <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div>
-                © {new Date().getFullYear()} {settings?.unitName || 'London Kidney Clinical Research'}
-                {affiliations.length > 0 && (
-                  <span className="hidden sm:inline">
-                    {' · '}
-                    {affiliations.map((aff) => aff.name).join(' · ')}
-                  </span>
-                )}
-              </div>
+              <div>© {new Date().getFullYear()}</div>
               <div className="flex gap-6">
                 <Link href="/privacy" className="hover:text-purple transition-colors">Privacy</Link>
                 <Link href="/accessibility" className="hover:text-purple transition-colors">Accessibility</Link>

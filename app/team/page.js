@@ -56,9 +56,6 @@ export default async function TeamPage() {
               <div className="text-sm font-semibold text-[#1a1a1a]">
                 {person.name}
               </div>
-              <div className="text-xs text-[#888] mt-0.5 font-medium">
-                {person.role || 'Researcher'}
-              </div>
               {person.bio && (
                 <p className="text-xs text-[#666] mt-2 line-clamp-2 text-left">{person.bio}</p>
               )}

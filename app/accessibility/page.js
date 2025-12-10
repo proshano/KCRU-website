@@ -40,29 +40,17 @@ export default async function AccessibilityPage() {
           Please include any helpful details, such as the page you were visiting and the assistive
           technology you use.
         </p>
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 text-[#1a1a1a]">
-          {contactEmail && (
-            <div className="p-4 bg-white border border-black/[0.06]">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888]">Email</p>
-              <a className="mt-1 block font-semibold text-purple hover:underline" href={`mailto:${contactEmail}`}>
-                {contactEmail}
-              </a>
-            </div>
-          )}
-          {phone && (
-            <div className="p-4 bg-white border border-black/[0.06]">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888]">Phone</p>
-              <a className="mt-1 block font-semibold text-purple hover:underline" href={`tel:${phone}`}>
-                {phone}
-              </a>
-            </div>
-          )}
-          <div className="p-4 bg-white border border-black/[0.06]">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888]">Organization</p>
-            <p className="mt-1 font-semibold text-[#1a1a1a]">{orgName}</p>
-            <p className="text-[#777] text-sm mt-1">Ontario, Canada</p>
-          </div>
-        </div>
+        {contactEmail && (
+          <a
+            className="inline-flex w-fit items-center justify-center rounded-full bg-purple px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple"
+            href={`mailto:${contactEmail}`}
+          >
+            Email us
+          </a>
+        )}
+        {!contactEmail && (
+          <p className="text-[#777]">Contact email coming soon.</p>
+        )}
       </section>
 
       <section className="space-y-3">

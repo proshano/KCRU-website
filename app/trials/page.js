@@ -71,10 +71,11 @@ function TrialCard({ trial, featured = false }) {
   const status = trial.status || 'recruiting'
   const isRecruiting = status === 'recruiting' || status === 'RECRUITING'
   const slugValue = typeof trial.slug === 'string' ? trial.slug : trial.slug?.current
+  const nctUrl = trial.nctId ? `https://clinicaltrials.gov/study/${trial.nctId}` : null
 
   const cardContent = (
-    <div className={`group p-6 bg-white border border-black/[0.06] transition-all ${featured ? 'hover:-translate-y-1 hover:shadow-lg' : ''}`}>
-      <div className="space-y-3">
+    <div className={`group h-full min-h-[280px] flex flex-col p-6 bg-white border border-black/[0.06] transition-all ${featured ? 'hover:-translate-y-1 hover:shadow-lg' : ''}`}>
+      <div className="space-y-3 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1">
             <span className={`inline-flex items-center gap-2 px-3 py-1 text-[11px] font-semibold rounded-full ${statusStyles[status] || statusStyles.closed}`}>
@@ -140,12 +141,22 @@ function TrialCard({ trial, featured = false }) {
     </div>
   )
 
-  if (slugValue && featured) {
-    return (
-      <Link href={`/trials/${slugValue}`}>
-        {cardContent}
-      </Link>
-    )
+  if (featured) {
+    if (nctUrl) {
+      return (
+        <a href={nctUrl} target="_blank" rel="noopener noreferrer" className="h-full block">
+          {cardContent}
+        </a>
+      )
+    }
+
+    if (slugValue) {
+      return (
+        <Link href={`/trials/${slugValue}`} className="h-full block">
+          {cardContent}
+        </Link>
+      )
+    }
   }
 
   return cardContent

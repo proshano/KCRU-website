@@ -23,6 +23,7 @@ export default async function HomePage() {
   // Get publications for the ticker and cached stats - strip researchers to plain objects to avoid circular refs
   let publications = []
   let publicationsStats = { totalPublications: 0 }
+  let provenance = {}
   try {
     const strippedResearchers = (researchers || []).map(r => ({
       _id: r._id,
@@ -44,6 +45,7 @@ export default async function HomePage() {
     })
     publications = pubData?.publications || []
     publicationsStats = pubData?.stats || publicationsStats
+    provenance = pubData?.provenance || {}
   } catch (e) {
     console.error('Failed to fetch publications:', e)
   }
@@ -101,13 +103,51 @@ export default async function HomePage() {
   const stats = [
     {
       value: recruitingTrials.length || trials.length,
-      label: 'Active studies'
+      label: 'Active studies',
+      href: '/trials'
     },
     {
       value: publicationsStats.totalPublications || publications.length,
-      label: 'Publications in last 3 years'
+      label: 'Publications in last 3 years',
+      href: '/publications'
     }
   ]
+
+  const formatPublishedLabel = pub => {
+    if (pub?.publishedAt) {
+      const dt = new Date(pub.publishedAt)
+      if (!Number.isNaN(dt.getTime())) {
+        return dt.toLocaleString('en-US', { month: 'short', year: 'numeric' })
+      }
+    }
+    if (pub?.year) return pub.year
+    return 'Recent'
+  }
+
+  // Sort publications by year (most recent first), then by number of investigators (more first)
+  const investigatorLookup = new Map((researchers || []).map(r => [r._id, r.name]))
+  const sortedPubs = [...(publications || [])].sort((a, b) => {
+    const yearA = parseInt(a.year, 10) || 0
+    const yearB = parseInt(b.year, 10) || 0
+    if (yearB !== yearA) return yearB - yearA  // newest first
+    
+    // Within same year, prioritize papers with more investigators for variety
+    const invCountA = (provenance?.[a.pmid] || []).length
+    const invCountB = (provenance?.[b.pmid] || []).length
+    return invCountB - invCountA
+  })
+  
+  const tickerItems = sortedPubs.slice(0, 20).map(pub => {
+    // Get all investigators linked to this publication from provenance
+    const linkedInvestigators = (provenance?.[pub.pmid] || [])
+      .map(id => investigatorLookup.get(id))
+      .filter(Boolean)
+    
+    return {
+      ...pub,
+      investigators: linkedInvestigators
+    }
+  })
 
   return (
     <>
@@ -145,14 +185,18 @@ export default async function HomePage() {
             <div className="mt-6 bg-white border border-black/[0.07] rounded-xl shadow-sm overflow-hidden">
               <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-black/[0.06]">
                 {stats.map((stat, idx) => (
-                  <div key={idx} className="px-6 py-5 flex items-center gap-4">
+                  <Link
+                    key={idx}
+                    href={stat.href}
+                    className="px-6 py-5 flex items-center gap-4 transition hover:bg-purple/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                  >
                     <div className="text-[32px] font-bold text-purple tracking-tight leading-none">
                       {stat.value}
                     </div>
                     <div className="text-[13px] text-[#666] font-medium leading-tight whitespace-pre-line">
                       {stat.label}
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -202,9 +246,6 @@ export default async function HomePage() {
                     <div className="text-[13px] font-semibold text-[#1a1a1a] whitespace-nowrap overflow-hidden text-ellipsis">
                       {researcher.name}
                     </div>
-                    <div className="text-[11px] text-[#888] mt-0.5 font-medium">
-                      {researcher.role || 'Researcher'}
-                    </div>
                   </Link>
                 )
               })}
@@ -214,45 +255,62 @@ export default async function HomePage() {
       </section>
 
       {/* Publications Ticker */}
-      {publications.length > 0 && (
-        <div className="ticker-wrapper">
-          <div className="ticker">
-            {/* First set */}
-            {publications.slice(0, 6).map((pub, idx) => (
-              <a
-                key={`a-${idx}`}
-                href={pub.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 px-12 whitespace-nowrap text-white text-sm font-medium hover:text-purple-light transition-colors"
-              >
-                <span className="w-1.5 h-1.5 bg-purple rounded-full flex-shrink-0" />
-                <span>
-                  <span className="text-purple-light">{pub.year}</span>
-                  {' — '}
-                  {pub.title?.length > 80 ? pub.title.slice(0, 80) + '...' : pub.title}
-                </span>
-              </a>
-            ))}
-            {/* Duplicate for seamless loop */}
-            {publications.slice(0, 6).map((pub, idx) => (
-              <a
-                key={`b-${idx}`}
-                href={pub.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-3 px-12 whitespace-nowrap text-white text-sm font-medium hover:text-purple-light transition-colors"
-              >
-                <span className="w-1.5 h-1.5 bg-purple rounded-full flex-shrink-0" />
-                <span>
-                  <span className="text-purple-light">{pub.year}</span>
-                  {' — '}
-                  {pub.title?.length > 80 ? pub.title.slice(0, 80) + '...' : pub.title}
-                </span>
-              </a>
+      {tickerItems.length > 0 && (
+        <>
+        <style>{`
+          @keyframes tickerAnim {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
+        `}</style>
+        <div style={{ background: '#1a1a1a', padding: '16px 0', overflow: 'hidden' }}>
+          <div style={{ color: '#666', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 12px 48px' }}>
+            Recent research
+          </div>
+          <div style={{ display: 'flex', gap: '20px', padding: '4px 48px 12px', animation: 'tickerAnim 60s linear infinite' }}>
+            {[0, 1].map(loop => (
+              tickerItems.map((pub, idx) => {
+                const investigatorsLabel = (pub.investigators || []).join(', ')
+                return (
+                  <a
+                    key={`${loop}-${pub.pmid || idx}`}
+                    href={pub.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '6px',
+                      width: '320px',
+                      minWidth: '320px',
+                      padding: '14px 18px',
+                      borderRadius: '10px',
+                      background: '#2a2a2a',
+                      border: '1px solid #444',
+                      textDecoration: 'none',
+                      flexShrink: 0
+                    }}
+                  >
+                    <div style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.35, color: '#ffffff' }}>
+                      {pub.title}
+                    </div>
+                    {pub.journal && (
+                      <div style={{ fontSize: '10px', fontWeight: 600, color: '#B8A0D2', letterSpacing: '0.02em' }}>
+                        {pub.journal}
+                      </div>
+                    )}
+                    {investigatorsLabel && (
+                      <div style={{ fontSize: '11px', color: '#888', lineHeight: 1.4 }}>
+                        {investigatorsLabel}
+                      </div>
+                    )}
+                  </a>
+                )
+              })
             ))}
           </div>
         </div>
+        </>
       )}
     </>
   )
