@@ -74,11 +74,6 @@ export default async function PublicationsPage() {
         </div>
         <div className="text-right text-sm text-[#666] font-medium space-y-1">
           <div>{publications.length} publications</div>
-          {meta?.counts?.combined ? (
-            <div className="text-xs text-[#888]">
-              {meta.counts.researchers || 0} via researchers{settings?.pubmedAffiliation ? ` • ${meta.counts.affiliation || 0} via affiliation` : ''}
-            </div>
-          ) : null}
         </div>
       </header>
 

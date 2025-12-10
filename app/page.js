@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
-import { getPublicationsForResearchersDisplay } from '@/lib/publications'
+import { getCachedPublicationsDisplay } from '@/lib/publications'
 import FeaturedStudy from './components/FeaturedStudy'
 
 export const revalidate = 3600
@@ -20,16 +20,23 @@ export default async function HomePage() {
   const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
   const news = JSON.parse(JSON.stringify(newsRaw || []))
 
-  // Get publications for the ticker - strip researchers to plain objects to avoid circular refs
+  // Get publications for the ticker and cached stats - strip researchers to plain objects to avoid circular refs
   let publications = []
+  let publicationsStats = { totalPublications: 0 }
   try {
     const strippedResearchers = (researchers || []).map(r => ({
       _id: r._id,
       name: r.name,
       pubmedQuery: r.pubmedQuery
     }))
-    const pubData = await getPublicationsForResearchersDisplay(strippedResearchers, 30)
+    const pubData = await getCachedPublicationsDisplay({
+      researchers: strippedResearchers,
+      affiliation: settings?.pubmedAffiliation || '',
+      maxPerResearcher: 120,
+      maxAffiliation: 80
+    })
     publications = pubData?.publications || []
+    publicationsStats = pubData?.stats || publicationsStats
   } catch (e) {
     console.error('Failed to fetch publications:', e)
   }
@@ -86,12 +93,15 @@ export default async function HomePage() {
   // Stats from data
   const stats = [
     {
-      value: trials.reduce((sum, t) => sum + (t.patientTarget || 0), 0) || '500+',
-      label: 'Patients in\nactive trials'
+      value: recruitingTrials.length || trials.length,
+      label: 'Active\nstudies'
     },
-    { value: '40+', label: 'Collaborating\nspecialties' },
-    { value: recruitingTrials.length || trials.length, label: 'Active\nstudies' },
-    { value: `${publications.length}+`, label: 'Publications\n(3-year)' },
+    {
+      value: publicationsStats.totalPublications || publications.length,
+      label: 'Publications in last 3 years'
+    },
+    { value: '', label: '' },
+    { value: '', label: '' },
   ]
 
   return (
