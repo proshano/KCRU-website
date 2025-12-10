@@ -24,8 +24,10 @@ export default function FeaturedStudy({ trials = [] }) {
   if (trials.length === 0) return null
 
   const trial = trials[currentIndex]
-  // Temporary: route to the trials list until individual pages exist
-  const href = '/trials'
+  // Prefer direct ClinicalTrials.gov link when available; otherwise fall back to internal routes
+  const href = trial.nctId
+    ? `https://clinicaltrials.gov/study/${trial.nctId}`
+    : (typeof trial.slug === 'string' ? `/trials/${trial.slug}` : trial.slug?.current ? `/trials/${trial.slug.current}` : '/trials')
   const title = trial.title || 'Study'
   const desc = trial.purpose || trial.condition || 'Research study'
 
