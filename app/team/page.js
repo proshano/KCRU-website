@@ -16,9 +16,8 @@ export default async function TeamPage() {
           <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
             Our Team
           </h2>
-          <h1 className="text-4xl font-bold tracking-tight">Team</h1>
+          <h1 className="text-4xl font-bold tracking-tight">Investigators</h1>
         </div>
-        <span className="text-sm text-[#666] font-medium">{researchers?.length || 0} members</span>
       </header>
 
       {(!researchers || researchers.length === 0) && (
@@ -38,13 +37,16 @@ export default async function TeamPage() {
 
           const cardBody = (
             <div className="team-member">
-              <div className="team-photo w-28 h-28 mx-auto">
+              <div
+                className="team-photo mx-auto"
+                style={{ width: '105px', height: '105px' }}
+              >
                 {person.photo ? (
                   <Image
-                    src={urlFor(person.photo).width(140).height(140).fit('crop').url()}
+                    src={urlFor(person.photo).width(132).height(132).fit('crop').url()}
                     alt={person.name || 'Researcher'}
-                    width={140}
-                    height={140}
+                    width={132}
+                    height={132}
                     className="w-full h-full object-cover"
                   />
                 ) : (
