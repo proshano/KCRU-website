@@ -25,7 +25,12 @@ async function main() {
         provider: settings.llmProvider || 'openrouter',
         model: settings.llmModel,
         apiKey: settings.llmApiKey,
-        systemPrompt: settings.llmSystemPrompt
+        systemPrompt: settings.llmSystemPrompt,
+        // Conservative rate limits to avoid throttling; adjust via env if desired.
+        concurrency: Number(process.env.LLM_CONCURRENCY || 1),
+        delayMs: Number(process.env.LLM_DELAY_MS || 3000),
+        retryAttempts: Number(process.env.LLM_RETRY_ATTEMPTS || 4),
+        retryDelayMs: Number(process.env.LLM_RETRY_DELAY_MS || 5000)
       }
     })
 

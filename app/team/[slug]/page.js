@@ -7,6 +7,23 @@ import { getShareButtons, shareIcons } from '@/lib/sharing'
 
 export const revalidate = 86400 // use cache; refresh daily
 
+function formatGeneratedAt(ts) {
+  if (!ts) return null
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'UTC',
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(ts))
+  } catch (err) {
+    console.error('Failed to format generatedAt', err)
+    return null
+  }
+}
+
 export default async function TeamMemberPage({ params }) {
   const resolvedParams = await params
   const slugRaw = resolvedParams?.slug
