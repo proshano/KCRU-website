@@ -23,6 +23,19 @@ export default {
       description: 'e.g., Principal Investigator, Research Associate, PhD Student'
     },
     {
+      name: 'category',
+      title: 'Category',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'Investigator', value: 'investigator' },
+          { title: 'Research staff', value: 'staff' }
+        ]
+      },
+      initialValue: 'investigator',
+      description: 'Use "Research staff" for coordinators/assistants who are not PIs.'
+    },
+    {
       name: 'photo',
       title: 'Photo',
       type: 'image',

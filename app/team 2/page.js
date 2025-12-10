@@ -5,9 +5,7 @@ import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 export const revalidate = 3600 // 1 hour
 
 export default async function TeamPage() {
-  const researchersRaw = await sanityFetch(queries.allResearchers)
-  // Strip Sanity data to plain JSON to break any circular references
-  const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
+  const researchers = await sanityFetch(queries.allResearchers)
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
@@ -16,7 +14,7 @@ export default async function TeamPage() {
           <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
             Our Team
           </h2>
-          <h1 className="text-4xl font-bold tracking-tight">Team</h1>
+          <h1 className="text-4xl font-bold tracking-tight">Investigators</h1>
         </div>
         <span className="text-sm text-[#666] font-medium">{researchers?.length || 0} members</span>
       </header>
@@ -36,19 +34,19 @@ export default async function TeamPage() {
             .slice(0, 2)
             .toUpperCase() || '?'
 
-          const cardBody = (
+          const content = (
             <div className="team-member">
-              <div className="team-photo w-28 h-28 mx-auto">
+              <div className="team-photo">
                 {person.photo ? (
                   <Image
-                    src={urlFor(person.photo).width(140).height(140).fit('crop').url()}
+                    src={urlFor(person.photo).width(200).height(200).fit('crop').url()}
                     alt={person.name || 'Researcher'}
-                    width={140}
-                    height={140}
+                    width={200}
+                    height={200}
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-[24px] font-semibold text-[#aaa]">{initials}</span>
+                  <span className="text-[28px] font-semibold text-[#aaa]">{initials}</span>
                 )}
               </div>
               <div className="text-sm font-semibold text-[#1a1a1a]">
@@ -60,21 +58,16 @@ export default async function TeamPage() {
               {person.bio && (
                 <p className="text-xs text-[#666] mt-2 line-clamp-2 text-left">{person.bio}</p>
               )}
+              <SocialLinks person={person} />
             </div>
           )
 
-          const social = <SocialLinks key={`${person._id}-social`} person={person} />
-
           return href ? (
-            <div key={person._id} className="flex flex-col">
-              <Link href={href}>{cardBody}</Link>
-              {social}
-            </div>
+            <Link key={person._id} href={href}>
+              {content}
+            </Link>
           ) : (
-            <div key={person._id} className="flex flex-col">
-              {cardBody}
-              {social}
-            </div>
+            <div key={person._id}>{content}</div>
           )
         })}
       </div>

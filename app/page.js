@@ -131,7 +131,7 @@ export default async function HomePage() {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em]">
-                Our Investigators
+                Our Team
               </h2>
               <Link href="/team" className="arrow-link text-[13px]">
                 All profiles
