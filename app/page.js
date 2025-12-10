@@ -94,14 +94,12 @@ export default async function HomePage() {
   const stats = [
     {
       value: recruitingTrials.length || trials.length,
-      label: 'Active\nstudies'
+      label: 'Active studies'
     },
     {
       value: publicationsStats.totalPublications || publications.length,
       label: 'Publications in last 3 years'
-    },
-    { value: '', label: '' },
-    { value: '', label: '' },
+    }
   ]
 
   return (
@@ -135,6 +133,22 @@ export default async function HomePage() {
             {recruitingTrials.length > 0 && (
               <FeaturedStudy trials={recruitingTrials} />
             )}
+
+            {/* Inline stats below featured study */}
+            <div className="mt-6 bg-white border border-black/[0.07] rounded-xl shadow-sm overflow-hidden">
+              <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-black/[0.06]">
+                {stats.map((stat, idx) => (
+                  <div key={idx} className="px-6 py-5 flex items-center gap-4">
+                    <div className="text-[32px] font-bold text-purple tracking-tight leading-none">
+                      {stat.value}
+                    </div>
+                    <div className="text-[13px] text-[#666] font-medium leading-tight whitespace-pre-line">
+                      {stat.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Right side - Team showcase */}
@@ -191,27 +205,6 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* Stats Bar */}
-      <div className="bg-white border-t border-b border-black/[0.06]">
-        <div className="max-w-[1400px] mx-auto grid grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat, idx) => (
-            <div
-              key={idx}
-              className={`py-7 px-6 md:px-12 flex items-center gap-4 ${
-                idx < 3 ? 'border-r border-black/[0.06]' : ''
-              } ${idx === 1 ? 'lg:border-r' : ''} ${idx >= 2 ? 'border-t lg:border-t-0 border-black/[0.06]' : ''}`}
-            >
-              <div className="text-[32px] font-bold text-purple tracking-tight leading-none">
-                {stat.value}
-              </div>
-              <div className="text-[13px] text-[#666] font-medium leading-tight whitespace-pre-line">
-                {stat.label}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
       {/* Publications Ticker */}
       {publications.length > 0 && (
