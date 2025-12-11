@@ -1,0 +1,105 @@
+import { NextResponse } from 'next/server'
+import fs from 'fs/promises'
+import path from 'path'
+import { writeClient } from '@/lib/sanity'
+
+const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN || ''
+const CACHE_PATH = path.join(process.cwd(), 'runtime', 'pubmed-cache.json')
+const CACHE_DOC_ID = 'pubmedCache'
+const CACHE_DOC_TYPE = 'pubmedCache'
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
+function extractToken(request) {
+  const header = request.headers.get('authorization') || ''
+  if (!header) return ''
+  if (header.startsWith('Bearer ')) return header.slice(7)
+  return header
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+}
+
+export async function POST(request) {
+  if (AUTH_TOKEN) {
+    const token = extractToken(request)
+    if (token !== AUTH_TOKEN) {
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
+    }
+  }
+
+  try {
+    // Read local cache file
+    let localCache
+    try {
+      const raw = await fs.readFile(CACHE_PATH, 'utf8')
+      localCache = JSON.parse(raw)
+    } catch (err) {
+      return NextResponse.json({ 
+        ok: false, 
+        error: 'No local cache found. Run "Refresh Cache" first to generate it.' 
+      }, { status: 404, headers: CORS_HEADERS })
+    }
+
+    // Convert to Sanity format
+    const publications = (localCache.publications || []).map((pub, idx) => ({
+      _key: pub.pmid || `pub-${idx}`,
+      pmid: pub.pmid,
+      title: pub.title,
+      authors: pub.authors || [],
+      journal: pub.journal,
+      year: pub.year,
+      month: pub.month,
+      abstract: pub.abstract,
+      doi: pub.doi,
+      pubmedUrl: pub.pubmedUrl,
+      laySummary: pub.laySummary || null,
+    }))
+
+    const provenanceArray = Object.entries(localCache.provenance || {}).map(([pmid, ids]) => ({
+      _key: pmid,
+      pmid,
+      researcherIds: Array.isArray(ids) ? ids : Array.from(ids || []),
+    }))
+
+    const totalWithSummary = publications.filter(p => p.laySummary).length
+
+    const doc = {
+      _id: CACHE_DOC_ID,
+      _type: CACHE_DOC_TYPE,
+      cacheKey: localCache.key,
+      lastRefreshedAt: localCache.generatedAt || new Date().toISOString(),
+      refreshInProgress: false,
+      refreshStartedAt: null,
+      publications,
+      provenance: provenanceArray,
+      stats: {
+        totalPublications: publications.length,
+        totalWithSummary,
+        lastSummaryModel: localCache.meta?.summaries?.model || null,
+      },
+    }
+
+    await writeClient.createOrReplace(doc)
+
+    return NextResponse.json({
+      ok: true,
+      message: 'Cache uploaded to Sanity',
+      stats: {
+        publications: publications.length,
+        withSummary: totalWithSummary,
+      },
+    }, { headers: CORS_HEADERS })
+  } catch (err) {
+    console.error('[pubmed] upload endpoint failed', err)
+    return NextResponse.json({ ok: false, error: err?.message || 'Upload failed' }, { status: 500, headers: CORS_HEADERS })
+  }
+}
+
+export const revalidate = 0
+export const dynamic = 'force-dynamic'

@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "refresh:pubmed": "node scripts/refresh-pubmed-cache.js"
+    "refresh:pubmed": "node scripts/refresh-pubmed-cache.js",
+    "upload:pubmed": "node scripts/upload-cache-to-sanity.js"
   },
   "keywords": [],
   "author": "",

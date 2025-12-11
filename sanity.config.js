@@ -3,6 +3,7 @@ import { deskTool } from 'sanity/desk'
 import { visionTool } from '@sanity/vision'
 import { schemaTypes } from './sanity/schemas'
 import { pubmedCacheRefreshAction } from './sanity/plugins/pubmedCacheRefreshAction'
+import { pubmedCacheTool } from './sanity/plugins/pubmedCacheTool'
 
 export default defineConfig({
   name: 'kcru-website',
@@ -10,7 +11,7 @@ export default defineConfig({
   // Fallback values so Studio can start even if env vars aren’t loaded
   projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 't6eeltne',
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
-  plugins: [deskTool(), visionTool(), pubmedCacheRefreshAction()],
+  plugins: [deskTool(), visionTool(), pubmedCacheRefreshAction(), pubmedCacheTool()],
   schema: {
     types: schemaTypes,
   },
