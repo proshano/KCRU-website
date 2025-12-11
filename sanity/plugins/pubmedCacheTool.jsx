@@ -28,7 +28,20 @@ function PubmedCacheTool({ tool }) {
         lastRefreshedAt,
         refreshInProgress,
         "totalPublications": stats.totalPublications,
-        "totalWithSummary": stats.totalWithSummary
+        "totalWithSummary": stats.totalWithSummary,
+        "recentWithSummary": publications[defined(laySummary) && laySummary != null][0...5]{
+          pmid,
+          title,
+          journal,
+          year,
+          laySummary
+        },
+        "recentWithoutSummary": publications[!defined(laySummary) || laySummary == null][0...3]{
+          pmid,
+          title,
+          journal,
+          year
+        }
       }`)
       const res = await fetch(`https://${projectId}.api.sanity.io/v2024-01-01/data/query/${dataset}?query=${query}`)
       const data = await res.json()
@@ -196,11 +209,12 @@ function PubmedCacheTool({ tool }) {
             </Stack>
 
             <Stack space={3}>
-              <Text size={2} weight="semibold">Step 2: Upload to Sanity</Text>
-              <Text size={1} muted>Uploads local cache to Sanity so it works on Vercel. Only needed after local refresh.</Text>
+              <Text size={2} weight="semibold">Re-upload to Sanity (Optional)</Text>
+              <Text size={1} muted>Refresh already saves to Sanity. Use this only if Sanity sync failed or to re-upload from local file.</Text>
               <Button
-                tone="positive"
-                text={uploading ? 'Uploading...' : 'Upload to Sanity'}
+                tone="default"
+                mode="ghost"
+                text={uploading ? 'Uploading...' : 'Re-upload to Sanity'}
                 onClick={handleUpload}
                 disabled={refreshing || uploading}
               />
@@ -223,6 +237,51 @@ function PubmedCacheTool({ tool }) {
             )}
           </Stack>
         </Card>
+
+        {/* Cache Preview */}
+        {status?.recentWithSummary?.length > 0 && (
+          <Card padding={4} radius={2} shadow={1}>
+            <Stack space={4}>
+              <Heading as="h2" size={1}>Sample Publications with Summaries</Heading>
+              <Stack space={3}>
+                {status.recentWithSummary.map((pub) => (
+                  <Card key={pub.pmid} padding={3} radius={2} tone="transparent" style={{ background: '#f9f9f9' }}>
+                    <Stack space={2}>
+                      <Text size={1} weight="semibold" style={{ lineHeight: 1.4 }}>
+                        {pub.title?.length > 120 ? pub.title.slice(0, 120) + '...' : pub.title}
+                      </Text>
+                      <Text size={0} muted>
+                        {pub.journal} · {pub.year} · PMID: {pub.pmid}
+                      </Text>
+                      <Card padding={2} radius={1} tone="positive" style={{ background: '#ecfdf5' }}>
+                        <Text size={1} style={{ fontStyle: 'italic', color: '#065f46' }}>
+                          {pub.laySummary}
+                        </Text>
+                      </Card>
+                    </Stack>
+                  </Card>
+                ))}
+              </Stack>
+            </Stack>
+          </Card>
+        )}
+
+        {/* Papers needing summaries */}
+        {status?.recentWithoutSummary?.length > 0 && (
+          <Card padding={4} radius={2} shadow={1} tone="caution">
+            <Stack space={3}>
+              <Heading as="h2" size={1}>Papers Still Needing Summaries</Heading>
+              <Text size={1} muted>These papers don't have AI summaries yet. Run a refresh to generate them.</Text>
+              <Stack space={2}>
+                {status.recentWithoutSummary.map((pub) => (
+                  <Text key={pub.pmid} size={1}>
+                    • {pub.title?.length > 80 ? pub.title.slice(0, 80) + '...' : pub.title} ({pub.year})
+                  </Text>
+                ))}
+              </Stack>
+            </Stack>
+          </Card>
+        )}
 
         {/* Terminal Alternative */}
         <Card padding={4} radius={2} shadow={1} tone="transparent">
