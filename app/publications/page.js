@@ -87,7 +87,6 @@ export default async function PublicationsPage() {
           </p>
           <p className="text-xs text-[#888]">
             {meta?.generatedAt ? `Updated ${formatGeneratedAt(meta.generatedAt)} UTC` : 'Cache not yet generated'}
-            {meta?.stale ? ' • refresh recommended' : ''}
           </p>
         </div>
         <div className="text-right text-sm text-[#666] font-medium space-y-1">
