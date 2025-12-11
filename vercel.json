@@ -1,16 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/pubmed/refresh",
-      "schedule": "0 2 * * *"
-    },
-    {
       "path": "/api/publications?refresh=true",
       "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/trials?refresh=true",
-      "schedule": "0 7 * * *"
     }
   ]
 }
