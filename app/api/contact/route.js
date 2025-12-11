@@ -118,7 +118,7 @@ async function sendNotification({ payload, option, attachment }) {
   `
 
   try {
-    return await sendEmail({
+    const result = await sendEmail({
       to: option.email,
       subject,
       text,
@@ -126,6 +126,12 @@ async function sendNotification({ payload, option, attachment }) {
       replyTo: payload.email,
       attachments: attachment ? [attachment] : undefined
     })
+
+    if (result?.skipped) {
+      console.error('Contact email skipped', result)
+    }
+
+    return result
   } catch (error) {
     console.error('Failed to send contact email', error)
     return { error: true, message: error.message }
@@ -222,7 +228,12 @@ export async function POST(request) {
   }
 
   await storeSubmission({ payload, option, headers })
-  await sendNotification({ payload, option, attachment: normalizedAttachment })
+  const sendResult = await sendNotification({ payload, option, attachment: normalizedAttachment })
+
+  if (sendResult?.skipped || sendResult?.error) {
+    const reason = sendResult?.reason || sendResult?.message || 'Email failed to send.'
+    return NextResponse.json({ error: reason }, { status: 500 })
+  }
 
   return NextResponse.json({
     ok: true,
