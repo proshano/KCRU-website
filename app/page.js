@@ -334,10 +334,11 @@ export default async function HomePage() {
             {[0, 1].map(loop => (
               tickerItems.map((pub, idx) => {
                 const investigatorsLabel = (pub.investigators || []).join(', ')
+                const pubUrl = pub?.url || (pub?.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/` : '#')
                 return (
                   <a
                     key={`${loop}-${pub.pmid || idx}`}
-                    href={pub.url}
+                    href={pubUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="ticker-card"
