@@ -282,7 +282,7 @@ export default async function HomePage() {
             display: flex;
             gap: 20px;
             padding: 4px 48px 12px;
-            animation: tickerAnim 60s linear infinite;
+            animation: tickerAnim 45s linear infinite;
           }
           .ticker-card {
             display: flex;
