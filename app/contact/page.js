@@ -70,30 +70,13 @@ export default async function ContactPage() {
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-10">
-      <header>
-        <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
-          Reach Out
-        </h2>
-        <h1 className="text-4xl font-bold tracking-tight">Get in touch</h1>
-        <p className="text-[#666] mt-3 max-w-2xl">
-          Connect with the team for referrals, research partnerships, training opportunities, or
-          philanthropic support.
-        </p>
+      <header className="space-y-2">
+        <h1 className="text-4xl font-bold tracking-tight">Contact us</h1>
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-6">
           <section className="space-y-4">
-            <div className="space-y-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888]">
-                Contact form
-              </p>
-              <h2 className="text-2xl font-bold text-[#1a1a1a]">Tell us how we can help</h2>
-              <p className="text-sm text-[#555]">
-                We route messages directly based on the reason you choose. Every submission requires
-                a contact email.
-              </p>
-            </div>
             <ContactForm options={publicOptions} recaptchaSiteKey={recaptchaSiteKey} />
           </section>
         </div>
