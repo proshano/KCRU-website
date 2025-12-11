@@ -1,0 +1,247 @@
+0 verbose cli /Users/pavelroshanov/.nvm/versions/node/v22.17.0/bin/node /Users/pavelroshanov/.nvm/versions/node/v22.17.0/bin/npm
+1 info using npm@11.6.4
+2 info using node@v22.17.0
+3 silly config load:file:/Users/pavelroshanov/.nvm/versions/node/v22.17.0/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/.npmrc
+5 silly config load:file:/Users/pavelroshanov/.npmrc
+6 silly config load:file:/Users/pavelroshanov/.nvm/versions/node/v22.17.0/etc/npmrc
+7 verbose title npm install @sanity/ui@^2.1.10
+8 verbose argv "install" "--no-fund" "--no-audit" "@sanity/ui@^2.1.10"
+9 verbose logfile logs-max:10 dir:/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/.npm-cache/_logs/2025-12-11T02_39_45_972Z-
+10 verbose logfile /Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/.npm-cache/_logs/2025-12-11T02_39_45_972Z-debug-0.log
+11 silly logfile done cleaning log files
+12 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+13 verbose shrinkwrap failed to load node_modules/.package-lock.json out of date, updated: node_modules
+14 silly idealTree buildDeps
+15 silly fetch manifest @sanity/ui@^2.1.10
+16 silly packumentCache full:https://registry.npmjs.org/@sanity%2fui cache-miss
+17 http cache https://registry.npmjs.org/@sanity%2fui 18ms (cache hit)
+18 silly packumentCache full:https://registry.npmjs.org/@sanity%2fui set size:5636298 disposed:false
+19 silly fetch manifest react@^18.3.1
+20 silly packumentCache full:https://registry.npmjs.org/react cache-miss
+21 http cache https://registry.npmjs.org/react 25ms (cache hit)
+22 silly packumentCache full:https://registry.npmjs.org/react set size:6320654 disposed:false
+23 silly fetch manifest react-dom@^18.3.1
+24 silly packumentCache full:https://registry.npmjs.org/react-dom cache-miss
+25 http cache https://registry.npmjs.org/react-dom 310ms (cache hit)
+26 silly packumentCache full:https://registry.npmjs.org/react-dom set size:8303213 disposed:false
+27 silly fetch manifest react-is@^18 || >=19.0.0-0
+28 silly packumentCache full:https://registry.npmjs.org/react-is cache-miss
+29 http cache https://registry.npmjs.org/react-is 9ms (cache hit)
+30 silly packumentCache full:https://registry.npmjs.org/react-is set size:5123974 disposed:false
+31 silly fetch manifest styled-components@^6.1.19
+32 silly packumentCache full:https://registry.npmjs.org/styled-components cache-miss
+33 http cache https://registry.npmjs.org/styled-components 7ms (cache hit)
+34 silly packumentCache full:https://registry.npmjs.org/styled-components set size:1968910 disposed:false
+35 silly placeDep ROOT @sanity/ui@2.16.22 OK for: kcru-website@1.0.0 want: ^2.1.10
+36 silly placeDep ROOT react-is@19.2.1 REPLACE for: @sanity/ui@2.16.22 want: ^18 || >=19.0.0-0
+37 silly fetch manifest react-refractor@^2.2.0
+38 silly packumentCache full:https://registry.npmjs.org/react-refractor cache-miss
+39 http cache https://registry.npmjs.org/react-refractor 2ms (cache hit)
+40 silly packumentCache full:https://registry.npmjs.org/react-refractor set size:59577 disposed:false
+41 silly fetch manifest react@^18 || >=19.0.0-0
+42 silly packumentCache full:https://registry.npmjs.org/react cache-miss
+43 http cache https://registry.npmjs.org/react 7ms (cache hit)
+44 silly packumentCache full:https://registry.npmjs.org/react set size:6320654 disposed:false
+45 silly placeDep node_modules/@sanity/ui react-refractor@2.2.0 OK for: @sanity/ui@2.16.22 want: ^2.2.0
+46 silly fetch manifest refractor@^3.6.0
+47 silly packumentCache full:https://registry.npmjs.org/refractor cache-miss
+48 silly fetch manifest unist-util-filter@^2.0.2
+49 silly packumentCache full:https://registry.npmjs.org/unist-util-filter cache-miss
+50 silly fetch manifest unist-util-visit-parents@^3.0.2
+51 silly packumentCache full:https://registry.npmjs.org/unist-util-visit-parents cache-miss
+52 http cache https://registry.npmjs.org/unist-util-filter 5ms (cache hit)
+53 silly packumentCache full:https://registry.npmjs.org/unist-util-filter set size:54589 disposed:false
+54 http cache https://registry.npmjs.org/unist-util-visit-parents 6ms (cache hit)
+55 silly packumentCache full:https://registry.npmjs.org/unist-util-visit-parents set size:103476 disposed:false
+56 http cache https://registry.npmjs.org/refractor 8ms (cache hit)
+57 silly packumentCache full:https://registry.npmjs.org/refractor set size:213355 disposed:false
+58 silly fetch manifest react-is@^16.7.0
+59 silly packumentCache full:https://registry.npmjs.org/react-is cache-miss
+60 http cache https://registry.npmjs.org/react-is 6ms (cache hit)
+61 silly packumentCache full:https://registry.npmjs.org/react-is set size:5123974 disposed:false
+62 silly placeDep node_modules/hoist-non-react-statics react-is@16.13.1 OK for: hoist-non-react-statics@3.3.2 want: ^16.7.0
+63 silly fetch manifest react-is@^16.13.1
+64 silly packumentCache full:https://registry.npmjs.org/react-is cache-miss
+65 http cache https://registry.npmjs.org/react-is 7ms (cache hit)
+66 silly packumentCache full:https://registry.npmjs.org/react-is set size:5123974 disposed:false
+67 silly placeDep node_modules/prop-types react-is@16.13.1 OK for: prop-types@15.8.1 want: ^16.13.1
+68 silly placeDep node_modules/@sanity/ui refractor@3.6.0 OK for: react-refractor@2.2.0 want: ^3.6.0
+69 silly placeDep node_modules/@sanity/ui unist-util-filter@2.0.3 OK for: react-refractor@2.2.0 want: ^2.0.2
+70 silly placeDep node_modules/@sanity/ui unist-util-visit-parents@3.1.1 OK for: react-refractor@2.2.0 want: ^3.0.2
+71 silly fetch manifest prismjs@~1.27.0
+72 silly packumentCache full:https://registry.npmjs.org/prismjs cache-miss
+73 silly fetch manifest hastscript@^6.0.0
+74 silly packumentCache full:https://registry.npmjs.org/hastscript cache-miss
+75 silly fetch manifest parse-entities@^2.0.0
+76 silly packumentCache full:https://registry.npmjs.org/parse-entities cache-miss
+77 silly fetch manifest unist-util-is@^4.0.0
+78 silly packumentCache full:https://registry.npmjs.org/unist-util-is cache-miss
+79 silly fetch manifest @types/unist@^2.0.0
+80 silly packumentCache full:https://registry.npmjs.org/@types%2funist cache-miss
+81 silly fetch manifest unist-util-is@^4.0.0
+82 silly packumentCache full:https://registry.npmjs.org/unist-util-is cache-miss
+83 http cache https://registry.npmjs.org/hastscript 6ms (cache hit)
+84 silly packumentCache full:https://registry.npmjs.org/hastscript set size:89704 disposed:false
+85 http cache https://registry.npmjs.org/parse-entities 7ms (cache hit)
+86 silly packumentCache full:https://registry.npmjs.org/parse-entities set size:58539 disposed:false
+87 http cache https://registry.npmjs.org/@types%2funist 7ms (cache hit)
+88 silly packumentCache full:https://registry.npmjs.org/@types%2funist set size:39215 disposed:false
+89 http cache https://registry.npmjs.org/unist-util-is 8ms (cache hit)
+90 silly packumentCache full:https://registry.npmjs.org/unist-util-is set size:79350 disposed:false
+91 http cache https://registry.npmjs.org/prismjs 9ms (cache hit)
+92 silly packumentCache full:https://registry.npmjs.org/prismjs set size:114071 disposed:false
+93 http cache https://registry.npmjs.org/unist-util-is 10ms (cache hit)
+94 silly packumentCache full:https://registry.npmjs.org/unist-util-is set size:79350 disposed:false
+95 silly packumentCache full:https://registry.npmjs.org/unist-util-is dispose
+96 silly placeDep node_modules/@sanity/ui hastscript@6.0.0 OK for: refractor@3.6.0 want: ^6.0.0
+97 silly placeDep node_modules/@sanity/ui parse-entities@2.0.0 OK for: refractor@3.6.0 want: ^2.0.0
+98 silly placeDep ROOT prismjs@1.27.0 OK for: refractor@3.6.0 want: ~1.27.0
+99 silly fetch manifest @types/hast@^2.0.0
+100 silly packumentCache full:https://registry.npmjs.org/@types%2fhast cache-miss
+101 silly fetch manifest property-information@^5.0.0
+102 silly packumentCache full:https://registry.npmjs.org/property-information cache-miss
+103 silly fetch manifest comma-separated-tokens@^1.0.0
+104 silly packumentCache full:https://registry.npmjs.org/comma-separated-tokens cache-miss
+105 silly fetch manifest space-separated-tokens@^1.0.0
+106 silly packumentCache full:https://registry.npmjs.org/space-separated-tokens cache-miss
+107 silly fetch manifest hast-util-parse-selector@^2.0.0
+108 silly packumentCache full:https://registry.npmjs.org/hast-util-parse-selector cache-miss
+109 silly fetch manifest is-decimal@^1.0.0
+110 silly packumentCache full:https://registry.npmjs.org/is-decimal cache-miss
+111 silly fetch manifest is-hexadecimal@^1.0.0
+112 silly packumentCache full:https://registry.npmjs.org/is-hexadecimal cache-miss
+113 silly fetch manifest is-alphanumerical@^1.0.0
+114 silly packumentCache full:https://registry.npmjs.org/is-alphanumerical cache-miss
+115 silly fetch manifest character-entities@^1.0.0
+116 silly packumentCache full:https://registry.npmjs.org/character-entities cache-miss
+117 http cache https://registry.npmjs.org/property-information 5ms (cache hit)
+118 silly packumentCache full:https://registry.npmjs.org/property-information set size:183767 disposed:false
+119 silly fetch manifest character-entities-legacy@^1.0.0
+120 silly packumentCache full:https://registry.npmjs.org/character-entities-legacy cache-miss
+121 http cache https://registry.npmjs.org/is-decimal 8ms (cache hit)
+122 silly packumentCache full:https://registry.npmjs.org/is-decimal set size:25885 disposed:false
+123 silly fetch manifest character-reference-invalid@^1.0.0
+124 silly packumentCache full:https://registry.npmjs.org/character-reference-invalid cache-miss
+125 http cache https://registry.npmjs.org/@types%2fhast 9ms (cache hit)
+126 silly packumentCache full:https://registry.npmjs.org/@types%2fhast set size:32563 disposed:false
+127 http cache https://registry.npmjs.org/hast-util-parse-selector 9ms (cache hit)
+128 silly packumentCache full:https://registry.npmjs.org/hast-util-parse-selector set size:53712 disposed:false
+129 http cache https://registry.npmjs.org/space-separated-tokens 13ms (cache hit)
+130 silly packumentCache full:https://registry.npmjs.org/space-separated-tokens set size:36967 disposed:false
+131 http cache https://registry.npmjs.org/comma-separated-tokens 14ms (cache hit)
+132 silly packumentCache full:https://registry.npmjs.org/comma-separated-tokens set size:45877 disposed:false
+133 http cache https://registry.npmjs.org/is-alphanumerical 15ms (cache hit)
+134 silly packumentCache full:https://registry.npmjs.org/is-alphanumerical set size:27515 disposed:false
+135 http cache https://registry.npmjs.org/is-hexadecimal 16ms (cache hit)
+136 silly packumentCache full:https://registry.npmjs.org/is-hexadecimal set size:26554 disposed:false
+137 http cache https://registry.npmjs.org/character-entities 16ms (cache hit)
+138 silly packumentCache full:https://registry.npmjs.org/character-entities set size:36394 disposed:false
+139 http cache https://registry.npmjs.org/character-entities-legacy 9ms (cache hit)
+140 silly packumentCache full:https://registry.npmjs.org/character-entities-legacy set size:34121 disposed:false
+141 http cache https://registry.npmjs.org/character-reference-invalid 9ms (cache hit)
+142 silly packumentCache full:https://registry.npmjs.org/character-reference-invalid set size:34715 disposed:false
+143 silly placeDep node_modules/@sanity/ui @types/hast@2.3.10 OK for: hastscript@6.0.0 want: ^2.0.0
+144 silly placeDep node_modules/@sanity/ui comma-separated-tokens@1.0.8 OK for: hastscript@6.0.0 want: ^1.0.0
+145 silly placeDep node_modules/@sanity/ui hast-util-parse-selector@2.2.5 OK for: hastscript@6.0.0 want: ^2.0.0
+146 silly placeDep node_modules/@sanity/ui property-information@5.6.0 OK for: hastscript@6.0.0 want: ^5.0.0
+147 silly placeDep node_modules/@sanity/ui space-separated-tokens@1.1.5 OK for: hastscript@6.0.0 want: ^1.0.0
+148 silly fetch manifest @types/unist@^2
+149 silly packumentCache full:https://registry.npmjs.org/@types%2funist cache-hit
+150 silly placeDep node_modules/@sanity/ui @types/unist@2.0.11 OK for: @types/hast@2.3.10 want: ^2
+151 silly placeDep node_modules/@sanity/ui character-entities@1.2.4 OK for: parse-entities@2.0.0 want: ^1.0.0
+152 silly placeDep node_modules/@sanity/ui character-entities-legacy@1.1.4 OK for: parse-entities@2.0.0 want: ^1.0.0
+153 silly placeDep node_modules/@sanity/ui character-reference-invalid@1.1.4 OK for: parse-entities@2.0.0 want: ^1.0.0
+154 silly placeDep node_modules/@sanity/ui is-alphanumerical@1.0.4 OK for: parse-entities@2.0.0 want: ^1.0.0
+155 silly placeDep node_modules/@sanity/ui is-decimal@1.0.4 OK for: parse-entities@2.0.0 want: ^1.0.0
+156 silly placeDep node_modules/@sanity/ui is-hexadecimal@1.0.4 OK for: parse-entities@2.0.0 want: ^1.0.0
+157 silly fetch manifest is-alphabetical@^1.0.0
+158 silly packumentCache full:https://registry.npmjs.org/is-alphabetical cache-miss
+159 http cache https://registry.npmjs.org/is-alphabetical 2ms (cache hit)
+160 silly packumentCache full:https://registry.npmjs.org/is-alphabetical set size:26798 disposed:false
+161 silly placeDep node_modules/@sanity/ui is-alphabetical@1.0.4 OK for: is-alphanumerical@1.0.4 want: ^1.0.0
+162 silly placeDep node_modules/@sanity/ui unist-util-is@4.1.0 OK for: unist-util-filter@2.0.3 want: ^4.0.0
+163 silly reify mark retired [
+163 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/baseline-browser-mapping',
+163 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/baseline-browser-mapping'
+163 silly reify ]
+164 silly reify mark retired [
+164 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/browserslist',
+164 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/browserslist'
+164 silly reify ]
+165 silly reify mark retired [
+165 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/hoist-non-react-statics/node_modules/react-is'
+165 silly reify ]
+166 silly reify mark retired [
+166 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/is-docker',
+166 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/is-docker'
+166 silly reify ]
+167 silly reify mark retired [
+167 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/loose-envify',
+167 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/loose-envify'
+167 silly reify ]
+168 silly reify mark retired [
+168 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/prismjs'
+168 silly reify ]
+169 silly reify mark retired [
+169 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/prop-types/node_modules/react-is'
+169 silly reify ]
+170 silly reify mark retired [
+170 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/react-is'
+170 silly reify ]
+171 silly reify mark retired [
+171 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/rimraf',
+171 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/rimraf'
+171 silly reify ]
+172 silly reify mark retired [
+172 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/typescript',
+172 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/tsc',
+172 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/tsserver'
+172 silly reify ]
+173 silly reify mark retired [
+173 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/@sanity/ui'
+173 silly reify ]
+174 silly reify moves {
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/baseline-browser-mapping': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.baseline-browser-mapping-pcgSvtaX',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/baseline-browser-mapping': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/.baseline-browser-mapping-CP6phEvx',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/browserslist': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.browserslist-8ySOIJMt',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/browserslist': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/.browserslist-3XNqbD73',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/hoist-non-react-statics/node_modules/react-is': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/hoist-non-react-statics/node_modules/.react-is-XV7RCqIb',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/is-docker': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.is-docker-DntowY9K',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/is-docker': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/.is-docker-snRiyd3x',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/loose-envify': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.loose-envify-agITGB7p',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/loose-envify': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/.loose-envify-uIayd5Ix',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/prismjs': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.prismjs-gPntBKrV',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/prop-types/node_modules/react-is': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/prop-types/node_modules/.react-is-nLmeeVw1',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/react-is': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.react-is-rsYYZFQD',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/rimraf': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.rimraf-gc3so57I',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/rimraf': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/.rimraf-upFl55Fh',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/typescript': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.typescript-Y1Gt7HdL',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/tsc': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/.tsc-22hY5nLY',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/tsserver': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.bin/.tsserver-aKnRjEcP',
+174 silly reify   '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/@sanity/ui': '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/@sanity/.ui-sOsR8axR'
+174 silly reify }
+175 verbose stack Error: ENOTEMPTY: directory not empty, rename '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/react-is' -> '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.react-is-rsYYZFQD'
+175 verbose stack     at async Object.rename (node:internal/fs/promises:784:10)
+175 verbose stack     at async moveFile (/Users/pavelroshanov/.nvm/versions/node/v22.17.0/lib/node_modules/npm/node_modules/@npmcli/fs/lib/move-file.js:30:5)
+175 verbose stack     at async Promise.allSettled (index 11)
+175 verbose stack     at async #reifyPackages (/Users/pavelroshanov/.nvm/versions/node/v22.17.0/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:309:11)
+175 verbose stack     at async Arborist.reify (/Users/pavelroshanov/.nvm/versions/node/v22.17.0/lib/node_modules/npm/node_modules/@npmcli/arborist/lib/arborist/reify.js:121:5)
+175 verbose stack     at async Install.exec (/Users/pavelroshanov/.nvm/versions/node/v22.17.0/lib/node_modules/npm/lib/commands/install.js:150:5)
+175 verbose stack     at async Npm.exec (/Users/pavelroshanov/.nvm/versions/node/v22.17.0/lib/node_modules/npm/lib/npm.js:208:9)
+175 verbose stack     at async module.exports (/Users/pavelroshanov/.nvm/versions/node/v22.17.0/lib/node_modules/npm/lib/cli/entry.js:67:5)
+176 error code ENOTEMPTY
+177 error syscall rename
+178 error path /Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/react-is
+179 error dest /Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.react-is-rsYYZFQD
+180 error errno -66
+181 error ENOTEMPTY: directory not empty, rename '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/react-is' -> '/Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/node_modules/.react-is-rsYYZFQD'
+182 silly unfinished npm timer reify 1765420786342
+183 silly unfinished npm timer reify:retireShallow 1765420787279
+184 verbose cwd /Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website
+185 verbose os Darwin 25.2.0
+186 verbose node v22.17.0
+187 verbose npm  v11.6.4
+188 verbose exit -66
+189 verbose code -66
+190 error A complete log of this run can be found in: /Users/pavelroshanov/Documents/KCRU Director/Software projects/KCRU website/.npm-cache/_logs/2025-12-11T02_39_45_972Z-debug-0.log

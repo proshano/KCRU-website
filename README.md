@@ -112,6 +112,9 @@ Refreshes all data sources daily (staggered to avoid rate limits).
 ## PubMed Cache (filesystem)
 - Cache file: `runtime/pubmed-cache.json` (metadata + publications + provenance)
 - Refresh manually: `npm run refresh:pubmed`
+- Refresh via Sanity Studio: open `Site Settings` and click **Refresh PubMed cache** (configure `SANITY_STUDIO_PUBMED_REFRESH_URL` + `SANITY_STUDIO_PUBMED_REFRESH_TOKEN` to point at your deployed API)
+- Refresh via API: `POST /api/pubmed/refresh` with `Authorization: Bearer $PUBMED_REFRESH_TOKEN`
+- Cancel a running refresh: `POST /api/pubmed/cancel` (same bearer token). The running job checks for cancellation and exits early; lock clears automatically.
 - Configure: `PUBMED_API_KEY` (higher PubMed limits), `PUBMED_TIMEOUT_MS`, `PUBMED_RETRIES`, `PUBMED_MAX_PER_RESEARCHER`, `PUBMED_MAX_AFFILIATION`, `PUBMED_CACHE_MAX_AGE_MS`
 - Scheduling: run `npm run refresh:pubmed` daily via cron/PM2/host scheduler
 
