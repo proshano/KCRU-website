@@ -278,12 +278,59 @@ export default async function HomePage() {
             0% { transform: translateX(0); }
             100% { transform: translateX(-50%); }
           }
+          .ticker-track {
+            display: flex;
+            gap: 20px;
+            padding: 4px 48px 12px;
+            animation: tickerAnim 60s linear infinite;
+          }
+          .ticker-card {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            width: 320px;
+            min-width: 320px;
+            padding: 14px 18px;
+            border-radius: 10px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            text-decoration: none;
+            flex-shrink: 0;
+            transition: transform 140ms ease, box-shadow 160ms ease, border-color 140ms ease;
+          }
+          .ticker-card:hover,
+          .ticker-card:focus-visible {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+            border-color: #6c4ba5;
+            outline: none;
+          }
+          .ticker-card:active {
+            transform: translateY(0) scale(0.99);
+          }
+          .ticker-title {
+            font-size: 13px;
+            font-weight: 600;
+            line-height: 1.35;
+            color: #ffffff;
+          }
+          .ticker-journal {
+            font-size: 10px;
+            font-weight: 600;
+            color: #B8A0D2;
+            letter-spacing: 0.02em;
+          }
+          .ticker-authors {
+            font-size: 11px;
+            color: #888;
+            line-height: 1.4;
+          }
         `}</style>
         <div style={{ background: '#1a1a1a', padding: '16px 0', overflow: 'hidden' }}>
           <div style={{ color: '#666', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 12px 48px' }}>
             Recent research
           </div>
-          <div style={{ display: 'flex', gap: '20px', padding: '4px 48px 12px', animation: 'tickerAnim 60s linear infinite' }}>
+          <div className="ticker-track">
             {[0, 1].map(loop => (
               tickerItems.map((pub, idx) => {
                 const investigatorsLabel = (pub.investigators || []).join(', ')
@@ -293,30 +340,18 @@ export default async function HomePage() {
                     href={pub.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '6px',
-                      width: '320px',
-                      minWidth: '320px',
-                      padding: '14px 18px',
-                      borderRadius: '10px',
-                      background: '#2a2a2a',
-                      border: '1px solid #444',
-                      textDecoration: 'none',
-                      flexShrink: 0
-                    }}
+                    className="ticker-card"
                   >
-                    <div style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.35, color: '#ffffff' }}>
+                    <div className="ticker-title">
                       {pub.title}
                     </div>
                     {pub.journal && (
-                      <div style={{ fontSize: '10px', fontWeight: 600, color: '#B8A0D2', letterSpacing: '0.02em' }}>
+                      <div className="ticker-journal">
                         {pub.journal}
                       </div>
                     )}
                     {investigatorsLabel && (
-                      <div style={{ fontSize: '11px', color: '#888', lineHeight: 1.4 }}>
+                      <div className="ticker-authors">
                         {investigatorsLabel}
                       </div>
                     )}
