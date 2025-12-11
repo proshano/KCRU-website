@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { sanityFetch, queries } from '@/lib/sanity'
+import AltmetricScript from './components/AltmetricScript'
 import './globals.css'
 
 export const metadata = {
@@ -25,6 +26,7 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
+        <AltmetricScript />
         <div className="min-h-screen flex flex-col">
           {/* Purple accent bar */}
           <div className="bg-purple h-10"></div>

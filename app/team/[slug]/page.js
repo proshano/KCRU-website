@@ -1,6 +1,5 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import Script from 'next/script'
 import { notFound } from 'next/navigation'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay } from '@/lib/publications'
@@ -113,7 +112,6 @@ export default async function TeamMemberPage({ params }) {
 
   return (
     <main className="max-w-[900px] mx-auto px-6 md:px-12 py-12 space-y-10">
-      <Script src="https://embed.altmetric.com/assets/embed.js" strategy="afterInteractive" />
       {/* Profile header */}
       <div className="flex flex-wrap gap-8 items-start">
         <div className="w-40 h-40 rounded-full bg-[#E8E5E0] overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -272,7 +270,7 @@ function PublicationItem({ pub, researchers, provenance }) {
         <div className="flex-1 min-w-[240px] space-y-1">
           <h3 className="text-lg font-semibold leading-snug">
             <a
-              href={pub.url}
+              href={pub.url || `https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[#1a1a1a] hover:text-purple transition-colors"

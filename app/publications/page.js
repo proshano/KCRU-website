@@ -3,7 +3,6 @@ import { getCachedPublicationsDisplay } from '@/lib/publications'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 import Image from 'next/image'
 import Link from 'next/link'
-import Script from 'next/script'
 
 export const revalidate = 86400 // 24 hours
 
@@ -75,7 +74,6 @@ export default async function PublicationsPage() {
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
-      <Script src="https://embed.altmetric.com/assets/embed.js" strategy="afterInteractive" />
       <header className="flex justify-between items-center">
         <div className="space-y-1">
           <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em]">
@@ -157,7 +155,7 @@ function PublicationItem({ pub, researchers, provenance }) {
         <div className="flex-1 min-w-[240px] space-y-1">
           <h3 className="text-lg font-semibold leading-snug">
             <a
-              href={pub.url}
+              href={pub.url || `https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[#1a1a1a] hover:text-purple transition-colors"
