@@ -12,6 +12,16 @@ const AUTH_TOKEN =
   process.env.SANITY_STUDIO_PUBMED_CANCEL_TOKEN ||
   ''
 
+// Cache staleness: 24 hours (same as lib/pubmedCache.js)
+const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000
+
+function isCacheStale(lastRefreshedAt) {
+  if (!lastRefreshedAt) return true
+  const ts = Date.parse(lastRefreshedAt)
+  if (Number.isNaN(ts)) return true
+  return Date.now() - ts > CACHE_MAX_AGE_MS
+}
+
 function PubmedCacheTool({ tool }) {
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -181,6 +191,9 @@ function PubmedCacheTool({ tool }) {
                 </Flex>
                 {status.refreshInProgress && (
                   <Badge tone="caution">Refresh in progress...</Badge>
+                )}
+                {!status.refreshInProgress && isCacheStale(status.lastRefreshedAt) && (
+                  <Badge tone="caution">Refresh recommended</Badge>
                 )}
               </Stack>
             ) : (
