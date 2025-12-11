@@ -28,12 +28,13 @@ export default {
       type: 'string',
       options: {
         list: [
-          { title: 'Investigator', value: 'investigator' },
-          { title: 'Research staff', value: 'staff' }
+          { title: 'Clinical Investigator', value: 'clinical' },
+          { title: 'PhD Scientist', value: 'phd' },
+          { title: 'Research Staff', value: 'staff' }
         ]
       },
-      initialValue: 'investigator',
-      description: 'Use "Research staff" for coordinators/assistants who are not PIs.'
+      initialValue: 'clinical',
+      description: 'Clinical Investigator, PhD Scientist, or Research Staff (coordinators/assistants).'
     },
     {
       name: 'photo',
