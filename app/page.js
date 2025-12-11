@@ -20,12 +20,28 @@ export default async function HomePage() {
   const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
   const news = JSON.parse(JSON.stringify(newsRaw || []))
 
+  const normalizeCategory = (category) => {
+    const value = (category || '').toString().toLowerCase()
+    if (!value || value === 'investigator' || value === 'clinical') return 'clinical'
+    if (value === 'phd' || value === 'phd scientist' || value === 'phd_scientist') return 'phd'
+    if (value === 'staff' || value === 'research staff') return 'staff'
+    return 'clinical'
+  }
+
+  const normalizedResearchers = (researchers || []).map(r => ({
+    ...r,
+    category: normalizeCategory(r.category)
+  }))
+
+  const clinicalInvestigators = normalizedResearchers.filter(r => r.category === 'clinical')
+  const featuredResearchers = clinicalInvestigators.length > 0 ? clinicalInvestigators : normalizedResearchers
+
   // Get publications for the ticker and cached stats - strip researchers to plain objects to avoid circular refs
   let publications = []
   let publicationsStats = { totalPublications: 0 }
   let provenance = {}
   try {
-    const strippedResearchers = (researchers || []).map(r => ({
+    const strippedResearchers = (normalizedResearchers || []).map(r => ({
       _id: r._id,
       name: r.name,
       pubmedQuery: r.pubmedQuery
@@ -125,7 +141,7 @@ export default async function HomePage() {
   }
 
   // Sort publications by year (most recent first), then by number of investigators (more first)
-  const investigatorLookup = new Map((researchers || []).map(r => [r._id, r.name]))
+  const investigatorLookup = new Map((normalizedResearchers || []).map(r => [r._id, r.name]))
   const sortedPubs = [...(publications || [])].sort((a, b) => {
     const yearA = parseInt(a.year, 10) || 0
     const yearB = parseInt(b.year, 10) || 0
@@ -206,7 +222,7 @@ export default async function HomePage() {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em]">
-                Investigators
+                Clinical Investigators
               </h2>
               <Link href="/team" className="arrow-link text-[13px]">
                 All profiles
@@ -218,7 +234,7 @@ export default async function HomePage() {
 
             {/* Team Grid - 4x3 */}
             <div className="grid grid-cols-4 gap-5">
-              {researchers.slice(0, 12).map((researcher) => {
+              {featuredResearchers.slice(0, 12).map((researcher) => {
                 const slugValue = typeof researcher.slug === 'string' ? researcher.slug : researcher.slug?.current
                 const href = slugValue ? `/team/${slugValue}` : '/team'
                 const initials = researcher.name

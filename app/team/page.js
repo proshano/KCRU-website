@@ -9,6 +9,40 @@ export default async function TeamPage() {
   // Strip Sanity data to plain JSON to break any circular references
   const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
 
+  const normalizeCategory = (category) => {
+    const value = (category || '').toString().toLowerCase()
+    if (!value || value === 'investigator' || value === 'clinical') return 'clinical'
+    if (value === 'phd' || value === 'phd scientist' || value === 'phd_scientist') return 'phd'
+    if (value === 'staff' || value === 'research staff') return 'staff'
+    return 'clinical'
+  }
+
+  const normalizedResearchers = (researchers || []).map(person => ({
+    ...person,
+    category: normalizeCategory(person.category)
+  }))
+
+  const grouped = {
+    clinical: [],
+    phd: [],
+    staff: []
+  }
+
+  normalizedResearchers.forEach(person => {
+    const category = normalizeCategory(person.category)
+    if (grouped[category]) {
+      grouped[category].push(person)
+    } else {
+      grouped.clinical.push(person)
+    }
+  })
+
+  const sections = [
+    { key: 'clinical', title: 'Clinical Investigators' },
+    { key: 'phd', title: 'PhD Scientists' },
+    { key: 'staff', title: 'Research Staff' }
+  ]
+
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
       <header className="flex justify-between items-center">
@@ -16,67 +50,80 @@ export default async function TeamPage() {
           <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
             Our Team
           </h2>
-          <h1 className="text-4xl font-bold tracking-tight">Investigators</h1>
+          <h1 className="text-4xl font-bold tracking-tight">Clinical Investigators, PhD Scientists, and Research Staff</h1>
         </div>
       </header>
 
-      {(!researchers || researchers.length === 0) && (
+      {(!normalizedResearchers || normalizedResearchers.length === 0) && (
         <p className="text-[#666]">No team members found yet.</p>
       )}
 
-      <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-        {researchers?.map((person) => {
-          const slugValue = typeof person.slug === 'string' ? person.slug : person.slug?.current
-          const href = slugValue ? `/team/${slugValue}` : null
-          const initials = person.name
-            ?.split(' ')
-            .map(n => n[0])
-            .join('')
-            .slice(0, 2)
-            .toUpperCase() || '?'
+      {normalizedResearchers.length > 0 && sections.map(section => {
+        const list = grouped[section.key] || []
+        if (list.length === 0) return null
 
-          const cardBody = (
-            <div className="team-member">
-              <div
-                className="team-photo mx-auto"
-                style={{ width: '132px', height: '132px' }}
-              >
-                {person.photo ? (
-                  <Image
-                    src={urlFor(person.photo).width(165).height(165).fit('crop').url()}
-                    alt={person.name || 'Researcher'}
-                    width={165}
-                    height={165}
-                    className="w-full h-full object-cover"
-                  />
+        return (
+          <section key={section.key} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold tracking-tight">{section.title}</h2>
+              <span className="text-sm text-[#666] font-medium">{list.length} listed</span>
+            </div>
+            <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+              {list.map((person) => {
+                const slugValue = typeof person.slug === 'string' ? person.slug : person.slug?.current
+                const href = slugValue ? `/team/${slugValue}` : null
+                const initials = person.name
+                  ?.split(' ')
+                  .map(n => n[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase() || '?'
+
+                const cardBody = (
+                  <div className="team-member">
+                    <div
+                      className="team-photo mx-auto"
+                      style={{ width: '132px', height: '132px' }}
+                    >
+                      {person.photo ? (
+                        <Image
+                          src={urlFor(person.photo).width(165).height(165).fit('crop').url()}
+                          alt={person.name || 'Researcher'}
+                          width={165}
+                          height={165}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-[24px] font-semibold text-[#aaa]">{initials}</span>
+                      )}
+                    </div>
+                    <div className="text-sm font-semibold text-[#1a1a1a]">
+                      {person.name}
+                    </div>
+                    {person.bio && (
+                      <p className="text-xs text-[#666] mt-2 line-clamp-2 text-left">{person.bio}</p>
+                    )}
+                  </div>
+                )
+
+                const social = <SocialLinks key={`${person._id}-social`} person={person} />
+
+                return href ? (
+                  <div key={person._id} className="flex flex-col">
+                    <Link href={href}>{cardBody}</Link>
+                    {social}
+                  </div>
                 ) : (
-                  <span className="text-[24px] font-semibold text-[#aaa]">{initials}</span>
-                )}
-              </div>
-              <div className="text-sm font-semibold text-[#1a1a1a]">
-                {person.name}
-              </div>
-              {person.bio && (
-                <p className="text-xs text-[#666] mt-2 line-clamp-2 text-left">{person.bio}</p>
-              )}
+                  <div key={person._id} className="flex flex-col">
+                    {cardBody}
+                    {social}
+                  </div>
+                )
+              })}
             </div>
-          )
-
-          const social = <SocialLinks key={`${person._id}-social`} person={person} />
-
-          return href ? (
-            <div key={person._id} className="flex flex-col">
-              <Link href={href}>{cardBody}</Link>
-              {social}
-            </div>
-          ) : (
-            <div key={person._id} className="flex flex-col">
-              {cardBody}
-              {social}
-            </div>
-          )
-        })}
-      </div>
+          </section>
+        )
+      })}
     </main>
   )
 }
