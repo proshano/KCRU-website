@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import { sanityFetch, queries } from '@/lib/sanity'
 import AltmetricScript from './components/AltmetricScript'
 import './globals.css'
@@ -27,6 +28,7 @@ export default async function RootLayout({ children }) {
     <html lang="en">
       <body>
         <AltmetricScript />
+        <SpeedInsights />
         <div className="min-h-screen flex flex-col">
           {/* Purple accent bar */}
           <div className="bg-purple h-10"></div>
