@@ -59,12 +59,10 @@ export default async function PublicationsPage() {
     if (!ts) return null
     try {
       return new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'UTC',
+        timeZone: 'America/New_York',
         year: 'numeric',
         month: 'short',
         day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
       }).format(new Date(ts))
     } catch (err) {
       console.error('Failed to format generatedAt', err)
@@ -84,7 +82,7 @@ export default async function PublicationsPage() {
             Last 3 years from our investigators{settings?.pubmedAffiliation ? ` + ${settings.pubmedAffiliation}` : ''}
           </p>
           <p className="text-xs text-[#888]">
-            {meta?.generatedAt ? `Updated ${formatGeneratedAt(meta.generatedAt)} UTC` : 'Cache not yet generated'}
+            {meta?.generatedAt ? `Updated ${formatGeneratedAt(meta.generatedAt)}` : 'Cache not yet generated'}
           </p>
         </div>
         <div className="text-right text-sm text-[#666] font-medium space-y-1">
@@ -169,16 +167,6 @@ function PublicationItem({ pub, researchers, provenance }) {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {hasAltmetricId && (
-            <div
-              className="altmetric-embed"
-              data-badge-type="donut"
-              data-badge-popover="right"
-              data-link-target="_blank"
-              data-doi={pub.doi || undefined}
-              data-pmid={pub.doi ? undefined : pub.pmid}
-            />
-          )}
           <div className="flex items-center gap-2 flex-wrap">
             {shareButtons.map((btn) => (
               <a
@@ -197,6 +185,16 @@ function PublicationItem({ pub, researchers, provenance }) {
               </a>
             ))}
           </div>
+          {hasAltmetricId && (
+            <div
+              className="altmetric-embed"
+              data-badge-type="donut"
+              data-badge-popover="right"
+              data-link-target="_blank"
+              data-doi={pub.doi || undefined}
+              data-pmid={pub.doi ? undefined : pub.pmid}
+            />
+          )}
         </div>
       </div>
       {matchedResearchers.length > 0 && (

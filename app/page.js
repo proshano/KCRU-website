@@ -278,11 +278,35 @@ export default async function HomePage() {
             0% { transform: translateX(0); }
             100% { transform: translateX(-50%); }
           }
+          @-webkit-keyframes tickerAnim {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
           .ticker-track {
             display: flex;
             gap: 20px;
             padding: 4px 48px 12px;
-            animation: tickerAnim 45s linear infinite;
+            width: max-content;
+            min-width: 100%;
+            animation: tickerAnim 70s linear infinite;
+            -webkit-animation: tickerAnim 70s linear infinite;
+            animation-play-state: running;
+            will-change: transform;
+          }
+          @media (max-width: 768px) {
+            .ticker-track {
+              animation-duration: 55s;
+              -webkit-animation-duration: 55s;
+            }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .ticker-track {
+              animation-duration: 0.01ms;
+              -webkit-animation-duration: 0.01ms;
+              animation-iteration-count: 1;
+              -webkit-animation-iteration-count: 1;
+              transform: translateX(0);
+            }
           }
           .ticker-card {
             display: flex;

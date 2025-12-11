@@ -284,16 +284,6 @@ function PublicationItem({ pub, researchers, provenance }) {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {hasAltmetricId && (
-            <div
-              className="altmetric-embed"
-              data-badge-type="donut"
-              data-badge-popover="right"
-              data-link-target="_blank"
-              data-doi={pub.doi || undefined}
-              data-pmid={pub.doi ? undefined : pub.pmid}
-            />
-          )}
           <div className="flex items-center gap-2 flex-wrap">
             {shareButtons.map((btn) => (
               <a
@@ -312,6 +302,16 @@ function PublicationItem({ pub, researchers, provenance }) {
               </a>
             ))}
           </div>
+          {hasAltmetricId && (
+            <div
+              className="altmetric-embed"
+              data-badge-type="donut"
+              data-badge-popover="right"
+              data-link-target="_blank"
+              data-doi={pub.doi || undefined}
+              data-pmid={pub.doi ? undefined : pub.pmid}
+            />
+          )}
         </div>
       </div>
       {matchedResearchers.length > 0 && (
