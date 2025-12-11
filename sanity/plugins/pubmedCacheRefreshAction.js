@@ -88,7 +88,7 @@ function PubmedCacheCancelAction(props) {
       toast.push({
         status: 'success',
         title: 'Cancellation requested',
-        description: 'Active refresh will stop soon if running.',
+        description: 'Refresh stopped and lock cleared.',
       })
     } catch (err) {
       console.error('PubMed cache cancel failed', err)

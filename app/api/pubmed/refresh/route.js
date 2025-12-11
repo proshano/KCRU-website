@@ -4,6 +4,12 @@ import { refreshPubmedCache } from '@/lib/publications'
 
 const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN || ''
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
 function extractToken(request) {
   const header = request.headers.get('authorization') || ''
   if (!header) return ''
@@ -11,11 +17,15 @@ function extractToken(request) {
   return header
 }
 
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+}
+
 export async function POST(request) {
   if (AUTH_TOKEN) {
     const token = extractToken(request)
     if (token !== AUTH_TOKEN) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
     }
   }
 
@@ -53,12 +63,12 @@ export async function POST(request) {
         cachePath: result?.meta?.cachePath,
         stale: false,
       },
-    })
+    }, { headers: CORS_HEADERS })
   } catch (err) {
     console.error('[pubmed] refresh endpoint failed', err)
     const message = err?.message || 'PubMed refresh failed'
     const status = message.includes('in progress') ? 409 : 500
-    return NextResponse.json({ ok: false, error: message }, { status })
+    return NextResponse.json({ ok: false, error: message }, { status, headers: CORS_HEADERS })
   }
 }
 
