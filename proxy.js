@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-export async function middleware(request) {
+export default async function proxy(request) {
   const isAuthenticated = request.cookies.get('site-auth')?.value === 'authenticated'
 
   if (
