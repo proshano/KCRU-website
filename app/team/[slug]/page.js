@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import Script from 'next/script'
 import { notFound } from 'next/navigation'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay } from '@/lib/publications'
@@ -112,6 +113,7 @@ export default async function TeamMemberPage({ params }) {
 
   return (
     <main className="max-w-[900px] mx-auto px-6 md:px-12 py-12 space-y-10">
+      <Script src="https://embed.altmetric.com/assets/embed.js" strategy="afterInteractive" />
       {/* Profile header */}
       <div className="flex flex-wrap gap-8 items-start">
         <div className="w-40 h-40 rounded-full bg-[#E8E5E0] overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -262,6 +264,7 @@ function YearBlock({ year, pubs, researchers, provenance }) {
 function PublicationItem({ pub, researchers, provenance }) {
   const shareButtons = getShareButtons(pub)
   const matchedResearchers = findResearchersForPub(pub, researchers, provenance)
+  const hasAltmetricId = Boolean(pub?.doi || pub?.pmid)
 
   return (
     <article className="p-6 space-y-3">
@@ -282,23 +285,35 @@ function PublicationItem({ pub, researchers, provenance }) {
             {pub.journal} {pub.year && `· ${pub.year}`}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          {shareButtons.map((btn) => (
-            <a
-              key={btn.platform}
-              href={btn.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-purple hover:bg-purple/5 transition-colors"
-              aria-label={btn.ariaLabel}
-            >
-              {shareIcons[btn.icon] ? (
-                <span dangerouslySetInnerHTML={{ __html: shareIcons[btn.icon] }} />
-              ) : (
-                <span>↗</span>
-              )}
-            </a>
-          ))}
+        <div className="flex items-center gap-3 flex-wrap">
+          {hasAltmetricId && (
+            <div
+              className="altmetric-embed"
+              data-badge-type="donut"
+              data-badge-popover="right"
+              data-link-target="_blank"
+              data-doi={pub.doi || undefined}
+              data-pmid={pub.doi ? undefined : pub.pmid}
+            />
+          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {shareButtons.map((btn) => (
+              <a
+                key={btn.platform}
+                href={btn.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-purple hover:bg-purple/5 transition-colors"
+                aria-label={btn.ariaLabel}
+              >
+                {shareIcons[btn.icon] ? (
+                  <span dangerouslySetInnerHTML={{ __html: shareIcons[btn.icon] }} />
+                ) : (
+                  <span>↗</span>
+                )}
+              </a>
+            ))}
+          </div>
         </div>
       </div>
       {matchedResearchers.length > 0 && (
