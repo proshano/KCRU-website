@@ -113,7 +113,7 @@ export default {
       title: 'LLM System Prompt',
       type: 'text',
       rows: 4,
-      description: 'Optional custom instructions for publication summaries.'
+      description: 'Optional custom instructions for publication summaries. Defaults to: "You write summaries of medical research for a general sophisticated audience. Be accurate but avoid jargon. Explain what was studied, what was found, and why it matters but avoid statements about more research is needed. Do not make up information. Keep summaries to 2-3 sentences. Do not create abbreviations in the summary."'
     },
     {
       name: 'affiliations',
