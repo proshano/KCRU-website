@@ -22,11 +22,12 @@ export default async function RootLayout({ children }) {
   const settingsRaw = await sanityFetch(queries.siteSettings)
   // Strip Sanity data to plain JSON to break any circular references
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const altmetricEnabled = settings?.altmetric?.enabled !== false
 
   return (
     <html lang="en">
       <body>
-        <AltmetricScript />
+        {altmetricEnabled && <AltmetricScript />}
         <div className="min-h-screen flex flex-col">
           {/* Purple accent bar */}
           <div className="bg-purple h-10"></div>

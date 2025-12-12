@@ -11,6 +11,7 @@ export default async function PublicationsPage() {
   const researchersRaw = await sanityFetch(queries.allResearchers)
   // Strip ALL Sanity data to plain JSON to break any circular references
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const altmetricEnabled = settings?.altmetric?.enabled !== false
   const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
   const researcherChips = researchers.map((r) => ({
     _id: r._id,
@@ -94,12 +95,18 @@ export default async function PublicationsPage() {
         <p className="text-[#666]">No publications found yet. Add PubMed queries to researchers or an affiliation in Site Settings.</p>
       )}
 
-      <YearSections years={years} byYear={byYear} researchers={researcherChips} provenance={provenance} />
+      <YearSections
+        years={years}
+        byYear={byYear}
+        researchers={researcherChips}
+        provenance={provenance}
+        altmetricEnabled={altmetricEnabled}
+      />
     </main>
   )
 }
 
-function YearSections({ years, byYear, researchers, provenance }) {
+function YearSections({ years, byYear, researchers, provenance, altmetricEnabled }) {
   return (
     <div className="space-y-2">
       {years.map((year) => (
@@ -109,13 +116,14 @@ function YearSections({ years, byYear, researchers, provenance }) {
           pubs={byYear[year] || []}
           researchers={researchers}
           provenance={provenance}
+          altmetricEnabled={altmetricEnabled}
         />
       ))}
     </div>
   )
 }
 
-function YearBlock({ year, pubs, researchers, provenance }) {
+function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled }) {
   return (
     <section className="border border-black/[0.06] bg-white">
       <details className="group" open>
@@ -134,6 +142,7 @@ function YearBlock({ year, pubs, researchers, provenance }) {
               pub={pub}
               researchers={researchers}
               provenance={provenance}
+              altmetricEnabled={altmetricEnabled}
             />
           ))}
         </div>
@@ -142,10 +151,11 @@ function YearBlock({ year, pubs, researchers, provenance }) {
   )
 }
 
-function PublicationItem({ pub, researchers, provenance }) {
+function PublicationItem({ pub, researchers, provenance, altmetricEnabled }) {
   const shareButtons = getShareButtons(pub)
   const matchedResearchers = findResearchersForPub(pub, researchers, provenance)
   const hasAltmetricId = Boolean(pub?.doi || pub?.pmid)
+  const showAltmetric = altmetricEnabled && hasAltmetricId
 
   return (
     <article className="p-6 space-y-3">
@@ -185,7 +195,7 @@ function PublicationItem({ pub, researchers, provenance }) {
               </a>
             ))}
           </div>
-          {hasAltmetricId && (
+          {showAltmetric && (
             <div
               className="altmetric-embed"
               data-badge-type="donut"

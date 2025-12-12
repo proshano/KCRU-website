@@ -50,7 +50,6 @@ export default async function TeamPage() {
           <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
             Our Team
           </h2>
-          <h1 className="text-4xl font-bold tracking-tight">Clinical Investigators, PhD Scientists, and Research Staff</h1>
         </div>
       </header>
 
@@ -66,7 +65,6 @@ export default async function TeamPage() {
           <section key={section.key} className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold tracking-tight">{section.title}</h2>
-              <span className="text-sm text-[#666] font-medium">{list.length} listed</span>
             </div>
             <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
               {list.map((person) => {

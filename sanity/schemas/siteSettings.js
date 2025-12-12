@@ -169,6 +169,21 @@ export default {
       title: 'PubMed Affiliation Search Term',
       type: 'string',
       description: 'Used for fetching unit publications, e.g., "Lilibeth Caberto Kidney Clinical Research Unit"'
+    },
+    {
+      name: 'altmetric',
+      title: 'Altmetric donuts',
+      type: 'object',
+      description: 'Controls whether Altmetric donut badges are shown site-wide.',
+      fields: [
+        {
+          name: 'enabled',
+          title: 'Enable Altmetric donuts',
+          type: 'boolean',
+          description: 'If disabled, the site will not load the Altmetric embed script and donuts will not render.',
+          initialValue: true
+        }
+      ]
     }
   ]
 }

@@ -43,6 +43,7 @@ export default async function TeamMemberPage({ params }) {
   const profile = JSON.parse(JSON.stringify(profileRaw))
   const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const altmetricEnabled = settings?.altmetric?.enabled !== false
 
   // Extract only the fields needed for publications to avoid circular references
   const strippedResearchers = (researchers || []).map(r => ({
@@ -169,6 +170,7 @@ export default async function TeamMemberPage({ params }) {
       <PublicationsSection
         publicationsBundle={publicationsBundle}
         hasQuery={Boolean(profile.pubmedQuery)}
+        altmetricEnabled={altmetricEnabled}
         researchers={(researchers || []).map(r => ({
           _id: r._id,
           name: r.name,
@@ -189,7 +191,7 @@ export default async function TeamMemberPage({ params }) {
   )
 }
 
-function PublicationsSection({ publicationsBundle, hasQuery, researchers }) {
+function PublicationsSection({ publicationsBundle, hasQuery, researchers, altmetricEnabled }) {
   if (!hasQuery) {
     return (
       <section className="space-y-3">
@@ -221,22 +223,37 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers }) {
         <p className="text-[#666] text-sm">No publications found in the last 3 years for the current PubMed query.</p>
       )}
 
-      {total > 0 && <YearSections years={years} byYear={byYear} researchers={researchers} provenance={provenance} />}
+      {total > 0 && (
+        <YearSections
+          years={years}
+          byYear={byYear}
+          researchers={researchers}
+          provenance={provenance}
+          altmetricEnabled={altmetricEnabled}
+        />
+      )}
     </section>
   )
 }
 
-function YearSections({ years, byYear, researchers, provenance }) {
+function YearSections({ years, byYear, researchers, provenance, altmetricEnabled }) {
   return (
     <div className="space-y-2">
       {years.map((year) => (
-        <YearBlock key={year} year={year} pubs={byYear[year]} researchers={researchers} provenance={provenance} />
+        <YearBlock
+          key={year}
+          year={year}
+          pubs={byYear[year]}
+          researchers={researchers}
+          provenance={provenance}
+          altmetricEnabled={altmetricEnabled}
+        />
       ))}
     </div>
   )
 }
 
-function YearBlock({ year, pubs, researchers, provenance }) {
+function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled }) {
   const sorted = sortPublications(pubs)
   return (
     <section className="border border-black/[0.06] bg-white">
@@ -251,7 +268,13 @@ function YearBlock({ year, pubs, researchers, provenance }) {
         </summary>
         <div className="border-t border-black/[0.06] divide-y divide-black/[0.06]">
           {sorted.map((pub) => (
-            <PublicationItem key={pub.pmid || pub.title} pub={pub} researchers={researchers} provenance={provenance} />
+            <PublicationItem
+              key={pub.pmid || pub.title}
+              pub={pub}
+              researchers={researchers}
+              provenance={provenance}
+              altmetricEnabled={altmetricEnabled}
+            />
           ))}
         </div>
       </details>
@@ -259,10 +282,11 @@ function YearBlock({ year, pubs, researchers, provenance }) {
   )
 }
 
-function PublicationItem({ pub, researchers, provenance }) {
+function PublicationItem({ pub, researchers, provenance, altmetricEnabled }) {
   const shareButtons = getShareButtons(pub)
   const matchedResearchers = findResearchersForPub(pub, researchers, provenance)
   const hasAltmetricId = Boolean(pub?.doi || pub?.pmid)
+  const showAltmetric = altmetricEnabled && hasAltmetricId
 
   return (
     <article className="p-6 space-y-3">
@@ -302,7 +326,7 @@ function PublicationItem({ pub, researchers, provenance }) {
               </a>
             ))}
           </div>
-          {hasAltmetricId && (
+          {showAltmetric && (
             <div
               className="altmetric-embed"
               data-badge-type="donut"
