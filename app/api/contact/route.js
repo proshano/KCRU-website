@@ -98,23 +98,39 @@ async function sendNotification({ payload, option, attachment }) {
     return { skipped: true, reason: 'no_email' }
   }
 
-  const subject = `New contact: ${option.label}`
+  const submittedAt = new Date().toISOString()
+  const subject = `KCRU website contact form — ${option.label}`
   const text = [
+    'KCRU Website contact form submission',
+    '',
+    `Submitted: ${submittedAt}`,
+    `Reason: ${option.label} (${option.key})`,
+    '',
     `Name: ${payload.name}`,
     `Email: ${payload.email}`,
-    `Reason: ${option.label} (${option.key})`,
     option.showOceanLink && option.oceanUrl ? `OceanMD link: ${option.oceanUrl}` : '',
-    payload.message ? `Message:\n${payload.message}` : ''
+    payload.message ? `Message:\n${payload.message}` : '',
+    '',
+    '—',
+    'Sent via the londonkidney.ca contact form.'
   ]
     .filter(Boolean)
-    .join('\n\n')
+    .join('\n')
 
   const html = `
-    <p><strong>Name:</strong> ${payload.name}</p>
-    <p><strong>Email:</strong> ${payload.email}</p>
-    <p><strong>Reason:</strong> ${option.label} (${option.key})</p>
-    ${option.showOceanLink && option.oceanUrl ? `<p><strong>OceanMD link:</strong> ${option.oceanUrl}</p>` : ''}
-    ${payload.message ? `<p><strong>Message:</strong><br/>${payload.message.replace(/\n/g, '<br/>')}</p>` : ''}
+    <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.5;">
+      <p style="margin: 0 0 12px;"><strong>KCRU Website contact form submission</strong></p>
+      <p style="margin: 0 0 12px;">
+        <strong>Submitted:</strong> ${submittedAt}<br/>
+        <strong>Reason:</strong> ${option.label} (${option.key})
+      </p>
+      <p style="margin: 0 0 12px;"><strong>Name:</strong> ${payload.name}<br/>
+      <strong>Email:</strong> ${payload.email}</p>
+      ${option.showOceanLink && option.oceanUrl ? `<p style="margin: 0 0 12px;"><strong>OceanMD link:</strong> ${option.oceanUrl}</p>` : ''}
+      ${payload.message ? `<p style="margin: 0 0 12px;"><strong>Message:</strong><br/>${payload.message.replace(/\n/g, '<br/>')}</p>` : ''}
+      <hr style="border: none; border-top: 1px solid #eee; margin: 16px 0;" />
+      <p style="margin: 0; color: #555; font-size: 12px;">Sent via the londonkidney.ca contact form.</p>
+    </div>
   `
 
   try {
