@@ -1,5 +1,5 @@
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
-import { getCachedPublicationsDisplay } from '@/lib/publications'
+import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -55,6 +55,7 @@ export default async function PublicationsPage() {
 
   const { publications, byYear, years } = buildDisplayFromPublications(pubsWithSummaries)
   const meta = bundle.meta || {}
+  const sinceYear = getPublicationsSinceYear()
 
   const formatGeneratedAt = (ts) => {
     if (!ts) return null
@@ -80,7 +81,7 @@ export default async function PublicationsPage() {
           </h2>
           <h1 className="text-4xl font-bold tracking-tight">Publications</h1>
           <p className="text-sm text-[#666]">
-            Last 3 years from our investigators{settings?.pubmedAffiliation ? ` + ${settings.pubmedAffiliation}` : ''}
+            Since {sinceYear} from our investigators{settings?.pubmedAffiliation ? ` + ${settings.pubmedAffiliation}` : ''}
           </p>
           <p className="text-xs text-[#888]">
             {meta?.generatedAt ? `Updated ${formatGeneratedAt(meta.generatedAt)}` : 'Cache not yet generated'}

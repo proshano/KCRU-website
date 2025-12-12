@@ -2,7 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
-import { getCachedPublicationsDisplay } from '@/lib/publications'
+import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 
 export const revalidate = 86400 // use cache; refresh daily
@@ -11,12 +11,10 @@ function formatGeneratedAt(ts) {
   if (!ts) return null
   try {
     return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'UTC',
+      timeZone: 'America/New_York',
       year: 'numeric',
       month: 'short',
       day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
     }).format(new Date(ts))
   } catch (err) {
     console.error('Failed to format generatedAt', err)
@@ -84,23 +82,6 @@ export default async function TeamMemberPage({ params }) {
         provenance: {},
         stats: { totalPublications: 0, yearsSpan: null }
       }
-    }
-  }
-
-  const formatGeneratedAt = (ts) => {
-    if (!ts) return null
-    try {
-      return new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'UTC',
-        year: 'numeric',
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).format(new Date(ts))
-    } catch (err) {
-      console.error('Failed to format generatedAt', err)
-      return null
     }
   }
 
@@ -202,6 +183,7 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers, altmet
   }
 
   const total = publicationsBundle?.publications?.length || 0
+  const sinceYear = getPublicationsSinceYear()
   const years = Array.isArray(publicationsBundle?.years) ? publicationsBundle.years : []
   const byYear = publicationsBundle?.byYear || {}
   const provenance = publicationsBundle?.provenance || {}
@@ -211,16 +193,15 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers, altmet
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div className="space-y-1">
-          <h2 className="text-xl font-bold tracking-tight">Publications (last 3 years)</h2>
+          <h2 className="text-xl font-bold tracking-tight">Publications (since {sinceYear})</h2>
           <p className="text-xs text-[#888]">
-              {generatedAt ? `Updated ${formatGeneratedAt(generatedAt)} UTC` : 'Cache not yet generated'}
+              {generatedAt ? `Updated ${formatGeneratedAt(generatedAt)}` : 'Cache not yet generated'}
           </p>
         </div>
-        <span className="text-sm text-[#666] font-medium">{total} found</span>
       </div>
 
       {total === 0 && (
-        <p className="text-[#666] text-sm">No publications found in the last 3 years for the current PubMed query.</p>
+        <p className="text-[#666] text-sm">No publications found since {sinceYear} for the current PubMed query.</p>
       )}
 
       {total > 0 && (
@@ -261,7 +242,6 @@ function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled }) {
         <summary className="flex w-full cursor-pointer list-none items-center justify-between text-left px-6 py-4 hover:bg-[#fafafa] transition-colors">
           <div className="flex items-center gap-4">
             <span className="text-2xl font-bold text-purple">{year}</span>
-            <span className="text-sm text-[#888] font-medium">{sorted.length} publications</span>
           </div>
           <span className="text-purple text-lg font-bold hidden group-open:inline" aria-hidden>−</span>
           <span className="text-purple text-lg font-bold group-open:hidden" aria-hidden>+</span>
@@ -451,7 +431,6 @@ function ActiveStudies({ studies }) {
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-xl font-bold tracking-tight">Active studies</h2>
-        <span className="text-sm text-[#666] font-medium">{list.length} listed</span>
       </div>
       {list.length === 0 ? (
         <p className="text-[#666] text-sm">No active studies currently linked to this researcher.</p>

@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
-import { getCachedPublicationsDisplay } from '@/lib/publications'
+import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
 import FeaturedStudy from './components/FeaturedStudy'
 
 export const revalidate = 3600
@@ -116,6 +116,7 @@ export default async function HomePage() {
   }
 
   // Stats from data
+  const publicationsSinceYear = getPublicationsSinceYear()
   const stats = [
     {
       value: recruitingTrials.length || trials.length,
@@ -124,7 +125,7 @@ export default async function HomePage() {
     },
     {
       value: publicationsStats.totalPublications || publications.length,
-      label: 'Publications in last 3 years',
+      label: `Publications since ${publicationsSinceYear}`,
       href: '/publications'
     }
   ]
