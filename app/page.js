@@ -66,8 +66,14 @@ export default async function HomePage() {
     console.error('Failed to fetch publications:', e)
   }
 
-  // Filter recruiting trials for featured study
+  // Filter trials by status
   const recruitingTrials = trials.filter(t => t.status === 'recruiting')
+  const activeTrials = trials.filter(t => 
+    t.status === 'recruiting' || 
+    t.status === 'coming_soon' || 
+    t.status === 'active_not_recruiting' ||
+    t.status === 'closed' // legacy status
+  )
 
   const tagline = settings?.tagline?.trim() || 'Fighting kidney disease through research.'
   const taglineHighlight = settings?.taglineHighlight?.trim()
@@ -119,7 +125,7 @@ export default async function HomePage() {
   const publicationsSinceYear = getPublicationsSinceYear()
   const stats = [
     {
-      value: recruitingTrials.length || trials.length,
+      value: activeTrials.length,
       label: 'Active studies',
       href: '/trials'
     },
