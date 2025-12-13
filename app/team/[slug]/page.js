@@ -41,7 +41,7 @@ export default async function TeamMemberPage({ params }) {
   const profile = JSON.parse(JSON.stringify(profileRaw))
   const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
-  const altmetricEnabled = settings?.altmetric?.enabled !== false
+  const altmetricEnabled = settings?.altmetric?.enabled === true
 
   // Extract only the fields needed for publications to avoid circular references
   const strippedResearchers = (researchers || []).map(r => ({
@@ -150,7 +150,7 @@ export default async function TeamMemberPage({ params }) {
 
       {/* Active Studies and Publications - wide */}
       <div className="max-w-[1400px] mx-auto px-6 md:px-12 space-y-10">
-        <ActiveStudies studies={profile.activeStudies} />
+        <StudiesSection studies={profile.studies} />
 
         <PublicationsSection
           publicationsBundle={publicationsBundle}
@@ -430,63 +430,111 @@ function findResearchersForPub(pub, researchers = [], provenance = {}) {
   return chips
 }
 
-function ActiveStudies({ studies }) {
+function StudiesSection({ studies }) {
   const list = studies || []
+  
+  // Separate by status
+  const recruiting = list.filter(s => s.status === 'recruiting')
+  const other = list.filter(s => s.status !== 'recruiting')
+  
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-bold tracking-tight">Active studies</h2>
+        <h2 className="text-xl font-bold tracking-tight">
+          Clinical Studies
+          {list.length > 0 && <span className="text-[#888] font-normal text-base ml-2">({list.length})</span>}
+        </h2>
       </div>
       {list.length === 0 ? (
-        <p className="text-[#666] text-sm">No active studies currently linked to this researcher.</p>
+        <p className="text-[#666] text-sm">No studies currently linked to this researcher.</p>
       ) : (
-        <div className="grid gap-5 md:grid-cols-2">
-          {list.map((study) => (
-            <div key={study._id} className="p-5 bg-white border border-black/[0.06] space-y-3">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="space-y-1">
-                  <h3 className="text-lg font-semibold text-[#1a1a1a]">{study.title}</h3>
-                  {study.condition && <p className="text-sm text-[#666]">{study.condition}</p>}
-                </div>
-                {study.status && (
-                  <span className={`text-[11px] px-3 py-1 rounded-full font-semibold ${statusStyles[study.status] || statusStyles.closed}`}>
-                    {prettyStatus(study.status)}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-4 text-sm">
-                <Link href="/trials" className="arrow-link text-[13px]">
-                  View trials
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M5 12h14M12 5l7 7-7 7"/>
-                  </svg>
-                </Link>
-                {study.nctId && (
-                  <a
-                    className="arrow-link text-[13px]"
-                    href={`https://clinicaltrials.gov/study/${study.nctId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    ClinicalTrials.gov
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                  </a>
-                )}
-              </div>
+        <div className="space-y-6">
+          {/* Recruiting studies first */}
+          {recruiting.length > 0 && (
+            <div className="grid gap-5 md:grid-cols-2">
+              {recruiting.map((study) => (
+                <StudyCard key={study._id} study={study} />
+              ))}
             </div>
-          ))}
+          )}
+          
+          {/* Other studies */}
+          {other.length > 0 && (
+            <div className="grid gap-5 md:grid-cols-2">
+              {other.map((study) => (
+                <StudyCard key={study._id} study={study} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </section>
   )
 }
 
+function StudyCard({ study }) {
+  const slugValue = study.slug?.current || study.slug
+  const hasDetailPage = !!slugValue
+  
+  return (
+    <div className="p-5 bg-white border border-black/[0.06] space-y-3 hover:shadow-md transition-shadow">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="space-y-1 flex-1">
+          <h3 className="text-lg font-semibold text-[#1a1a1a]">{study.title}</h3>
+          {study.conditions?.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {study.conditions.slice(0, 2).map((condition, i) => (
+                <span key={i} className="text-xs px-2 py-0.5 bg-purple/10 text-purple rounded">
+                  {condition}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        {study.status && (
+          <span className={`text-[11px] px-3 py-1 rounded-full font-semibold flex-shrink-0 ${statusStyles[study.status] || statusStyles.closed}`}>
+            {prettyStatus(study.status)}
+          </span>
+        )}
+      </div>
+      
+      {study.laySummary && (
+        <p className="text-sm text-[#666] line-clamp-2">{study.laySummary}</p>
+      )}
+      
+      <div className="flex items-center gap-4 text-sm">
+        {hasDetailPage && (
+          <Link href={`/trials/${slugValue}`} className="arrow-link text-[13px]">
+            View details
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </Link>
+        )}
+        {study.nctId && (
+          <a
+            className="arrow-link text-[13px]"
+            href={`https://clinicaltrials.gov/study/${study.nctId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            ClinicalTrials.gov
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+          </a>
+        )}
+      </div>
+    </div>
+  )
+}
+
 const statusStyles = {
   recruiting: 'text-emerald-800 bg-emerald-50 ring-1 ring-emerald-200',
   coming_soon: 'text-amber-800 bg-amber-50 ring-1 ring-amber-200',
-  closed: 'text-[#666] bg-[#f5f5f5] ring-1 ring-[#ddd]',
+  active_not_recruiting: 'text-purple bg-purple/10 ring-1 ring-purple/30',
+  completed: 'text-[#666] bg-[#f5f5f5] ring-1 ring-[#ddd]',
+  // Legacy ClinicalTrials.gov values
   RECRUITING: 'text-emerald-800 bg-emerald-50 ring-1 ring-emerald-200',
   NOT_YET_RECRUITING: 'text-amber-800 bg-amber-50 ring-1 ring-amber-200',
   ACTIVE_NOT_RECRUITING: 'text-purple bg-purple/10 ring-1 ring-purple/30',
@@ -496,11 +544,13 @@ const statusStyles = {
 function prettyStatus(status) {
   const map = {
     recruiting: 'Recruiting',
-    coming_soon: 'Coming soon',
-    closed: 'Closed',
+    coming_soon: 'Coming Soon',
+    active_not_recruiting: 'Active, Not Recruiting',
+    completed: 'Completed',
+    // Legacy ClinicalTrials.gov values
     RECRUITING: 'Recruiting',
-    NOT_YET_RECRUITING: 'Not yet recruiting',
-    ACTIVE_NOT_RECRUITING: 'Active, not recruiting',
+    NOT_YET_RECRUITING: 'Coming Soon',
+    ACTIVE_NOT_RECRUITING: 'Active, Not Recruiting',
     COMPLETED: 'Completed',
   }
   return map[status] || status || 'Status'

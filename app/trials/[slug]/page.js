@@ -1,0 +1,316 @@
+import Link from 'next/link'
+import Image from 'next/image'
+import { notFound } from 'next/navigation'
+import { sanityFetch, queries, urlFor } from '@/lib/sanity'
+
+// Revalidate every 12 hours
+export const revalidate = 43200
+
+export async function generateMetadata({ params }) {
+  const { slug } = await params
+  const trial = await sanityFetch(queries.trialBySlug, { slug })
+  
+  if (!trial) return { title: 'Study Not Found' }
+  
+  return {
+    title: `${trial.title} | KCRU Clinical Studies`,
+    description: trial.laySummary || trial.eligibilityOverview || `Learn about the ${trial.title} study.`,
+  }
+}
+
+const statusConfig = {
+  recruiting: { 
+    label: 'Actively Recruiting', 
+    style: 'text-emerald-800 bg-emerald-50 border-emerald-200',
+    message: 'This study is currently accepting participants.'
+  },
+  coming_soon: { 
+    label: 'Coming Soon', 
+    style: 'text-amber-800 bg-amber-50 border-amber-200',
+    message: 'This study will begin recruiting soon.'
+  },
+  active_not_recruiting: { 
+    label: 'Active, Not Recruiting', 
+    style: 'text-purple bg-purple/10 border-purple/30',
+    message: 'This study is ongoing but no longer accepting new participants.'
+  },
+  completed: { 
+    label: 'Completed', 
+    style: 'text-gray-500 bg-gray-50 border-gray-200',
+    message: 'This study has been completed.'
+  },
+}
+
+export default async function TrialDetailPage({ params }) {
+  const { slug } = await params
+  const trialRaw = await sanityFetch(queries.trialBySlug, { slug })
+  
+  if (!trialRaw) notFound()
+  
+  const trial = JSON.parse(JSON.stringify(trialRaw))
+  const config = statusConfig[trial.status] || statusConfig.recruiting
+  const isRecruiting = trial.status === 'recruiting'
+  const ctGovUrl = trial.ctGovData?.url || (trial.nctId ? `https://clinicaltrials.gov/study/${trial.nctId}` : null)
+
+  return (
+    <main className="max-w-4xl mx-auto px-6 md:px-12 py-12">
+      {/* Breadcrumb */}
+      <nav className="mb-8">
+        <Link href="/trials" className="text-sm text-gray-500 hover:text-purple transition">
+          ← Back to all studies
+        </Link>
+      </nav>
+
+      {/* Status banner */}
+      <div className={`mb-8 p-4 rounded-lg border ${config.style}`}>
+        <div className="flex items-center gap-3">
+          {isRecruiting && (
+            <span className="relative flex h-3 w-3">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
+            </span>
+          )}
+          <span className="font-semibold">{config.label}</span>
+        </div>
+        <p className="text-sm mt-1 opacity-80">{config.message}</p>
+      </div>
+
+      {/* Title section */}
+      <header className="mb-10">
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
+          {trial.title}
+        </h1>
+        
+        {/* Conditions */}
+        {trial.conditions?.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {trial.conditions.map((condition, i) => (
+              <span key={i} className="px-3 py-1 text-sm font-medium bg-purple/10 text-purple rounded-full">
+                {condition}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Meta info */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-gray-500">
+          {trial.nctId && (
+            <span className="font-mono">{trial.nctId}</span>
+          )}
+          {trial.ctGovData?.sponsor && (
+            <span>Sponsor: {trial.ctGovData.sponsor}</span>
+          )}
+          {trial.principalInvestigator?.name && (
+            <InvestigatorBadge researcher={trial.principalInvestigator} />
+          )}
+        </div>
+      </header>
+
+      {/* Summary */}
+      {trial.laySummary && (
+        <section className="mb-10">
+          <h2 className="text-xl font-bold mb-3">About This Study</h2>
+          <p className="text-gray-700 leading-relaxed">{trial.laySummary}</p>
+        </section>
+      )}
+
+      {/* Eligibility - THE KEY SECTION */}
+      <section className="mb-10 p-6 bg-gray-50 rounded-xl border border-gray-200">
+        <h2 className="text-xl font-bold mb-4">Who Can Participate?</h2>
+        
+        {trial.eligibilityOverview && (
+          <p className="text-gray-700 mb-6 pb-6 border-b border-gray-200">
+            {trial.eligibilityOverview}
+          </p>
+        )}
+
+        {/* Quick eligibility facts */}
+        <div className="grid md:grid-cols-3 gap-4 mb-6">
+          {(trial.ageRange?.minimum || trial.ageRange?.maximum) && (
+            <div className="p-3 bg-white rounded-lg border border-gray-100">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Age</p>
+              <p className="font-medium">
+                {trial.ageRange.minimum || 'No minimum'} – {trial.ageRange.maximum || 'No maximum'}
+              </p>
+            </div>
+          )}
+          {trial.sex && trial.sex !== 'all' && (
+            <div className="p-3 bg-white rounded-lg border border-gray-100">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Sex</p>
+              <p className="font-medium capitalize">{trial.sex} only</p>
+            </div>
+          )}
+          {trial.duration && (
+            <div className="p-3 bg-white rounded-lg border border-gray-100">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Duration</p>
+              <p className="font-medium">{trial.duration}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Detailed criteria */}
+        <div className="grid md:grid-cols-2 gap-6">
+          {trial.inclusionCriteria?.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-emerald-700 mb-3 flex items-center gap-2">
+                <span className="text-lg">✓</span> Inclusion Criteria
+              </h3>
+              <ul className="space-y-2">
+                {trial.inclusionCriteria.map((item, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-gray-700">
+                    <span className="text-emerald-500 flex-shrink-0">•</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {trial.exclusionCriteria?.length > 0 && (
+            <div>
+              <h3 className="font-semibold text-red-700 mb-3 flex items-center gap-2">
+                <span className="text-lg">✗</span> Exclusion Criteria
+              </h3>
+              <ul className="space-y-2">
+                {trial.exclusionCriteria.map((item, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-gray-700">
+                    <span className="text-red-400 flex-shrink-0">•</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* What to Expect */}
+      {trial.whatToExpect && (
+        <section className="mb-10">
+          <h2 className="text-xl font-bold mb-3">What to Expect</h2>
+          <p className="text-gray-700 leading-relaxed">{trial.whatToExpect}</p>
+        </section>
+      )}
+
+      {/* Compensation */}
+      {trial.compensation && (
+        <section className="mb-10">
+          <h2 className="text-xl font-bold mb-3">Compensation</h2>
+          <p className="text-gray-700">{trial.compensation}</p>
+        </section>
+      )}
+
+      {/* Contact section */}
+      {isRecruiting && (
+        <section className="mb-10 p-6 bg-purple/5 rounded-xl border border-purple/20">
+          <h2 className="text-xl font-bold mb-4">Interested in Participating?</h2>
+          
+          {trial.localContact?.displayPublicly && trial.localContact?.name && (
+            <div className="mb-4">
+              <p className="font-medium">{trial.localContact.name}</p>
+              {trial.localContact.role && (
+                <p className="text-sm text-gray-600">{trial.localContact.role}</p>
+              )}
+              <div className="flex flex-wrap gap-4 mt-2">
+                {trial.localContact.email && (
+                  <a 
+                    href={`mailto:${trial.localContact.email}`}
+                    className="text-sm text-purple hover:underline"
+                  >
+                    {trial.localContact.email}
+                  </a>
+                )}
+                {trial.localContact.phone && (
+                  <a 
+                    href={`tel:${trial.localContact.phone}`}
+                    className="text-sm text-purple hover:underline"
+                  >
+                    {trial.localContact.phone}
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3 mt-4">
+            <Link
+              href="/contact"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple text-white font-medium rounded-lg hover:bg-purple/90 transition"
+            >
+              Contact Us About This Study
+            </Link>
+            {ctGovUrl && (
+              <a
+                href={ctGovUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition"
+              >
+                View on ClinicalTrials.gov ↗
+              </a>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* External links */}
+      <section className="flex flex-wrap gap-4 text-sm">
+        {ctGovUrl && (
+          <a
+            href={ctGovUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-500 hover:text-purple transition"
+          >
+            ClinicalTrials.gov listing ↗
+          </a>
+        )}
+        {trial.sponsorWebsite && (
+          <a
+            href={trial.sponsorWebsite}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-500 hover:text-purple transition"
+          >
+            Sponsor study page ↗
+          </a>
+        )}
+      </section>
+    </main>
+  )
+}
+
+function InvestigatorBadge({ researcher }) {
+  const slugValue = researcher.slug?.current || researcher.slug
+  const href = slugValue ? `/team/${slugValue}` : '#'
+  
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors bg-white rounded"
+    >
+      <Avatar photo={researcher.photo} name={researcher.name} />
+      <span className="text-purple font-medium text-sm">{researcher.name}</span>
+    </Link>
+  )
+}
+
+function Avatar({ photo, name }) {
+  if (photo) {
+    const src = urlFor(photo).width(64).height(64).fit('crop').url()
+    return (
+      <Image
+        src={src}
+        alt={name || ''}
+        width={24}
+        height={24}
+        className="h-6 w-6 rounded-full object-cover"
+      />
+    )
+  }
+  return (
+    <span className="h-6 w-6 rounded-full bg-[#E8E5E0] text-xs flex items-center justify-center text-[#888] font-semibold">
+      {name?.slice(0, 1)?.toUpperCase() || '?'}
+    </span>
+  )
+}

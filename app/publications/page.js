@@ -11,7 +11,7 @@ export default async function PublicationsPage() {
   const researchersRaw = await sanityFetch(queries.allResearchers)
   // Strip ALL Sanity data to plain JSON to break any circular references
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
-  const altmetricEnabled = settings?.altmetric?.enabled !== false
+  const altmetricEnabled = settings?.altmetric?.enabled === true
   const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
   const researcherChips = researchers.map((r) => ({
     _id: r._id,

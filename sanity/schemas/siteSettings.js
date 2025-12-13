@@ -172,16 +172,16 @@ export default {
     },
     {
       name: 'altmetric',
-      title: 'Altmetric donuts',
+      title: 'Altmetric Donuts',
       type: 'object',
-      description: 'Controls whether Altmetric donut badges are shown site-wide.',
+      description: 'Show Altmetric donut badges on publications to display social media and news attention.',
       fields: [
         {
           name: 'enabled',
           title: 'Enable Altmetric donuts',
           type: 'boolean',
-          description: 'If disabled, the site will not load the Altmetric embed script and donuts will not render.',
-          initialValue: true
+          description: 'When enabled, publications will display Altmetric attention score donuts (requires DOI or PMID).',
+          initialValue: false
         }
       ]
     }
