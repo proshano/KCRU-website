@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { sanityFetch, queries } from '@/lib/sanity'
-import { TrialCard, TrialCardCompact } from './TrialCards'
+import { TrialSection, TrialCardCompact } from './TrialCards'
 
 // Revalidate every 12 hours
 export const revalidate = 43200
@@ -142,60 +142,37 @@ export default async function TrialsPage({ searchParams }) {
         </div>
       )}
 
-      {/* Recruiting Studies */}
-      {recruitingTrials.length > 0 && (
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-            <span className="flex h-3 w-3 relative">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
-            </span>
-            Currently Recruiting
-          </h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {recruitingTrials.map((trial) => (
-              <TrialCard key={trial._id} trial={trial} />
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Study sections - publications style */}
+      <div className="space-y-4">
+        <TrialSection 
+          title="Currently Recruiting" 
+          trials={recruitingTrials} 
+          defaultOpen={true}
+          dotColor="bg-emerald-500"
+        />
 
-      {/* Coming Soon */}
-      {comingSoonTrials.length > 0 && (
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-6">Coming Soon</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {comingSoonTrials.map((trial) => (
-              <TrialCard key={trial._id} trial={trial} />
-            ))}
-          </div>
-        </section>
-      )}
+        <TrialSection 
+          title="Coming Soon" 
+          trials={comingSoonTrials} 
+          defaultOpen={true}
+          dotColor="bg-amber-400"
+        />
 
-      {/* Active but not recruiting */}
-      {activeNotRecruitingTrials.length > 0 && (
-        <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-6">Active Studies (Not Recruiting)</h2>
-          <p className="text-sm text-gray-500 -mt-4 mb-6">These studies are ongoing but no longer accepting new participants.</p>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {activeNotRecruitingTrials.map((trial) => (
-              <TrialCard key={trial._id} trial={trial} />
-            ))}
-          </div>
-        </section>
-      )}
+        <TrialSection 
+          title="Active, Not Recruiting" 
+          subtitle="These studies are ongoing but no longer accepting new participants."
+          trials={activeNotRecruitingTrials} 
+          defaultOpen={true}
+          dotColor="bg-purple"
+        />
 
-      {/* Completed */}
-      {completedTrials.length > 0 && (
-        <section>
-          <h2 className="text-xl font-bold mb-4 text-gray-600">Completed Studies</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {completedTrials.map((trial) => (
-              <TrialCardCompact key={trial._id} trial={trial} />
-            ))}
-          </div>
-        </section>
-      )}
+        <TrialSection 
+          title="Completed" 
+          trials={completedTrials} 
+          defaultOpen={false}
+          dotColor="bg-gray-400"
+        />
+      </div>
 
       {/* Empty state */}
       {trials.length === 0 && (
