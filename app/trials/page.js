@@ -169,7 +169,7 @@ export default async function TrialsPage({ searchParams }) {
       {/* Active but not recruiting */}
       {activeNotRecruitingTrials.length > 0 && (
         <section className="mb-12">
-          <h2 className="text-2xl font-bold mb-6">Active Studies (Not Enrolling)</h2>
+          <h2 className="text-2xl font-bold mb-6">Active Studies (Not Recruiting)</h2>
           <p className="text-sm text-gray-500 -mt-4 mb-6">These studies are ongoing but no longer accepting new participants.</p>
           <div className="grid gap-6 md:grid-cols-2">
             {activeNotRecruitingTrials.map((trial) => (
