@@ -74,22 +74,13 @@ export default async function PublicationsPage() {
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
-      <header className="flex justify-between items-center">
-        <div className="space-y-1">
-          <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em]">
-            Research Output
-          </h2>
-          <h1 className="text-4xl font-bold tracking-tight">Publications</h1>
-          <p className="text-sm text-[#666]">
-            Since {sinceYear} from our investigators{settings?.pubmedAffiliation ? ` + ${settings.pubmedAffiliation}` : ''}
-          </p>
-          <p className="text-xs text-[#888]">
-            {meta?.generatedAt ? `Updated ${formatGeneratedAt(meta.generatedAt)}` : 'Cache not yet generated'}
-          </p>
-        </div>
-        <div className="text-right text-sm text-[#666] font-medium space-y-1">
-          <div>{publications.length} publications</div>
-        </div>
+      <header>
+        <h1 className="text-4xl font-bold tracking-tight">
+          {publications.length} publications since {sinceYear}
+        </h1>
+        <p className="text-xs text-[#888] mt-2">
+          {meta?.generatedAt ? `Updated ${formatGeneratedAt(meta.generatedAt)}` : 'Cache not yet generated'}
+        </p>
       </header>
 
       {publications.length === 0 && (

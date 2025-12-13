@@ -189,8 +189,9 @@ a {
 
 /* When inside team-member card, fill the container */
 .team-member .team-photo {
-  width: 100%;
-  margin-bottom: 12px;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 6px;
 }
 
 .team-member:hover .team-photo {

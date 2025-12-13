@@ -93,80 +93,85 @@ export default async function TeamMemberPage({ params }) {
     .toUpperCase() || '?'
 
   return (
-    <main className="max-w-[900px] mx-auto px-6 md:px-12 py-12 space-y-10">
-      {/* Profile header */}
-      <div className="flex flex-wrap gap-8 items-start">
-        <div className="w-40 h-40 rounded-full bg-[#E8E5E0] overflow-hidden flex-shrink-0 flex items-center justify-center">
-          {profile.photo ? (
-            <Image
-              src={urlFor(profile.photo).width(240).height(240).fit('crop').url()}
-              alt={profile.name}
-              width={160}
-              height={160}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <span className="text-4xl font-semibold text-[#aaa]">{initials}</span>
-          )}
-        </div>
-        <div className="space-y-3 flex-1">
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight">{profile.name}</h1>
-            {profile.role && <p className="text-lg text-[#666] mt-1">{profile.role}</p>}
-          </div>
-          <div className="flex flex-wrap gap-3 text-sm font-medium">
-            {profile.email && (
-              <a className="text-purple hover:underline" href={`mailto:${profile.email}`}>
-                Email
-              </a>
-            )}
-            {profile.twitter && (
-              <a className="text-purple hover:underline" href={`https://twitter.com/${profile.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
-                X / Twitter
-              </a>
-            )}
-            {profile.linkedin && (
-              <a className="text-purple hover:underline" href={profile.linkedin} target="_blank" rel="noopener noreferrer">
-                LinkedIn
-              </a>
-            )}
-            {profile.orcid && (
-              <a className="text-purple hover:underline" href={`https://orcid.org/${profile.orcid.replace('https://orcid.org/', '')}`} target="_blank" rel="noopener noreferrer">
-                ORCID
-              </a>
+    <main className="py-12 space-y-10">
+      {/* Profile header and bio - narrow */}
+      <div className="max-w-[900px] mx-auto px-6 md:px-12 space-y-10">
+        <div className="flex flex-wrap gap-8 items-start">
+          <div className="w-40 h-40 rounded-full bg-[#E8E5E0] overflow-hidden flex-shrink-0 flex items-center justify-center">
+            {profile.photo ? (
+              <Image
+                src={urlFor(profile.photo).width(240).height(240).fit('crop').url()}
+                alt={profile.name}
+                width={160}
+                height={160}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-4xl font-semibold text-[#aaa]">{initials}</span>
             )}
           </div>
+          <div className="space-y-3 flex-1">
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight">{profile.name}</h1>
+              {profile.role && <p className="text-lg text-[#666] mt-1">{profile.role}</p>}
+            </div>
+            <div className="flex flex-wrap gap-3 text-sm font-medium">
+              {profile.email && (
+                <a className="text-purple hover:underline" href={`mailto:${profile.email}`}>
+                  Email
+                </a>
+              )}
+              {profile.twitter && (
+                <a className="text-purple hover:underline" href={`https://twitter.com/${profile.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
+                  X / Twitter
+                </a>
+              )}
+              {profile.linkedin && (
+                <a className="text-purple hover:underline" href={profile.linkedin} target="_blank" rel="noopener noreferrer">
+                  LinkedIn
+                </a>
+              )}
+              {profile.orcid && (
+                <a className="text-purple hover:underline" href={`https://orcid.org/${profile.orcid.replace('https://orcid.org/', '')}`} target="_blank" rel="noopener noreferrer">
+                  ORCID
+                </a>
+              )}
+            </div>
+          </div>
         </div>
+
+        {profile.bio && (
+          <section className="space-y-3">
+            <h2 className="text-xl font-bold tracking-tight">Biography</h2>
+            <p className="text-[#555] leading-relaxed whitespace-pre-line max-w-3xl">{profile.bio}</p>
+          </section>
+        )}
       </div>
 
-      {profile.bio && (
-        <section className="space-y-3">
-          <h2 className="text-xl font-bold tracking-tight">Biography</h2>
-          <p className="text-[#555] leading-relaxed whitespace-pre-line max-w-3xl">{profile.bio}</p>
-        </section>
-      )}
+      {/* Active Studies and Publications - wide */}
+      <div className="max-w-[1400px] mx-auto px-6 md:px-12 space-y-10">
+        <ActiveStudies studies={profile.activeStudies} />
 
-      <ActiveStudies studies={profile.activeStudies} />
+        <PublicationsSection
+          publicationsBundle={publicationsBundle}
+          hasQuery={Boolean(profile.pubmedQuery)}
+          altmetricEnabled={altmetricEnabled}
+          researchers={(researchers || []).map(r => ({
+            _id: r._id,
+            name: r.name,
+            slug: r.slug,
+            photo: r.photo
+          }))}
+        />
 
-      <PublicationsSection
-        publicationsBundle={publicationsBundle}
-        hasQuery={Boolean(profile.pubmedQuery)}
-        altmetricEnabled={altmetricEnabled}
-        researchers={(researchers || []).map(r => ({
-          _id: r._id,
-          name: r.name,
-          slug: r.slug,
-          photo: r.photo
-        }))}
-      />
-
-      <div>
-        <Link href="/team" className="arrow-link text-[13px]">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="rotate-180">
-            <path d="M5 12h14M12 5l7 7-7 7"/>
-          </svg>
-          Back to team
-        </Link>
+        <div>
+          <Link href="/team" className="arrow-link text-[13px]">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="rotate-180">
+              <path d="M5 12h14M12 5l7 7-7 7"/>
+            </svg>
+            Back to team
+          </Link>
+        </div>
       </div>
     </main>
   )

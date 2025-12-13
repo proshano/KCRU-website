@@ -205,12 +205,13 @@ export default async function HomePage() {
                   <Link
                     key={idx}
                     href={stat.href}
-                    className="px-6 py-5 flex items-center gap-4 transition hover:bg-purple/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                    className="flex flex-col items-center justify-center text-center transition hover:bg-purple/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+                    style={{ padding: '32px 24px' }}
                   >
-                    <div className="text-[32px] font-bold text-purple tracking-tight leading-none">
+                    <div style={{ fontSize: 48, fontWeight: 700, color: 'var(--color-purple)', letterSpacing: '-0.02em', lineHeight: 1, marginBottom: 8 }}>
                       {stat.value}
                     </div>
-                    <div className="text-[13px] text-[#666] font-medium leading-tight whitespace-pre-line">
+                    <div style={{ fontSize: 18, color: '#666', fontWeight: 500, lineHeight: 1.3 }}>
                       {stat.label}
                     </div>
                   </Link>
@@ -234,7 +235,7 @@ export default async function HomePage() {
             </div>
 
             {/* Team Grid - 4x3 */}
-            <div className="grid grid-cols-4 gap-5">
+            <div className="grid grid-cols-4 gap-x-3 gap-y-2">
               {featuredResearchers.slice(0, 12).map((researcher) => {
                 const slugValue = typeof researcher.slug === 'string' ? researcher.slug : researcher.slug?.current
                 const href = slugValue ? `/team/${slugValue}` : '/team'
@@ -246,27 +247,84 @@ export default async function HomePage() {
                   .toUpperCase() || '?'
 
                 return (
-                  <Link key={researcher._id} href={href} className="team-member">
-                    <div className="team-photo">
+                  <Link key={researcher._id} href={href} className="team-member flex flex-col items-center">
+                    <div className="team-photo" style={{ width: 135, height: 135 }}>
                       {researcher.photo ? (
                         <Image
-                          src={urlFor(researcher.photo).width(140).height(140).fit('crop').url()}
+                          src={urlFor(researcher.photo).width(170).height(170).fit('crop').url()}
                           alt={researcher.name || 'Researcher'}
-                          width={140}
-                          height={140}
+                          width={135}
+                          height={135}
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-[22px] font-semibold text-[#aaa]">{initials}</span>
+                        <span className="text-[24px] font-semibold text-[#aaa]">{initials}</span>
                       )}
                     </div>
-                    <div className="text-[13px] font-semibold text-[#1a1a1a] whitespace-nowrap overflow-hidden text-ellipsis">
+                    <div className="text-[13px] font-semibold text-[#1a1a1a] whitespace-nowrap overflow-hidden text-ellipsis text-center">
                       {researcher.name}
                     </div>
                   </Link>
                 )
               })}
             </div>
+
+            {/* Investigator Affiliations */}
+            {settings?.affiliations?.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-4">
+                  Investigator Affiliations
+                </h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                  {settings.affiliations.map((affiliation, idx) => {
+                    // Check if logo exists and has an asset reference
+                    const hasValidLogo = affiliation.logo && affiliation.logo.asset && affiliation.logo.asset._ref
+                    if (!hasValidLogo) return null
+                    
+                    // Parse the asset reference to build the URL
+                    // Format: image-{id}-{dimensions}-{format}
+                    const ref = affiliation.logo.asset._ref
+                    const [, id, dimensions, format] = ref.split('-')
+                    const isSvg = format === 'svg'
+                    
+                    let logoUrl
+                    if (isSvg) {
+                      // For SVGs, construct the CDN URL directly
+                      logoUrl = `https://cdn.sanity.io/images/${process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 't6eeltne'}/${process.env.NEXT_PUBLIC_SANITY_DATASET || 'production'}/${id}-${dimensions}.${format}`
+                    } else {
+                      try {
+                        logoUrl = urlFor(affiliation.logo).url()
+                      } catch (e) {
+                        console.error('Failed to generate logo URL for:', affiliation.name, e)
+                        return null
+                      }
+                    }
+                    
+                    const logoImage = (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={logoUrl}
+                        alt={affiliation.name || 'Affiliation'}
+                        style={{ objectFit: 'contain', width: 'auto', height: 'auto', maxWidth: 140, maxHeight: 70 }}
+                      />
+                    )
+                    return affiliation.url ? (
+                      <a
+                        key={idx}
+                        href={affiliation.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:opacity-70 transition-opacity"
+                      >
+                        {logoImage}
+                      </a>
+                    ) : (
+                      <div key={idx}>{logoImage}</div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -286,7 +344,7 @@ export default async function HomePage() {
           .ticker-track {
             display: flex;
             gap: 20px;
-            padding: 4px 48px 12px;
+            padding: 4px 48px 8px;
             width: max-content;
             min-width: 100%;
             animation: tickerAnim 70s linear infinite;
@@ -351,7 +409,7 @@ export default async function HomePage() {
             line-height: 1.4;
           }
         `}</style>
-        <div style={{ background: '#1a1a1a', padding: '16px 0', overflow: 'hidden' }}>
+        <div style={{ background: '#1a1a1a', padding: '12px 0', overflow: 'hidden' }}>
           <div style={{ color: '#666', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 12px 48px' }}>
             Recent research
           </div>
