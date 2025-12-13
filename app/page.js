@@ -272,7 +272,7 @@ export default async function HomePage() {
             {/* Investigator Affiliations */}
             {settings?.affiliations?.length > 0 && (
               <div className="mt-6">
-                <h3 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-4">
+                <h3 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-1">
                   Investigator Affiliations
                 </h3>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>

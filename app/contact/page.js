@@ -69,22 +69,17 @@ export default async function ContactPage() {
   const locations = (locationsData?.locations || []).filter((loc) => loc?.name)
 
   return (
-    <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-10">
-      <header className="space-y-2">
-        <h1 className="text-4xl font-bold tracking-tight">Contact us</h1>
-      </header>
-
+    <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12">
       <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-6">
+          <h1 className="text-4xl font-bold tracking-tight">Contact us</h1>
           <section className="space-y-4">
             <ContactForm options={publicOptions} recaptchaSiteKey={recaptchaSiteKey} />
           </section>
         </div>
 
         <aside className="space-y-4">
-          <div className="space-y-2">
-            <h3 className="text-xl font-bold text-[#1a1a1a]">Locations</h3>
-          </div>
+          <h2 className="text-4xl font-bold tracking-tight">Locations</h2>
           <section className="grid gap-4">
             {locations.map((loc, idx) => (
               <div key={`${loc.name}-${idx}`} className="p-5 bg-white border border-black/[0.06] space-y-2">

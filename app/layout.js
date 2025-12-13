@@ -62,7 +62,6 @@ export default async function RootLayout({ children }) {
               <div className="flex gap-6">
                 <Link href="/privacy" className="hover:text-purple transition-colors">Privacy</Link>
                 <Link href="/accessibility" className="hover:text-purple transition-colors">Accessibility</Link>
-                <Link href="/contact" className="hover:text-purple transition-colors">Contact</Link>
               </div>
             </div>
           </footer>
