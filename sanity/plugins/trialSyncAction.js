@@ -49,14 +49,13 @@ function TrialSyncAction(props) {
       }
 
       const syncedData = data.data
-      const trialTitle = syncedData.ctGovData?.officialTitle || syncedData.ctGovData?.briefTitle
+      // Use briefTitle (short display title from CT.gov) instead of officialTitle (long scientific title)
+      const trialTitle = syncedData.ctGovData?.briefTitle || syncedData.ctGovData?.officialTitle
 
       console.log('[TrialSync] Got data for document:', id, 'isNew:', isNewDocument)
 
-      // Build the document data
-      const docData = {
-        _id: `drafts.${id}`,
-        _type: 'trialSummary',
+      // Fields that come from ClinicalTrials.gov (will be updated on sync)
+      const syncedFields = {
         nctId: nctId.toUpperCase(),
         title: trialTitle,
         ctGovData: syncedData.ctGovData,
@@ -71,12 +70,41 @@ function TrialSyncAction(props) {
         eligibilityOverview: syncedData.eligibilityOverview,
       }
 
-      // Create or update the document
-      await client.createOrReplace(docData)
+      const draftId = `drafts.${id}`
+
+      if (isNewDocument) {
+        // For new documents, create with synced fields
+        await client.createIfNotExists({
+          _id: draftId,
+          _type: 'trialSummary',
+          ...syncedFields,
+        })
+      } else {
+        // For existing documents, patch only synced fields
+        // This preserves manually-set fields like therapeuticAreas, principalInvestigator, status, localContact, slug, etc.
+        await client
+          .patch(draftId)
+          .set(syncedFields)
+          .commit({ returnDocuments: false })
+          .catch(async (err) => {
+            // If draft doesn't exist, create it first then patch
+            if (err.statusCode === 404) {
+              const baseDoc = published || {}
+              await client.createIfNotExists({
+                ...baseDoc,
+                _id: draftId,
+                _type: 'trialSummary',
+              })
+              await client.patch(draftId).set(syncedFields).commit({ returnDocuments: false })
+            } else {
+              throw err
+            }
+          })
+      }
 
       console.log('[TrialSync] Document saved successfully')
 
-      alert(`✓ Imported: "${trialTitle?.slice(0, 60)}..."\n\nClick Publish to save permanently.`)
+      alert(`✓ Synced: "${trialTitle?.slice(0, 60)}..."\n\nManual fields preserved. Click Publish to save.`)
 
     } catch (err) {
       console.error('[TrialSync] Failed:', err)

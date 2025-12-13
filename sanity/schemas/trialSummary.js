@@ -264,6 +264,7 @@ export default {
       description: 'Auto-fetched data. Do not edit manually - use "Sync from ClinicalTrials.gov" action.',
       options: { collapsible: true, collapsed: true },
       fields: [
+        { name: 'briefTitle', title: 'Brief Title', type: 'string', readOnly: true },
         { name: 'officialTitle', title: 'Official Title', type: 'string', readOnly: true },
         { name: 'briefSummary', title: 'Brief Summary', type: 'text', readOnly: true },
         { name: 'detailedDescription', title: 'Detailed Description', type: 'text', readOnly: true },
