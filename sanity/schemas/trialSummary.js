@@ -13,6 +13,7 @@
  */
 
 import NctIdInput from '../components/NctIdInput'
+import AutoSlugInput from '../components/AutoSlugInput'
 
 export default {
   name: 'trialSummary',
@@ -36,10 +37,34 @@ export default {
       components: {
         input: NctIdInput
       },
-      validation: Rule => Rule.regex(/^NCT\d{8}$/i, {
-        name: 'NCT format',
-        invert: false
-      }).warning('Enter a valid NCT ID (e.g., NCT12345678) to auto-fetch study data'),
+      validation: Rule => [
+        Rule.regex(/^NCT\d{8}$/i, {
+          name: 'NCT format',
+          invert: false
+        }).warning('Enter a valid NCT ID (e.g., NCT12345678) to auto-fetch study data'),
+        // Check for duplicate NCT IDs
+        Rule.custom(async (nctId, context) => {
+          if (!nctId) return true
+          
+          const { document, getClient } = context
+          const client = getClient({ apiVersion: '2024-01-01' })
+          
+          // Query for other documents with the same NCT ID
+          const duplicates = await client.fetch(
+            `*[_type == "trialSummary" && nctId == $nctId && _id != $currentId && !(_id in path("drafts.**"))] { _id, title }`,
+            { 
+              nctId: nctId.toUpperCase(), 
+              currentId: document._id.replace('drafts.', '') 
+            }
+          )
+          
+          if (duplicates.length > 0) {
+            return `This NCT ID is already used by: "${duplicates[0].title}"`
+          }
+          
+          return true
+        })
+      ],
       description: 'Enter the NCT ID and click "Fetch Details" to auto-populate study information.'
     },
     {
@@ -52,11 +77,13 @@ export default {
     },
     {
       name: 'slug',
-      title: 'Slug',
+      title: 'URL Slug',
       type: 'slug',
       group: 'basic',
       options: { source: 'title' },
-      validation: Rule => Rule.required()
+      components: { input: AutoSlugInput },
+      validation: Rule => Rule.required(),
+      description: 'Auto-generated from title'
     },
     {
       name: 'status',

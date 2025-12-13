@@ -1,3 +1,5 @@
+import AutoSlugInput from '../components/AutoSlugInput'
+
 export default {
   name: 'traineeOpportunity',
   title: 'Trainee Opportunity',
@@ -11,9 +13,11 @@ export default {
     },
     {
       name: 'slug',
-      title: 'Slug',
+      title: 'URL Slug',
       type: 'slug',
-      options: { source: 'title' }
+      options: { source: 'title' },
+      components: { input: AutoSlugInput },
+      description: 'Auto-generated from title'
     },
     {
       name: 'type',

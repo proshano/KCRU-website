@@ -5,6 +5,16 @@ import { definePlugin, useClient } from 'sanity'
 const NEXT_APP_URL = process.env.SANITY_STUDIO_NEXT_APP_URL || 'http://localhost:3000'
 const SYNC_URL = `${NEXT_APP_URL}/api/trials/sync`
 
+// Generate a URL-friendly slug from a title
+function generateSlug(title) {
+  if (!title) return null
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 96) // Keep slugs reasonable length
+}
+
 /**
  * Document action to sync trial data from ClinicalTrials.gov
  */
@@ -73,18 +83,29 @@ function TrialSyncAction(props) {
       const draftId = `drafts.${id}`
 
       if (isNewDocument) {
-        // For new documents, create with synced fields
+        // For new documents, create with synced fields + auto-generated slug
+        const autoSlug = generateSlug(trialTitle)
         await client.createIfNotExists({
           _id: draftId,
           _type: 'trialSummary',
           ...syncedFields,
+          slug: autoSlug ? { _type: 'slug', current: autoSlug } : undefined,
+          status: 'recruiting', // Default status for new trials
         })
       } else {
         // For existing documents, patch only synced fields
         // This preserves manually-set fields like therapeuticAreas, principalInvestigator, status, localContact, slug, etc.
+        
+        // Check if slug is missing and auto-generate if needed
+        const existingSlug = doc?.slug?.current
+        const fieldsToSet = { ...syncedFields }
+        if (!existingSlug && trialTitle) {
+          fieldsToSet.slug = { _type: 'slug', current: generateSlug(trialTitle) }
+        }
+        
         await client
           .patch(draftId)
-          .set(syncedFields)
+          .set(fieldsToSet)
           .commit({ returnDocuments: false })
           .catch(async (err) => {
             // If draft doesn't exist, create it first then patch
@@ -95,16 +116,14 @@ function TrialSyncAction(props) {
                 _id: draftId,
                 _type: 'trialSummary',
               })
-              await client.patch(draftId).set(syncedFields).commit({ returnDocuments: false })
+              await client.patch(draftId).set(fieldsToSet).commit({ returnDocuments: false })
             } else {
               throw err
             }
           })
       }
 
-      console.log('[TrialSync] Document saved successfully')
-
-      alert(`✓ Synced: "${trialTitle?.slice(0, 60)}..."\n\nManual fields preserved. Click Publish to save.`)
+      console.log('[TrialSync] Document synced successfully:', trialTitle)
 
     } catch (err) {
       console.error('[TrialSync] Failed:', err)

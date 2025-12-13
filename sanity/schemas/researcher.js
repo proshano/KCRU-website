@@ -1,3 +1,5 @@
+import AutoSlugInput from '../components/AutoSlugInput'
+
 export default {
   name: 'researcher',
   title: 'Researcher',
@@ -11,10 +13,12 @@ export default {
     },
     {
       name: 'slug',
-      title: 'Slug',
+      title: 'URL Slug',
       type: 'slug',
       options: { source: 'name' },
-      validation: Rule => Rule.required()
+      components: { input: AutoSlugInput },
+      validation: Rule => Rule.required(),
+      description: 'Auto-generated from name'
     },
     {
       name: 'role',

@@ -5,6 +5,8 @@
  * Used for filtering trials and targeting email communications.
  */
 
+import AutoSlugInput from '../components/AutoSlugInput'
+
 export default {
   name: 'therapeuticArea',
   title: 'Therapeutic Areas',
@@ -19,10 +21,12 @@ export default {
     },
     {
       name: 'slug',
-      title: 'Slug',
+      title: 'URL Slug',
       type: 'slug',
       options: { source: 'name' },
-      validation: Rule => Rule.required()
+      components: { input: AutoSlugInput },
+      validation: Rule => Rule.required(),
+      description: 'Auto-generated from name'
     },
     {
       name: 'shortLabel',
