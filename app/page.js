@@ -261,7 +261,7 @@ export default async function HomePage() {
                         <span className="text-[24px] font-semibold text-[#aaa]">{initials}</span>
                       )}
                     </div>
-                    <div className="text-[13px] font-semibold text-[#1a1a1a] whitespace-nowrap overflow-hidden text-ellipsis text-center">
+                    <div className="hidden sm:block text-[13px] font-semibold text-[#1a1a1a] whitespace-nowrap overflow-hidden text-ellipsis text-center">
                       {researcher.name}
                     </div>
                   </Link>
