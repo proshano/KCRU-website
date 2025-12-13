@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import Image from 'next/image'
-import { sanityFetch, queries, urlFor } from '@/lib/sanity'
+import { sanityFetch, queries } from '@/lib/sanity'
+import { TrialCard, TrialCardCompact } from './TrialCards'
 
 // Revalidate every 12 hours
 export const revalidate = 43200
@@ -10,43 +10,27 @@ export const metadata = {
   description: 'Find kidney research studies currently recruiting participants at our sites.',
 }
 
-const statusConfig = {
-  recruiting: { 
-    label: 'Recruiting', 
-    style: 'text-emerald-800 bg-emerald-50 ring-1 ring-emerald-200',
-    dot: 'animate' 
-  },
-  coming_soon: { 
-    label: 'Coming Soon', 
-    style: 'text-amber-800 bg-amber-50 ring-1 ring-amber-200',
-    dot: false 
-  },
-  active_not_recruiting: { 
-    label: 'Active, Not Recruiting', 
-    style: 'text-purple bg-purple/10 ring-1 ring-purple/30',
-    dot: 'static'
-  },
-  // Legacy fallback - treat 'closed' same as active_not_recruiting
-  closed: { 
-    label: 'Active, Not Recruiting', 
-    style: 'text-purple bg-purple/10 ring-1 ring-purple/30',
-    dot: 'static'
-  },
-  completed: { 
-    label: 'Completed', 
-    style: 'text-gray-500 bg-gray-50 ring-1 ring-gray-200',
-    dot: false 
-  },
-}
-
-export default async function TrialsPage() {
+export default async function TrialsPage({ searchParams }) {
+  // In Next.js 15+, searchParams is a Promise
+  const params = await searchParams
+  
   const [trialsRaw, areasRaw] = await Promise.all([
     sanityFetch(queries.trialSummaries),
     sanityFetch(queries.therapeuticAreas)
   ])
   
-  const trials = JSON.parse(JSON.stringify(trialsRaw || []))
+  const allTrials = JSON.parse(JSON.stringify(trialsRaw || []))
   const areas = JSON.parse(JSON.stringify(areasRaw || []))
+
+  // Get selected area filter from URL
+  const selectedArea = params?.area || null
+
+  // Filter trials by therapeutic area if selected
+  const trials = selectedArea
+    ? allTrials.filter(t => 
+        t.therapeuticAreas?.some(a => a.slug === selectedArea)
+      )
+    : allTrials
 
   // Separate by status (include 'closed' as legacy fallback for active_not_recruiting)
   const recruitingTrials = trials.filter(t => t.status === 'recruiting')
@@ -96,17 +80,59 @@ export default async function TrialsPage() {
             Filter by area
           </p>
           <div className="flex flex-wrap gap-2">
-            {areas.filter(a => a.trialCount > 0).map((area) => (
-              <span
-                key={area._id}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 cursor-pointer transition"
-              >
-                {area.icon && <span>{area.icon}</span>}
-                {area.shortLabel || area.name}
-                <span className="text-xs text-gray-500">({area.trialCount})</span>
+            {/* Show All button */}
+            <Link
+              href="/trials"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition ${
+                !selectedArea
+                  ? 'bg-purple text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              All
+              <span className={`text-xs ${!selectedArea ? 'text-white/70' : 'text-gray-500'}`}>
+                ({allTrials.length})
               </span>
-            ))}
+            </Link>
+            {areas.filter(a => a.trialCount > 0).map((area) => {
+              const isActive = selectedArea === area.slug
+              return (
+                <Link
+                  key={area._id}
+                  href={`/trials?area=${area.slug}`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition ${
+                    isActive
+                      ? 'bg-purple text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {area.icon && <span>{area.icon}</span>}
+                  {area.shortLabel || area.name}
+                  <span className={`text-xs ${isActive ? 'text-white/70' : 'text-gray-500'}`}>
+                    ({area.trialCount})
+                  </span>
+                </Link>
+              )
+            })}
           </div>
+        </div>
+      )}
+
+      {/* Filter active indicator */}
+      {selectedArea && (
+        <div className="mb-6 flex items-center gap-2 text-sm">
+          <span className="text-gray-500">
+            Showing {trials.length} {trials.length === 1 ? 'study' : 'studies'} in{' '}
+            <span className="font-medium text-gray-900">
+              {areas.find(a => a.slug === selectedArea)?.name || selectedArea}
+            </span>
+          </span>
+          <Link
+            href="/trials"
+            className="text-purple hover:text-purple/80 font-medium"
+          >
+            Clear filter
+          </Link>
         </div>
       )}
 
@@ -173,197 +199,5 @@ export default async function TrialsPage() {
         </div>
       )}
     </main>
-  )
-}
-
-function TrialCard({ trial }) {
-  const config = statusConfig[trial.status] || statusConfig.recruiting
-  const slugValue = trial.slug?.current || trial.slug
-  const hasDetailPage = !!slugValue
-  const ctGovUrl = trial.nctId ? `https://clinicaltrials.gov/study/${trial.nctId}` : null
-
-  // Build summary text - prefer laySummary, fall back to eligibility overview
-  const summaryText = trial.laySummary || trial.eligibilityOverview || ''
-
-  return (
-    <article className="group h-full flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all">
-      {/* Card header */}
-      <div className="p-6 flex-1">
-        {/* Status + conditions row */}
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <span className={`inline-flex items-center gap-2 px-2.5 py-1 text-xs font-semibold rounded-full ${config.style}`}>
-            {config.dot === 'animate' && (
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-            )}
-            {config.dot === 'static' && (
-              <span className="h-2 w-2 rounded-full bg-purple/60" />
-            )}
-            {config.label}
-          </span>
-          
-          {trial.nctId && (
-            <span className="text-xs text-gray-400 font-mono">{trial.nctId}</span>
-          )}
-        </div>
-
-        {/* Title */}
-        <h3 className="text-xl font-semibold text-gray-900 mb-3 leading-snug group-hover:text-purple transition-colors">
-          {trial.title}
-        </h3>
-
-        {/* Conditions tags */}
-        {trial.conditions?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {trial.conditions.slice(0, 3).map((condition, i) => (
-              <span key={i} className="px-2 py-0.5 text-xs font-medium bg-purple/10 text-purple rounded">
-                {condition}
-              </span>
-            ))}
-            {trial.conditions.length > 3 && (
-              <span className="px-2 py-0.5 text-xs text-gray-500">
-                +{trial.conditions.length - 3} more
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Summary */}
-        {summaryText && (
-          <p className="text-sm text-gray-600 line-clamp-3 mb-4">
-            {summaryText}
-          </p>
-        )}
-
-        {/* Eligibility quick info */}
-        {(trial.ageRange?.minimum || trial.ageRange?.maximum) && (
-          <div className="text-xs text-gray-500 mb-3">
-            <span className="font-medium">Ages:</span>{' '}
-            {trial.ageRange.minimum || 'No min'} – {trial.ageRange.maximum || 'No max'}
-          </div>
-        )}
-
-        {/* Therapeutic areas */}
-        {trial.therapeuticAreas?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-auto pt-2">
-            {trial.therapeuticAreas.map((area) => (
-              <span 
-                key={area._id} 
-                className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded"
-              >
-                {area.shortLabel || area.name}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Card footer */}
-      <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
-        <div className="flex items-center justify-between gap-4">
-          {/* PI badge or contact */}
-          <div className="flex-1 min-w-0">
-            {trial.principalInvestigator?.name ? (
-              <InvestigatorBadge researcher={trial.principalInvestigator} />
-            ) : trial.localContact?.displayPublicly && trial.localContact?.name ? (
-              <span className="text-xs text-gray-500">Contact: {trial.localContact.name}</span>
-            ) : trial.ctGovData?.sponsor ? (
-              <span className="text-xs text-gray-500">Sponsor: {trial.ctGovData.sponsor}</span>
-            ) : null}
-          </div>
-
-          {/* Links */}
-          <div className="flex items-center gap-3 flex-shrink-0">
-            {ctGovUrl && (
-              <a
-                href={ctGovUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-gray-500 hover:text-purple transition"
-                title="View on ClinicalTrials.gov"
-              >
-                CT.gov ↗
-              </a>
-            )}
-            {hasDetailPage && (
-              <Link 
-                href={`/trials/${slugValue}`}
-                className="text-xs font-medium text-purple hover:underline"
-              >
-                Learn more →
-              </Link>
-            )}
-          </div>
-        </div>
-      </div>
-    </article>
-  )
-}
-
-function InvestigatorBadge({ researcher }) {
-  const slugValue = researcher.slug?.current || researcher.slug
-  const href = slugValue ? `/team/${slugValue}` : '#'
-  
-  return (
-    <Link
-      href={href}
-      className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors bg-white rounded"
-    >
-      <Avatar photo={researcher.photo} name={researcher.name} />
-      <span className="text-purple font-medium text-sm">{researcher.name}</span>
-    </Link>
-  )
-}
-
-function Avatar({ photo, name }) {
-  if (photo) {
-    const src = urlFor(photo).width(64).height(64).fit('crop').url()
-    return (
-      <Image
-        src={src}
-        alt={name || ''}
-        width={24}
-        height={24}
-        className="h-6 w-6 rounded-full object-cover"
-      />
-    )
-  }
-  return (
-    <span className="h-6 w-6 rounded-full bg-[#E8E5E0] text-xs flex items-center justify-center text-[#888] font-semibold">
-      {name?.slice(0, 1)?.toUpperCase() || '?'}
-    </span>
-  )
-}
-
-function TrialCardCompact({ trial }) {
-  const config = statusConfig[trial.status] || statusConfig.completed
-  const ctGovUrl = trial.nctId ? `https://clinicaltrials.gov/study/${trial.nctId}` : null
-
-  return (
-    <article className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${config.style}`}>
-          {config.label}
-        </span>
-        {trial.nctId && (
-          <span className="text-xs text-gray-400 font-mono">{trial.nctId}</span>
-        )}
-      </div>
-      <h3 className="text-sm font-medium text-gray-700 line-clamp-2 mb-2">
-        {trial.title}
-      </h3>
-      {ctGovUrl && (
-        <a
-          href={ctGovUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-gray-500 hover:text-purple transition"
-        >
-          View on CT.gov ↗
-        </a>
-      )}
-    </article>
   )
 }
