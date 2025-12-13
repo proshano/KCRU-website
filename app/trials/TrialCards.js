@@ -1,8 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
-import { urlFor } from '@/lib/sanity'
 
 const statusConfig = {
   recruiting: { 
@@ -49,101 +47,102 @@ export function TrialCard({ trial }) {
   return (
     <article 
       onClick={handleCardClick}
-      className="group h-full flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg hover:border-gray-300 transition-all cursor-pointer"
+      className="group h-full flex flex-col bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md hover:border-gray-300 transition-all cursor-pointer"
     >
-      <div className="p-6 flex-1">
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <span className={`inline-flex items-center gap-2 px-2.5 py-1 text-xs font-semibold rounded-full ${config.style}`}>
+      <div className="p-4 flex-1">
+        {/* Status + NCT row */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-semibold rounded-full ${config.style}`}>
             {config.dot === 'animate' && (
-              <span className="relative flex h-2 w-2">
+              <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
               </span>
             )}
             {config.dot === 'static' && (
-              <span className="h-2 w-2 rounded-full bg-purple/60" />
+              <span className="h-1.5 w-1.5 rounded-full bg-purple/60" />
             )}
             {config.label}
           </span>
-          
           {trial.nctId && (
-            <span className="text-xs text-gray-400 font-mono">{trial.nctId}</span>
+            <span className="text-[10px] text-gray-400 font-mono">{trial.nctId}</span>
           )}
         </div>
 
-        <h3 className="text-xl font-semibold text-gray-900 mb-3 leading-snug group-hover:text-purple transition-colors">
+        {/* Title */}
+        <h3 className="text-base font-semibold text-gray-900 mb-2 leading-tight line-clamp-2 group-hover:text-purple transition-colors">
           {trial.title}
         </h3>
 
+        {/* Conditions */}
         {trial.conditions?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-4">
-            {trial.conditions.slice(0, 3).map((condition, i) => (
-              <span key={i} className="px-2 py-0.5 text-xs font-medium bg-purple/10 text-purple rounded">
+          <div className="flex flex-wrap gap-1 mb-2">
+            {trial.conditions.slice(0, 2).map((condition, i) => (
+              <span key={i} className="px-1.5 py-0.5 text-[10px] font-medium bg-purple/10 text-purple rounded">
                 {condition}
               </span>
             ))}
-            {trial.conditions.length > 3 && (
-              <span className="px-2 py-0.5 text-xs text-gray-500">
-                +{trial.conditions.length - 3} more
+            {trial.conditions.length > 2 && (
+              <span className="px-1.5 py-0.5 text-[10px] text-gray-500">
+                +{trial.conditions.length - 2}
               </span>
             )}
           </div>
         )}
 
+        {/* Summary - 2 lines */}
         {summaryText && (
-          <p className="text-sm text-gray-600 line-clamp-3 mb-4">
+          <p className="text-xs text-gray-600 line-clamp-2 mb-2">
             {summaryText}
           </p>
         )}
 
-        {(trial.ageRange?.minimum || trial.ageRange?.maximum) && (
-          <div className="text-xs text-gray-500 mb-3">
-            <span className="font-medium">Ages:</span>{' '}
-            {trial.ageRange.minimum || 'No min'} – {trial.ageRange.maximum || 'No max'}
-          </div>
-        )}
-
-        {trial.therapeuticAreas?.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-auto pt-2">
-            {trial.therapeuticAreas.map((area) => (
-              <span 
-                key={area._id} 
-                className="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded"
-              >
-                {area.shortLabel || area.name}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Age + Therapeutic areas inline */}
+        <div className="flex flex-wrap items-center gap-2 text-[10px] text-gray-500 mt-auto">
+          {(trial.ageRange?.minimum || trial.ageRange?.maximum) && (
+            <span>
+              Ages: {trial.ageRange.minimum || '–'} to {trial.ageRange.maximum || '–'}
+            </span>
+          )}
+          {trial.therapeuticAreas?.length > 0 && (
+            <>
+              {(trial.ageRange?.minimum || trial.ageRange?.maximum) && <span>•</span>}
+              {trial.therapeuticAreas.slice(0, 2).map((area, i) => (
+                <span key={area._id} className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">
+                  {area.shortLabel || area.name}
+                </span>
+              ))}
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+      {/* Compact footer */}
+      <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-100">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 min-w-0 text-[11px] text-gray-500 truncate" onClick={(e) => e.stopPropagation()}>
             {trial.principalInvestigator?.name ? (
-              <InvestigatorBadge researcher={trial.principalInvestigator} />
-            ) : trial.localContact?.displayPublicly && trial.localContact?.name ? (
-              <span className="text-xs text-gray-500">Contact: {trial.localContact.name}</span>
+              <Link href={`/team/${trial.principalInvestigator.slug?.current || trial.principalInvestigator.slug || ''}`} className="hover:text-purple">
+                PI: {trial.principalInvestigator.name}
+              </Link>
             ) : trial.ctGovData?.sponsor ? (
-              <span className="text-xs text-gray-500">Sponsor: {trial.ctGovData.sponsor}</span>
+              <span className="truncate">{trial.ctGovData.sponsor}</span>
             ) : null}
           </div>
-
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {ctGovUrl && (
               <a
                 href={ctGovUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-gray-500 hover:text-purple transition"
-                title="View on ClinicalTrials.gov"
+                className="text-[10px] text-gray-400 hover:text-purple transition"
                 onClick={(e) => e.stopPropagation()}
               >
                 CT.gov ↗
               </a>
             )}
-            <span className="text-xs font-medium text-purple group-hover:underline">
-              Learn more →
+            <span className="text-[11px] font-medium text-purple">
+              Details →
             </span>
           </div>
         </div>
@@ -195,37 +194,3 @@ export function TrialCardCompact({ trial }) {
   )
 }
 
-function InvestigatorBadge({ researcher }) {
-  const slugValue = researcher.slug?.current || researcher.slug
-  const href = slugValue ? `/team/${slugValue}` : '#'
-  
-  return (
-    <Link
-      href={href}
-      className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors bg-white rounded"
-    >
-      <Avatar photo={researcher.photo} name={researcher.name} />
-      <span className="text-purple font-medium text-sm">{researcher.name}</span>
-    </Link>
-  )
-}
-
-function Avatar({ photo, name }) {
-  if (photo) {
-    const src = urlFor(photo).width(64).height(64).fit('crop').url()
-    return (
-      <Image
-        src={src}
-        alt={name || ''}
-        width={24}
-        height={24}
-        className="h-6 w-6 rounded-full object-cover"
-      />
-    )
-  }
-  return (
-    <span className="h-6 w-6 rounded-full bg-[#E8E5E0] text-xs flex items-center justify-center text-[#888] font-semibold">
-      {name?.slice(0, 1)?.toUpperCase() || '?'}
-    </span>
-  )
-}

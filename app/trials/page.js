@@ -71,6 +71,12 @@ export default async function TrialsPage({ searchParams }) {
             <span>{comingSoonTrials.length} coming soon</span>
           </div>
         )}
+        {activeNotRecruitingTrials.length > 0 && (
+          <div className="flex items-center gap-2 text-gray-600">
+            <span className="h-3 w-3 rounded-full bg-purple" />
+            <span>{activeNotRecruitingTrials.length} active, not recruiting</span>
+          </div>
+        )}
       </div>
 
       {/* Therapeutic area filter pills */}
@@ -146,7 +152,7 @@ export default async function TrialsPage({ searchParams }) {
             </span>
             Currently Recruiting
           </h2>
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {recruitingTrials.map((trial) => (
               <TrialCard key={trial._id} trial={trial} />
             ))}
@@ -158,7 +164,7 @@ export default async function TrialsPage({ searchParams }) {
       {comingSoonTrials.length > 0 && (
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-6">Coming Soon</h2>
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {comingSoonTrials.map((trial) => (
               <TrialCard key={trial._id} trial={trial} />
             ))}
@@ -171,7 +177,7 @@ export default async function TrialsPage({ searchParams }) {
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-6">Active Studies (Not Recruiting)</h2>
           <p className="text-sm text-gray-500 -mt-4 mb-6">These studies are ongoing but no longer accepting new participants.</p>
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {activeNotRecruitingTrials.map((trial) => (
               <TrialCard key={trial._id} trial={trial} />
             ))}
