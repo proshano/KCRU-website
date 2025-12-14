@@ -109,33 +109,8 @@ function TrialItem({ trial }) {
           </p>
         </div>
 
-        {/* Right side - links and status */}
-        <div className="flex items-center gap-3 flex-wrap">
-          {ctGovUrl && (
-            <a
-              href={ctGovUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-gray-500 hover:text-purple hover:bg-purple/5 transition-colors"
-              title="View on ClinicalTrials.gov"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-            </a>
-          )}
-          {hasDetailPage && (
-            <Link
-              href={`/trials/${slugValue}`}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-purple hover:bg-purple/5 transition-colors"
-              title="View details"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          )}
-        </div>
+        {/* Right side (intentionally empty; title is the link) */}
+        <div className="flex items-center gap-3 flex-wrap" />
       </div>
 
       {/* PI badge */}
