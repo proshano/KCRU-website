@@ -7,6 +7,7 @@ const BASE_URL = process.env.SANITY_STUDIO_API_URL || 'http://localhost:3000'
 const REFRESH_URL = process.env.SANITY_STUDIO_PUBMED_REFRESH_URL || `${BASE_URL}/api/pubmed/refresh`
 const CANCEL_URL = process.env.SANITY_STUDIO_PUBMED_CANCEL_URL || `${BASE_URL}/api/pubmed/cancel`
 const UPLOAD_URL = process.env.SANITY_STUDIO_PUBMED_UPLOAD_URL || `${BASE_URL}/api/pubmed/upload`
+const DOWNLOAD_URL = process.env.SANITY_STUDIO_PUBMED_DOWNLOAD_URL || `${BASE_URL}/api/pubmed/download`
 const AUTH_TOKEN =
   process.env.SANITY_STUDIO_PUBMED_REFRESH_TOKEN ||
   process.env.SANITY_STUDIO_PUBMED_CANCEL_TOKEN ||
@@ -27,6 +28,7 @@ function PubmedCacheTool({ tool }) {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [message, setMessage] = useState(null)
 
   const fetchStatus = useCallback(async () => {
@@ -143,6 +145,40 @@ function PubmedCacheTool({ tool }) {
     }
   }
 
+  const handleDownload = async () => {
+    setDownloading(true)
+    setMessage(null)
+    try {
+      const res = await fetch(DOWNLOAD_URL, {
+        method: 'GET',
+        headers: {
+          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+        },
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Download failed')
+      }
+      const blob = await res.blob()
+      const disposition = res.headers.get('content-disposition') || ''
+      const match = disposition.match(/filename="?([^"]+)"?/)
+      const filename = match?.[1] || 'pubmed-cache.json'
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      setMessage({ tone: 'positive', text: 'Download started' })
+    } catch (err) {
+      setMessage({ tone: 'critical', text: err.message || 'Download failed' })
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   const formatDate = (dateStr) => {
     if (!dateStr) return 'Never'
     try {
@@ -217,7 +253,7 @@ function PubmedCacheTool({ tool }) {
                 tone="primary"
                 text={refreshing ? 'Refreshing...' : 'Refresh Cache'}
                 onClick={handleRefresh}
-                disabled={refreshing || uploading}
+                disabled={refreshing || uploading || downloading}
               />
             </Stack>
 
@@ -229,7 +265,19 @@ function PubmedCacheTool({ tool }) {
                 mode="ghost"
                 text={uploading ? 'Uploading...' : 'Re-upload to Sanity'}
                 onClick={handleUpload}
-                disabled={refreshing || uploading}
+                disabled={refreshing || uploading || downloading}
+              />
+            </Stack>
+
+            <Stack space={3}>
+              <Text size={2} weight="semibold">Download cache from Sanity</Text>
+              <Text size={1} muted>Grab the current cache JSON stored in Sanity directly to your machine.</Text>
+              <Button
+                tone="default"
+                mode="ghost"
+                text={downloading ? 'Downloading...' : 'Download cache JSON'}
+                onClick={handleDownload}
+                disabled={refreshing || uploading || downloading}
               />
             </Stack>
 
