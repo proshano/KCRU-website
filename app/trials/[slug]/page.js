@@ -50,6 +50,7 @@ export default async function TrialDetailPage({ params }) {
   const trial = JSON.parse(JSON.stringify(trialRaw))
   const config = statusConfig[trial.status] || statusConfig.recruiting
   const isRecruiting = trial.status === 'recruiting'
+  const showStatusBanner = !isRecruiting
   const ctGovUrl = trial.ctGovData?.url || (trial.nctId ? `https://clinicaltrials.gov/study/${trial.nctId}` : null)
 
   return (
@@ -61,19 +62,15 @@ export default async function TrialDetailPage({ params }) {
         </Link>
       </nav>
 
-      {/* Status banner */}
-      <div className={`mb-8 p-4 rounded-lg border ${config.style}`}>
-        <div className="flex items-center gap-3">
-          {isRecruiting && (
-            <span className="relative flex h-3 w-3">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
-            </span>
-          )}
-          <span className="font-semibold">{config.label}</span>
+      {/* Status banner (hidden when recruiting, shown for other statuses) */}
+      {showStatusBanner && (
+        <div className={`mb-8 p-4 rounded-lg border ${config.style}`}>
+          <div className="flex items-center gap-3">
+            <span className="font-semibold">{config.label}</span>
+          </div>
+          <p className="text-sm mt-1 opacity-80">{config.message}</p>
         </div>
-        <p className="text-sm mt-1 opacity-80">{config.message}</p>
-      </div>
+      )}
 
       {/* Title section */}
       <header className="mb-10">
