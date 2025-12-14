@@ -9,6 +9,7 @@ import traineeOpportunity from './traineeOpportunity'
 import alumnus from './alumnus'
 import site from './site'
 import pubmedCache from './pubmedCache'
+import pageContent from './pageContent'
 
 export const schemaTypes = [
   // Singletons (one instance)
@@ -16,6 +17,7 @@ export const schemaTypes = [
   capabilities,
   referralInfo,
   pubmedCache,
+  pageContent,
   
   // Collections
   researcher,

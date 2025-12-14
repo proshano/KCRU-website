@@ -106,6 +106,68 @@ export default async function TrialDetailPage({ params }) {
         </div>
       </header>
 
+      {/* Call-to-action - shown near top for visibility */}
+      {isRecruiting && (
+        <section className="mb-8 p-6 bg-purple/5 rounded-xl border border-purple/20">
+          <div className="flex items-start gap-3 mb-4">
+            <span className="relative flex h-3 w-3 mt-1">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
+            </span>
+            <div>
+              <p className="font-semibold text-emerald-800">{config.label}</p>
+              <p className="text-sm text-emerald-900/80">{config.message}</p>
+            </div>
+          </div>
+          
+          {trial.localContact?.displayPublicly && trial.localContact?.name && (
+            <div className="mb-4">
+              <p className="font-medium">{trial.localContact.name}</p>
+              {trial.localContact.role && (
+                <p className="text-sm text-gray-600">{trial.localContact.role}</p>
+              )}
+              <div className="flex flex-wrap gap-4 mt-2">
+                {trial.localContact.email && (
+                  <a 
+                    href={`mailto:${trial.localContact.email}`}
+                    className="text-sm text-purple hover:underline"
+                  >
+                    {trial.localContact.email}
+                  </a>
+                )}
+                {trial.localContact.phone && (
+                  <a 
+                    href={`tel:${trial.localContact.phone}`}
+                    className="text-sm text-purple hover:underline"
+                  >
+                    {trial.localContact.phone}
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3 mt-4">
+            <Link
+              href="/contact"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple text-white font-medium rounded-lg hover:bg-purple/90 transition"
+            >
+              Refer a patient
+            </Link>
+            {ctGovUrl && (
+              <a
+                href={ctGovUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition"
+              >
+                View on ClinicalTrials.gov ↗
+              </a>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Summary */}
       {trial.laySummary && (
         <section className="mb-10">
@@ -125,15 +187,7 @@ export default async function TrialDetailPage({ params }) {
         )}
 
         {/* Quick eligibility facts */}
-        <div className="grid md:grid-cols-3 gap-4 mb-6">
-          {(trial.ageRange?.minimum || trial.ageRange?.maximum) && (
-            <div className="p-3 bg-white rounded-lg border border-gray-100">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Age</p>
-              <p className="font-medium">
-                {trial.ageRange.minimum || 'No minimum'} – {trial.ageRange.maximum || 'No maximum'}
-              </p>
-            </div>
-          )}
+        <div className="grid md:grid-cols-2 gap-4 mb-6">
           {trial.sex && trial.sex !== 'all' && (
             <div className="p-3 bg-white rounded-lg border border-gray-100">
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Sex</p>
@@ -200,72 +254,9 @@ export default async function TrialDetailPage({ params }) {
         </section>
       )}
 
-      {/* Contact section */}
-      {isRecruiting && (
-        <section className="mb-10 p-6 bg-purple/5 rounded-xl border border-purple/20">
-          <h2 className="text-xl font-bold mb-4">Interested in Participating?</h2>
-          
-          {trial.localContact?.displayPublicly && trial.localContact?.name && (
-            <div className="mb-4">
-              <p className="font-medium">{trial.localContact.name}</p>
-              {trial.localContact.role && (
-                <p className="text-sm text-gray-600">{trial.localContact.role}</p>
-              )}
-              <div className="flex flex-wrap gap-4 mt-2">
-                {trial.localContact.email && (
-                  <a 
-                    href={`mailto:${trial.localContact.email}`}
-                    className="text-sm text-purple hover:underline"
-                  >
-                    {trial.localContact.email}
-                  </a>
-                )}
-                {trial.localContact.phone && (
-                  <a 
-                    href={`tel:${trial.localContact.phone}`}
-                    className="text-sm text-purple hover:underline"
-                  >
-                    {trial.localContact.phone}
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-3 mt-4">
-            <Link
-              href="/contact"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple text-white font-medium rounded-lg hover:bg-purple/90 transition"
-            >
-              Contact Us About This Study
-            </Link>
-            {ctGovUrl && (
-              <a
-                href={ctGovUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition"
-              >
-                View on ClinicalTrials.gov ↗
-              </a>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* External links */}
-      <section className="flex flex-wrap gap-4 text-sm">
-        {ctGovUrl && (
-          <a
-            href={ctGovUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gray-500 hover:text-purple transition"
-          >
-            ClinicalTrials.gov listing ↗
-          </a>
-        )}
-        {trial.sponsorWebsite && (
+      {/* External links (sponsor only; CT.gov already linked above) */}
+      {trial.sponsorWebsite && (
+        <section className="flex flex-wrap gap-4 text-sm">
           <a
             href={trial.sponsorWebsite}
             target="_blank"
@@ -274,8 +265,8 @@ export default async function TrialDetailPage({ params }) {
           >
             Sponsor study page ↗
           </a>
-        )}
-      </section>
+        </section>
+      )}
     </main>
   )
 }

@@ -7,12 +7,16 @@ import Link from 'next/link'
 export const revalidate = 86400 // 24 hours
 
 export default async function PublicationsPage() {
-  const settingsRaw = (await sanityFetch(queries.siteSettings)) || {}
-  const researchersRaw = await sanityFetch(queries.allResearchers)
+  const [settingsRaw, researchersRaw, pageContentRaw] = await Promise.all([
+    sanityFetch(queries.siteSettings),
+    sanityFetch(queries.allResearchers),
+    sanityFetch(queries.pageContent)
+  ])
   // Strip ALL Sanity data to plain JSON to break any circular references
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
   const altmetricEnabled = settings?.altmetric?.enabled === true
   const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
+  const content = JSON.parse(JSON.stringify(pageContentRaw || {}))
   const researcherChips = researchers.map((r) => ({
     _id: r._id,
     name: r.name,
@@ -72,12 +76,22 @@ export default async function PublicationsPage() {
     }
   }
 
+  // Page content with fallbacks
+  const titleTemplate = content.publicationsTitle || '{count} publications since {year}'
+  const pageTitle = titleTemplate
+    .replace('{count}', publications.length)
+    .replace('{year}', sinceYear)
+  const description = (content.publicationsDescription || '').trim()
+
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
       <header>
         <h1 className="text-4xl font-bold tracking-tight">
-          {publications.length} publications since {sinceYear}
+          {pageTitle}
         </h1>
+        {description && (
+          <p className="text-[#666] mt-3 max-w-2xl">{description}</p>
+        )}
         <p className="text-xs text-[#888] mt-2">
           {meta?.generatedAt ? `Updated ${formatGeneratedAt(meta.generatedAt)}` : 'Cache not yet generated'}
         </p>

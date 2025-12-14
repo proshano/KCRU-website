@@ -50,17 +50,19 @@ function buildPublicOptions(routing) {
 }
 
 export default async function ContactPage() {
-  const [settingsRaw, referralRaw, routingRaw, locationsRaw] = await Promise.all([
+  const [settingsRaw, referralRaw, routingRaw, locationsRaw, pageContentRaw] = await Promise.all([
     sanityFetch(queries.siteSettings),
     sanityFetch(queries.referralInfo),
     sanityFetch(queries.contactRouting),
-    sanityFetch(queries.contactLocations)
+    sanityFetch(queries.contactLocations),
+    sanityFetch(queries.pageContent)
   ])
 
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
   const referral = JSON.parse(JSON.stringify(referralRaw || {}))
   const routing = JSON.parse(JSON.stringify(routingRaw || {}))
   const locationsData = JSON.parse(JSON.stringify(locationsRaw || {}))
+  const content = JSON.parse(JSON.stringify(pageContentRaw || {}))
   const referralNote = typeof referral.howToRefer === 'string' ? referral.howToRefer : ''
 
   const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''
@@ -68,18 +70,28 @@ export default async function ContactPage() {
 
   const locations = (locationsData?.locations || []).filter((loc) => loc?.name)
 
+  // Page content with fallbacks
+  const title = content.contactTitle || 'Contact us'
+  const description = (content.contactDescription || '').trim()
+  const locationsTitle = content.contactLocationsTitle || 'Locations'
+
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12">
       <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-6">
-          <h1 className="text-4xl font-bold tracking-tight">Contact us</h1>
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">{title}</h1>
+            {description && (
+              <p className="text-[#666] mt-3">{description}</p>
+            )}
+          </div>
           <section className="space-y-4">
             <ContactForm options={publicOptions} recaptchaSiteKey={recaptchaSiteKey} />
           </section>
         </div>
 
         <aside className="space-y-4">
-          <h2 className="text-4xl font-bold tracking-tight">Locations</h2>
+          <h2 className="text-4xl font-bold tracking-tight">{locationsTitle}</h2>
           <section className="grid gap-4">
             {locations.map((loc, idx) => (
               <div key={`${loc.name}-${idx}`} className="p-5 bg-white border border-black/[0.06] space-y-2">

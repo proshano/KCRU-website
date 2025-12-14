@@ -84,32 +84,32 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
   return (
     <>
       {/* Quick stats + Search bar row */}
-      <div className="flex items-center gap-6 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center gap-4 mb-8">
         {/* Stats */}
-        <div className="flex items-center gap-6 text-sm">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm flex-shrink-0">
           <div className="flex items-center gap-2">
-            <span className="flex h-3 w-3 relative">
+            <span className="flex h-3 w-3 relative flex-shrink-0">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
             </span>
-            <span className="font-medium">{recruitingCount} recruiting</span>
+            <span className="font-medium whitespace-nowrap">{recruitingCount} recruiting</span>
           </div>
           {comingSoonCount > 0 && (
             <div className="flex items-center gap-2 text-gray-600">
-              <span className="h-3 w-3 rounded-full bg-amber-400" />
-              <span>{comingSoonCount} coming soon</span>
+              <span className="h-3 w-3 rounded-full bg-amber-400 flex-shrink-0" />
+              <span className="whitespace-nowrap">{comingSoonCount} coming soon</span>
             </div>
           )}
           {activeNotRecruitingCount > 0 && (
             <div className="flex items-center gap-2 text-gray-600">
-              <span className="h-3 w-3 rounded-full bg-purple" />
-              <span>{activeNotRecruitingCount} active, not recruiting</span>
+              <span className="h-3 w-3 rounded-full bg-purple flex-shrink-0" />
+              <span className="whitespace-nowrap">{activeNotRecruitingCount} active, not recruiting</span>
             </div>
           )}
         </div>
 
         {/* Search bar */}
-        <div className="relative flex-1 max-w-md ml-auto">
+        <div className="relative w-full md:w-[576px] md:ml-auto flex-shrink-0">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <svg 
               className="h-4 w-4 text-gray-400" 

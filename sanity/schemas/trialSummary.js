@@ -257,16 +257,6 @@ export default {
       description: 'Key exclusion criteria (fetched from ClinicalTrials.gov or entered manually)'
     },
     {
-      name: 'ageRange',
-      title: 'Age Range',
-      type: 'object',
-      group: 'eligibility',
-      fields: [
-        { name: 'minimum', title: 'Minimum Age', type: 'string', description: 'e.g., 18 Years' },
-        { name: 'maximum', title: 'Maximum Age', type: 'string', description: 'e.g., 75 Years or No limit' }
-      ]
-    },
-    {
       name: 'sex',
       title: 'Sex',
       type: 'string',

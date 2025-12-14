@@ -5,18 +5,30 @@ import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 export const revalidate = 3600 // 1 hour
 
 export default async function NewsPage() {
-  const newsPostsRaw = await sanityFetch(queries.allNews)
+  const [newsPostsRaw, pageContentRaw] = await Promise.all([
+    sanityFetch(queries.allNews),
+    sanityFetch(queries.pageContent)
+  ])
   // Strip Sanity data to plain JSON to break any circular references
   const newsPosts = JSON.parse(JSON.stringify(newsPostsRaw || []))
+  const content = JSON.parse(JSON.stringify(pageContentRaw || {}))
+
+  // Page content with fallbacks
+  const eyebrow = content.newsEyebrow || 'Latest Updates'
+  const title = content.newsTitle || 'News'
+  const description = (content.newsDescription || '').trim()
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
-      <header className="flex justify-between items-center">
+      <header className="flex justify-between items-start">
         <div>
           <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
-            Latest Updates
+            {eyebrow}
           </h2>
-          <h1 className="text-4xl font-bold tracking-tight">News</h1>
+          <h1 className="text-4xl font-bold tracking-tight">{title}</h1>
+          {description && (
+            <p className="text-[#666] mt-3 max-w-2xl">{description}</p>
+          )}
         </div>
         <span className="text-sm text-[#666] font-medium">{newsPosts?.length || 0} posts</span>
       </header>

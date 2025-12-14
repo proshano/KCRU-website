@@ -5,9 +5,18 @@ import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 export const revalidate = 3600 // 1 hour
 
 export default async function TeamPage() {
-  const researchersRaw = await sanityFetch(queries.allResearchers)
+  const [researchersRaw, pageContentRaw] = await Promise.all([
+    sanityFetch(queries.allResearchers),
+    sanityFetch(queries.pageContent)
+  ])
   // Strip Sanity data to plain JSON to break any circular references
   const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
+  const content = JSON.parse(JSON.stringify(pageContentRaw || {}))
+
+  // Page content with fallbacks
+  const eyebrow = content.teamEyebrow || 'Our Team'
+  const title = content.teamTitle || ''
+  const description = content.teamDescription || ''
 
   const normalizeCategory = (category) => {
     const value = (category || '').toString().toLowerCase()
@@ -45,12 +54,16 @@ export default async function TeamPage() {
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
-      <header className="flex justify-between items-center">
-        <div>
-          <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
-            Our Team
-          </h2>
-        </div>
+      <header>
+        <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
+          {eyebrow}
+        </h2>
+        {title && (
+          <h1 className="text-4xl font-bold tracking-tight">{title}</h1>
+        )}
+        {description && (
+          <p className="text-[#666] mt-3 max-w-2xl">{description}</p>
+        )}
       </header>
 
       {(!normalizedResearchers || normalizedResearchers.length === 0) && (

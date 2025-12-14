@@ -3,20 +3,29 @@ import { sanityFetch, queries } from '@/lib/sanity'
 export const revalidate = 3600 // 1 hour
 
 export default async function TrainingPage() {
-  const [opportunitiesRaw] = await Promise.all([
-    sanityFetch(queries.openOpportunities)
+  const [opportunitiesRaw, pageContentRaw] = await Promise.all([
+    sanityFetch(queries.openOpportunities),
+    sanityFetch(queries.pageContent)
   ])
   // Strip Sanity data to plain JSON to break any circular references
   const opportunities = JSON.parse(JSON.stringify(opportunitiesRaw || []))
+  const content = JSON.parse(JSON.stringify(pageContentRaw || {}))
+
+  // Page content with fallbacks
+  const eyebrow = content.trainingEyebrow || 'Join Our Team'
+  const title = content.trainingTitle || 'Opportunities'
+  const description = (content.trainingDescription || 'Open roles, how to apply, and highlights from past trainees.').trim()
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
       <header>
         <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
-          Join Our Team
+          {eyebrow}
         </h2>
-        <h1 className="text-4xl font-bold tracking-tight">Opportunities</h1>
-        <p className="text-[#666] mt-3">Open roles, how to apply, and highlights from past trainees.</p>
+        <h1 className="text-4xl font-bold tracking-tight">{title}</h1>
+        {description && (
+          <p className="text-[#666] mt-3">{description}</p>
+        )}
       </header>
 
       <section className="space-y-6">
