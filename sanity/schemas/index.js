@@ -9,6 +9,7 @@ import traineeOpportunity from './traineeOpportunity'
 import alumnus from './alumnus'
 import site from './site'
 import pubmedCache from './pubmedCache'
+import pubmedClassification from './pubmedClassification'
 import pageContent from './pageContent'
 
 export const schemaTypes = [
@@ -17,6 +18,7 @@ export const schemaTypes = [
   capabilities,
   referralInfo,
   pubmedCache,
+  pubmedClassification,
   pageContent,
   
   // Collections

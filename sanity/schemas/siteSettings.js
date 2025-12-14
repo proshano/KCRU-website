@@ -1,3 +1,8 @@
+import { DEFAULT_CLASSIFICATION_PROMPT } from '../../lib/classificationPrompt.js'
+import { DEFAULT_SYSTEM_PROMPT } from '../../lib/summaries.js'
+import { ClassificationPromptInput } from '../components/ClassificationPromptInput.jsx'
+import { SystemPromptInput } from '../components/SystemPromptInput.jsx'
+
 export default {
   name: 'siteSettings',
   title: 'Site Settings',
@@ -81,7 +86,7 @@ export default {
     },
     {
       name: 'llmProvider',
-      title: 'LLM Provider (for summaries)',
+      title: 'LLM Provider (summaries)',
       type: 'string',
       initialValue: 'openrouter',
       options: {
@@ -98,22 +103,65 @@ export default {
     },
     {
       name: 'llmModel',
-      title: 'LLM Model',
+      title: 'LLM Model (summaries)',
       type: 'string',
       description: 'e.g., openrouter/gpt-4o-mini or meta-llama/llama-3.1-8b-instruct:free'
     },
     {
       name: 'llmApiKey',
-      title: 'LLM API Key (server-only)',
+      title: 'LLM API Key (summaries; server-only)',
       type: 'string',
       description: 'Optional override. Leave blank to use server env vars.'
     },
     {
       name: 'llmSystemPrompt',
-      title: 'LLM System Prompt',
+      title: 'LLM System Prompt (summaries)',
       type: 'text',
       rows: 4,
-      description: 'Optional custom instructions for publication summaries. Defaults to: "You write summaries of medical research for a general sophisticated audience. Be accurate but avoid jargon. Explain what was studied, what was found, and why it matters but avoid statements about more research is needed. Do not make up information. Keep summaries to 2-3 sentences. Do not create abbreviations in the summary."'
+      description: 'Optional custom instructions for publication summaries.',
+      initialValue: DEFAULT_SYSTEM_PROMPT,
+      components: {
+        input: SystemPromptInput
+      }
+    },
+    {
+      name: 'llmClassificationProvider',
+      title: 'LLM Provider (classification)',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'OpenRouter', value: 'openrouter' },
+          { title: 'OpenAI', value: 'openai' },
+          { title: 'Together', value: 'together' },
+          { title: 'Groq', value: 'groq' },
+          { title: 'Ollama', value: 'ollama' },
+          { title: 'Anthropic', value: 'anthropic' }
+        ]
+      },
+      description: 'Optional override for classification; falls back to summary provider if blank.'
+    },
+    {
+      name: 'llmClassificationModel',
+      title: 'LLM Model (classification)',
+      type: 'string',
+      description: 'Optional override for classification; falls back to summary model if blank.'
+    },
+    {
+      name: 'llmClassificationApiKey',
+      title: 'LLM API Key (classification; server-only)',
+      type: 'string',
+      description: 'Optional override for classification; falls back to summary key/env if blank.'
+    },
+    {
+      name: 'llmClassificationPrompt',
+      title: 'LLM Classification Prompt',
+      type: 'text',
+      rows: 30,
+      description: 'Leave empty to use the built-in default. Click "Copy default into field" only if you want to edit it.',
+      initialValue: DEFAULT_CLASSIFICATION_PROMPT,
+      components: {
+        input: ClassificationPromptInput
+      }
     },
     {
       name: 'affiliations',

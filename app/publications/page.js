@@ -44,7 +44,11 @@ export default async function PublicationsPage() {
         provider: settings.llmProvider || 'openrouter',
         model: settings.llmModel,
         apiKey: settings.llmApiKey,
-        systemPrompt: settings.llmSystemPrompt
+        systemPrompt: settings.llmSystemPrompt,
+        classificationPrompt: settings.llmClassificationPrompt,
+        classificationProvider: settings.llmClassificationProvider,
+        classificationModel: settings.llmClassificationModel,
+        classificationApiKey: settings.llmClassificationApiKey
       }
     })
   } catch (err) {
@@ -164,7 +168,7 @@ function PublicationItem({ pub, researchers, provenance, altmetricEnabled }) {
   const showAltmetric = altmetricEnabled && hasAltmetricId
 
   return (
-    <article className="p-6 space-y-3">
+    <article className="p-6 space-y-3 bg-white border border-black/[0.05] shadow-sm rounded">
       <div className="flex flex-wrap items-start gap-4">
         <div className="flex-1 min-w-[240px] space-y-1">
           <h3 className="text-lg font-semibold leading-snug">
@@ -228,7 +232,7 @@ function PublicationItem({ pub, researchers, provenance, altmetricEnabled }) {
         </div>
       )}
       {pub.laySummary && (
-        <p className="text-sm text-[#666] bg-[#F5F3F0] border border-black/[0.06] p-4">
+        <p className="text-sm text-[#1a1a1a] bg-white border border-black/[0.08] p-4 rounded shadow-sm leading-relaxed">
           {pub.laySummary}
         </p>
       )}
