@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, queries, client as sanityClient, writeClient as sanityWriteClient } from '@/lib/sanity'
 import { readCache } from '@/lib/pubmedCache'
-import { generateSummariesBatch } from '@/lib/summaries'
+import { classifyPublication } from '@/lib/summaries'
 import { DEFAULT_CLASSIFICATION_PROMPT } from '@/lib/classificationPrompt'
 
 const AUTH_TOKEN = process.env.PUBMED_PREVIEW_TOKEN || process.env.PUBMED_REFRESH_TOKEN || ''
@@ -92,10 +92,13 @@ export async function POST(request) {
 
   try {
     const body = await request.json()
-    const requestedCount = clamp(Number(body?.count || 10), 1, 200)
+    const all = body?.all === true
+    const requestedCount = clamp(Number(body?.count || 10), 1, 5000)
     const overridePrompt = typeof body?.prompt === 'string' ? body.prompt.trim() : ''
     const pmidsFilter = Array.isArray(body?.pmids) ? body.pmids.map(String).filter(Boolean) : []
     const clearExisting = body?.clear === true
+    const batchSize = clamp(Number(body?.batchSize || 50), 1, 200)
+    const delayMs = clamp(Number(body?.delayMs || 0), 0, 60000)
 
     const settings = (await sanityFetch(queries.siteSettings)) || {}
     const cache = await readCache()
@@ -109,9 +112,12 @@ export async function POST(request) {
     const apiKey = body?.apiKey || settings.llmClassificationApiKey || settings.llmApiKey || undefined
     const systemPrompt = settings.llmSystemPrompt || undefined
 
-    let candidates = (cache.publications || []).filter(p => p?.abstract && p.abstract.length >= 50)
+    // Allow classification even if abstract is missing (prompt rules handle this)
+    let candidates = (cache.publications || []).filter(p => p?.pmid && p?.title)
     if (pmidsFilter.length) {
       candidates = candidates.filter(p => pmidsFilter.includes(p.pmid))
+    } else if (all) {
+      candidates = candidates.sort((a, b) => (parseInt(b.year, 10) || 0) - (parseInt(a.year, 10) || 0))
     } else {
       candidates = candidates
         .sort((a, b) => (parseInt(b.year, 10) || 0) - (parseInt(a.year, 10) || 0))
@@ -126,47 +132,64 @@ export async function POST(request) {
       await deleteClassifications(candidates.map(c => c.pmid))
     }
 
-    const resultsMap = await generateSummariesBatch(candidates, {
-      provider,
-      model,
-      apiKey,
-      systemPrompt,
-      classificationPrompt,
-      classificationProvider: provider,
-      classificationModel: model,
-      classificationApiKey: apiKey,
-      includeExistingLaySummary: true,
-      maxItems: candidates.length,
-      skipIfHasSummary: true, // summaries already exist; still classify
-      concurrency: 1,
-      delayMs: 0,
-      retryAttempts: 1,
-      debug: false,
-    })
+    const meta = { promptText: classificationPrompt, promptVersion: null, provider, model }
+    let processed = 0
 
-    const entries = candidates.map(pub => {
-      const res = resultsMap.get(pub.pmid) || {}
-      return {
-        pmid: pub.pmid,
-        summary: pub.laySummary || res.summary || null,
-        topics: res.topics || [],
-        studyDesign: res.studyDesign || [],
-        methodologicalFocus: res.methodologicalFocus || [],
-        exclude: typeof res.exclude === 'boolean' ? res.exclude : Boolean(pub.exclude),
-        error: res.error,
+    for (let i = 0; i < candidates.length; i += batchSize) {
+      const batch = candidates.slice(i, i + batchSize)
+      const entries = []
+
+      // sequential per-record classification to be robust and avoid provider throttling
+      for (const pub of batch) {
+        try {
+          const c = await classifyPublication(
+            {
+              title: pub.title,
+              abstract: pub.abstract || '',
+              laySummary: pub.laySummary || ''
+            },
+            {
+              provider,
+              model,
+              apiKey,
+              systemPrompt,
+              classificationPrompt,
+              debug: false
+            }
+          )
+          entries.push({
+            pmid: pub.pmid,
+            summary: pub.laySummary || null,
+            topics: c.topics || [],
+            studyDesign: c.studyDesign || [],
+            methodologicalFocus: c.methodologicalFocus || [],
+            exclude: Boolean(c.exclude),
+            error: null
+          })
+        } catch (err) {
+          entries.push({
+            pmid: pub.pmid,
+            summary: pub.laySummary || null,
+            topics: [],
+            studyDesign: [],
+            methodologicalFocus: [],
+            exclude: false,
+            error: err?.message || 'Classification failed'
+          })
+        }
       }
-    })
 
-    await upsertClassifications(entries, {
-      promptText: classificationPrompt,
-      promptVersion: null,
-      provider,
-      model,
-    })
+      await upsertClassifications(entries, meta)
+      processed += entries.length
+
+      if (delayMs > 0 && i + batchSize < candidates.length) {
+        await new Promise(res => setTimeout(res, delayMs))
+      }
+    }
 
     return NextResponse.json({
       ok: true,
-      count: entries.length,
+      count: processed,
       usedPrompt: classificationPrompt,
       provider,
       model,

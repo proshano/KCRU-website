@@ -52,7 +52,10 @@ function ClassificationTool() {
 
   // reclassify
   const [classifyCount, setClassifyCount] = useState(20)
+  const [runAll, setRunAll] = useState(false)
   const [clearExisting, setClearExisting] = useState(false)
+  const [batchSize, setBatchSize] = useState(50)
+  const [delayMs, setDelayMs] = useState(0)
   const [classifyLoading, setClassifyLoading] = useState(false)
   const [classifyMsg, setClassifyMsg] = useState(null)
 
@@ -106,9 +109,12 @@ function ClassificationTool() {
         method: 'POST',
         headers,
         body: JSON.stringify({
+          all: runAll,
           count: classifyCount,
           pmids: parsePmids(pmids),
           clear: clearExisting,
+          batchSize,
+          delayMs,
           prompt: prompt.trim() || undefined,
           provider: provider || undefined,
           model: model.trim() || undefined,
@@ -280,16 +286,25 @@ function ClassificationTool() {
             <Heading as="h2" size={1}>Reclassify (writes to pubmedClassification)</Heading>
             <Flex gap={3} align="center">
               <Box style={{ minWidth: 140 }}>
-                <Text size={1} muted>Count (1–200, ignored if PMIDs provided)</Text>
+                <Text size={1} muted>Count (ignored if PMIDs provided or “Run all”)</Text>
                 <TextInput
                   type="number"
                   value={classifyCount}
                   onChange={(e) => setClassifyCount(Number(e.target.value))}
                   min={1}
-                  max={200}
+                  max={5000}
                   style={inputStyle}
+                  disabled={runAll}
                 />
               </Box>
+              <Flex align="center" gap={2}>
+                <Switch
+                  checked={runAll}
+                  onChange={(e) => setRunAll(e.target.checked)}
+                  id="run-all"
+                />
+                <Text size={1} htmlFor="run-all">Run all cached publications</Text>
+              </Flex>
               <Flex align="center" gap={2}>
                 <Switch
                   checked={clearExisting}
@@ -304,6 +319,36 @@ function ClassificationTool() {
                 onClick={runReclassify}
                 disabled={classifyLoading}
               />
+            </Flex>
+
+            <Flex gap={3} wrap="wrap">
+              <Box style={{ minWidth: 180 }}>
+                <Text size={1} muted>Batch size (1–200)</Text>
+                <TextInput
+                  type="number"
+                  value={batchSize}
+                  onChange={(e) => setBatchSize(Number(e.target.value))}
+                  min={1}
+                  max={200}
+                  style={inputStyle}
+                />
+              </Box>
+              <Box style={{ minWidth: 180 }}>
+                <Text size={1} muted>Delay between batches (ms)</Text>
+                <TextInput
+                  type="number"
+                  value={delayMs}
+                  onChange={(e) => setDelayMs(Number(e.target.value))}
+                  min={0}
+                  max={60000}
+                  style={inputStyle}
+                />
+              </Box>
+              <Box style={{ flex: 1, minWidth: 260 }}>
+                <Text size={1} muted>
+                  Tip: if your LLM provider rate-limits you, reduce batch size and/or add a delay (e.g., 50–2000ms).
+                </Text>
+              </Box>
             </Flex>
             {classifyMsg && (
               <Card padding={3} radius={2} tone={classifyMsg.tone}>
