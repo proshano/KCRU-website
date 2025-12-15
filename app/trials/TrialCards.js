@@ -94,19 +94,14 @@ function TrialItem({ trial }) {
             )}
           </h3>
 
-          {/* Therapeutic areas (full name) */}
-          {trial.therapeuticAreas?.length > 0 && (
+          {/* Therapeutic areas + Sponsor */}
+          {(trial.therapeuticAreas?.length > 0 || trial.ctGovData?.sponsor) && (
             <p className="text-sm text-[#666]">
-              {trial.therapeuticAreas.map(a => a.name).join(', ')}
+              {trial.therapeuticAreas?.length > 0 && trial.therapeuticAreas.map(a => a.name).join(', ')}
+              {trial.therapeuticAreas?.length > 0 && trial.ctGovData?.sponsor && ' · '}
+              {trial.ctGovData?.sponsor}
             </p>
           )}
-
-          {/* NCT ID + Sponsor */}
-          <p className="text-xs text-[#888] font-medium">
-            {trial.nctId && <span className="font-mono">{trial.nctId}</span>}
-            {trial.nctId && trial.ctGovData?.sponsor && ' · '}
-            {trial.ctGovData?.sponsor && <span>{trial.ctGovData.sponsor}</span>}
-          </p>
         </div>
 
         {/* Right side (intentionally empty; title is the link) */}

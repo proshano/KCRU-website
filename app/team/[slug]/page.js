@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
-import { getShareButtons, shareIcons } from '@/lib/sharing'
+import PublicationsBrowser from '@/app/publications/PublicationsBrowser'
 
 export const revalidate = 86400 // use cache; refresh daily
 
@@ -66,7 +66,9 @@ export default async function TeamMemberPage({ params }) {
           systemPrompt: settings.llmSystemPrompt
         }
       })
-      const filteredPubs = filterPublicationsForResearcher(fullBundle, profile._id, profile.name)
+      const researcherPubs = filterPublicationsForResearcher(fullBundle, profile._id, profile.name)
+      // Filter out excluded publications (corrections, errata, etc.)
+      const filteredPubs = researcherPubs.filter(pub => pub.exclude !== true)
       const display = buildDisplayFromPublications(filteredPubs)
       publicationsBundle = {
         ...display,
@@ -187,10 +189,9 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers, altmet
     )
   }
 
-  const total = publicationsBundle?.publications?.length || 0
+  const publications = publicationsBundle?.publications || []
+  const total = publications.length
   const sinceYear = getPublicationsSinceYear()
-  const years = Array.isArray(publicationsBundle?.years) ? publicationsBundle.years : []
-  const byYear = publicationsBundle?.byYear || {}
   const provenance = publicationsBundle?.provenance || {}
   const generatedAt = publicationsBundle?.meta?.generatedAt
 
@@ -210,139 +211,14 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers, altmet
       )}
 
       {total > 0 && (
-        <YearSections
-          years={years}
-          byYear={byYear}
+        <PublicationsBrowser
+          publications={publications}
           researchers={researchers}
           provenance={provenance}
           altmetricEnabled={altmetricEnabled}
         />
       )}
     </section>
-  )
-}
-
-function YearSections({ years, byYear, researchers, provenance, altmetricEnabled }) {
-  return (
-    <div className="space-y-2">
-      {years.map((year) => (
-        <YearBlock
-          key={year}
-          year={year}
-          pubs={byYear[year]}
-          researchers={researchers}
-          provenance={provenance}
-          altmetricEnabled={altmetricEnabled}
-        />
-      ))}
-    </div>
-  )
-}
-
-function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled }) {
-  const sorted = sortPublications(pubs)
-  return (
-    <section className="border border-black/[0.06] bg-white">
-      <details className="group" open>
-        <summary className="flex w-full cursor-pointer list-none items-center justify-between text-left px-6 py-4 hover:bg-[#fafafa] transition-colors">
-          <div className="flex items-center gap-4">
-            <span className="text-2xl font-bold text-purple">{year}</span>
-          </div>
-          <span className="text-purple text-lg font-bold hidden group-open:inline" aria-hidden>−</span>
-          <span className="text-purple text-lg font-bold group-open:hidden" aria-hidden>+</span>
-        </summary>
-        <div className="border-t border-black/[0.06] divide-y divide-black/[0.06]">
-          {sorted.map((pub) => (
-            <PublicationItem
-              key={pub.pmid || pub.title}
-              pub={pub}
-              researchers={researchers}
-              provenance={provenance}
-              altmetricEnabled={altmetricEnabled}
-            />
-          ))}
-        </div>
-      </details>
-    </section>
-  )
-}
-
-function PublicationItem({ pub, researchers, provenance, altmetricEnabled }) {
-  const shareButtons = getShareButtons(pub)
-  const matchedResearchers = findResearchersForPub(pub, researchers, provenance)
-  const hasAltmetricId = Boolean(pub?.doi || pub?.pmid)
-  const showAltmetric = altmetricEnabled && hasAltmetricId
-
-  return (
-    <article className="p-6 space-y-3">
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="flex-1 min-w-[240px] space-y-1">
-          <h3 className="text-lg font-semibold leading-snug">
-            <a
-              href={pub.url || `https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#1a1a1a] hover:text-purple transition-colors"
-            >
-              {pub.title}
-            </a>
-          </h3>
-          <p className="text-sm text-[#666]">{pub.authors?.join(', ')}</p>
-          <p className="text-xs text-[#888] font-medium">
-            {pub.journal} {pub.year && `· ${pub.year}`}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
-            {shareButtons.map((btn) => (
-              <a
-                key={btn.platform}
-                href={btn.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.08] bg-white text-purple hover:bg-purple/5 transition-colors"
-                aria-label={btn.ariaLabel}
-              >
-                {shareIcons[btn.icon] ? (
-                  <span dangerouslySetInnerHTML={{ __html: shareIcons[btn.icon] }} />
-                ) : (
-                  <span>↗</span>
-                )}
-              </a>
-            ))}
-          </div>
-          {showAltmetric && (
-            <div
-              className="altmetric-embed"
-              data-badge-type="donut"
-              data-badge-popover="right"
-              data-link-target="_blank"
-              data-doi={pub.doi || undefined}
-              data-pmid={pub.doi ? undefined : pub.pmid}
-            />
-          )}
-        </div>
-      </div>
-      {matchedResearchers.length > 0 && (
-        <div className="flex flex-wrap gap-2 text-sm">
-          {matchedResearchers.map((r) => (
-            <Link
-              key={r._id}
-              href={r.slug?.current ? `/team/${r.slug.current}` : '#'}
-              className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors"
-            >
-              <AvatarSmall photo={r.photo} name={r.name} />
-              <span className="text-purple font-medium">{r.name}</span>
-            </Link>
-          ))}
-        </div>
-      )}
-      {pub.laySummary && (
-        <p className="text-sm text-[#666] bg-[#F5F3F0] border border-black/[0.06] p-4">
-          {pub.laySummary}
-        </p>
-      )}
-    </article>
   )
 }
 
@@ -388,144 +264,79 @@ function buildDisplayFromPublications(publications = []) {
   }
 }
 
-function sortPublications(pubs = []) {
-  return [...pubs].sort((a, b) => {
-    const yearDiff = (b.year || 0) - (a.year || 0)
-    if (yearDiff !== 0) return yearDiff
-    const pmidA = parseInt(a.pmid, 10)
-    const pmidB = parseInt(b.pmid, 10)
-    if (!Number.isNaN(pmidA) && !Number.isNaN(pmidB)) {
-      return pmidB - pmidA
-    }
-    return (a.title || '').localeCompare(b.title || '')
-  })
-}
-
-function findResearchersForPub(pub, researchers = [], provenance = {}) {
-  if (!researchers.length) return []
-  const fromProvenance = new Set(provenance[pub.pmid] || [])
-
-  const chips = []
-
-  if (fromProvenance.size > 0) {
-    for (const r of researchers) {
-      if (fromProvenance.has(r._id)) {
-        chips.push(r)
-      }
-    }
-  }
-
-  if (chips.length === 0 && pub?.authors?.length) {
-    const authors = pub.authors.map(a => a.toLowerCase())
-    for (const r of researchers) {
-      if (!r.name) continue
-      const name = r.name.toLowerCase()
-      const last = name.split(' ').slice(-1)[0]
-      if (authors.some(a => a.includes(name) || a.includes(last))) {
-        chips.push(r)
-      }
-    }
-  }
-
-  return chips
-}
-
 function StudiesSection({ studies }) {
   const list = studies || []
   
   // Separate by status
   const recruiting = list.filter(s => s.status === 'recruiting')
   const other = list.filter(s => s.status !== 'recruiting')
+  const sortedList = [...recruiting, ...other]
   
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
         <h2 className="text-xl font-bold tracking-tight">
           Clinical Studies
-          {list.length > 0 && <span className="text-[#888] font-normal text-base ml-2">({list.length})</span>}
         </h2>
+        {list.length > 0 && (
+          <span className="text-sm text-[#888]">({list.length})</span>
+        )}
       </div>
       {list.length === 0 ? (
         <p className="text-[#666] text-sm">No studies currently linked to this researcher.</p>
       ) : (
-        <div className="space-y-6">
-          {/* Recruiting studies first */}
-          {recruiting.length > 0 && (
-            <div className="grid gap-5 md:grid-cols-2">
-              {recruiting.map((study) => (
-                <StudyCard key={study._id} study={study} />
-              ))}
-            </div>
-          )}
-          
-          {/* Other studies */}
-          {other.length > 0 && (
-            <div className="grid gap-5 md:grid-cols-2">
-              {other.map((study) => (
-                <StudyCard key={study._id} study={study} />
-              ))}
-            </div>
-          )}
+        <div className="border border-black/[0.06] bg-white divide-y divide-black/[0.06]">
+          {sortedList.map((study) => (
+            <StudyItem key={study._id} study={study} />
+          ))}
         </div>
       )}
     </section>
   )
 }
 
-function StudyCard({ study }) {
+function StudyItem({ study }) {
   const slugValue = study.slug?.current || study.slug
   const hasDetailPage = !!slugValue
   
   return (
-    <div className="p-5 bg-white border border-black/[0.06] space-y-3 hover:shadow-md transition-shadow">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="space-y-1 flex-1">
-          <h3 className="text-lg font-semibold text-[#1a1a1a]">{study.title}</h3>
-          {study.conditions?.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {study.conditions.slice(0, 2).map((condition, i) => (
-                <span key={i} className="text-xs px-2 py-0.5 bg-purple/10 text-purple rounded">
-                  {condition}
-                </span>
-              ))}
-            </div>
+    <article className="px-5 py-4 space-y-2 hover:bg-[#fafafa] transition-colors">
+      {/* Title row */}
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-base font-semibold leading-snug">
+            {hasDetailPage ? (
+              <Link href={`/trials/${slugValue}`} className="text-[#1a1a1a] hover:text-purple transition-colors">
+                {study.title}
+              </Link>
+            ) : (
+              <span className="text-[#1a1a1a]">{study.title}</span>
+            )}
+          </h3>
+          
+          {/* Therapeutic areas + Sponsor */}
+          {(study.therapeuticAreas?.length > 0 || study.ctGovData?.sponsor) && (
+            <p className="text-sm text-[#888] mt-1">
+              {study.therapeuticAreas?.length > 0 && study.therapeuticAreas.map(a => a.name).join(', ')}
+              {study.therapeuticAreas?.length > 0 && study.ctGovData?.sponsor && ' · '}
+              {study.ctGovData?.sponsor}
+            </p>
           )}
         </div>
+        
+        {/* Status badge */}
         {study.status && (
-          <span className={`text-[11px] px-3 py-1 rounded-full font-semibold flex-shrink-0 ${statusStyles[study.status] || statusStyles.closed}`}>
+          <span className={`text-[11px] px-2.5 py-1 rounded-full font-medium whitespace-nowrap flex-shrink-0 ${statusStyles[study.status] || statusStyles.completed}`}>
             {prettyStatus(study.status)}
           </span>
         )}
       </div>
       
+      {/* Summary */}
       {study.laySummary && (
-        <p className="text-sm text-[#666] line-clamp-2">{study.laySummary}</p>
+        <p className="text-sm text-[#666]">{study.laySummary}</p>
       )}
-      
-      <div className="flex items-center gap-4 text-sm">
-        {hasDetailPage && (
-          <Link href={`/trials/${slugValue}`} className="arrow-link text-[13px]">
-            View details
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-          </Link>
-        )}
-        {study.nctId && (
-          <a
-            className="arrow-link text-[13px]"
-            href={`https://clinicaltrials.gov/study/${study.nctId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            ClinicalTrials.gov
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-          </a>
-        )}
-      </div>
-    </div>
+    </article>
   )
 }
 
@@ -556,22 +367,3 @@ function prettyStatus(status) {
   return map[status] || status || 'Status'
 }
 
-function AvatarSmall({ photo, name }) {
-  if (photo) {
-    const src = urlFor(photo).width(64).height(64).fit('crop').url()
-    return (
-      <Image
-        src={src}
-        alt={name}
-        width={24}
-        height={24}
-        className="h-6 w-6 rounded-full object-cover"
-      />
-    )
-  }
-  return (
-    <span className="h-6 w-6 rounded-full bg-[#E8E5E0] text-xs flex items-center justify-center text-[#888] font-semibold">
-      {name?.slice(0, 1)?.toUpperCase() || '?'}
-    </span>
-  )
-}

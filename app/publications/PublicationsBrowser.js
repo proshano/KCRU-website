@@ -100,8 +100,11 @@ export default function PublicationsBrowser({
   const [activeFilter, setActiveFilter] = useState(null) // { type: 'topic' | 'studyDesign' | 'methodologicalFocus', value: string }
 
   // Normalize tags to canonical categories (fixes LLM misclassifications)
+  // and filter out excluded publications (corrections, errata, etc.)
   const publications = useMemo(
-    () => rawPublications.map(normalizePublicationTags),
+    () => rawPublications
+      .map(normalizePublicationTags)
+      .filter(pub => pub.exclude !== true),
     [rawPublications]
   )
 
@@ -191,6 +194,8 @@ export default function PublicationsBrowser({
         researchers={researchers}
         provenance={provenance}
         altmetricEnabled={altmetricEnabled}
+        onTagClick={handleTagClick}
+        activeFilter={activeFilter}
       />
     </div>
   )
@@ -330,7 +335,7 @@ function TagBar({ name, count, maxCount, total, isActive, onClick }) {
   )
 }
 
-function YearSections({ years, byYear, researchers, provenance, altmetricEnabled }) {
+function YearSections({ years, byYear, researchers, provenance, altmetricEnabled, onTagClick, activeFilter }) {
   if (years.length === 0) {
     return (
       <p className="text-[#666] text-center py-8">No publications match the current filter.</p>
@@ -347,13 +352,15 @@ function YearSections({ years, byYear, researchers, provenance, altmetricEnabled
           researchers={researchers}
           provenance={provenance}
           altmetricEnabled={altmetricEnabled}
+          onTagClick={onTagClick}
+          activeFilter={activeFilter}
         />
       ))}
     </div>
   )
 }
 
-function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled }) {
+function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled, onTagClick, activeFilter }) {
   return (
     <section className="border border-black/[0.06] bg-white">
       <details className="group" open>
@@ -377,6 +384,8 @@ function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled }) {
               researchers={researchers}
               provenance={provenance}
               altmetricEnabled={altmetricEnabled}
+              onTagClick={onTagClick}
+              activeFilter={activeFilter}
             />
           ))}
         </div>
@@ -385,7 +394,7 @@ function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled }) {
   )
 }
 
-function PublicationItem({ pub, researchers, provenance, altmetricEnabled }) {
+function PublicationItem({ pub, researchers, provenance, altmetricEnabled, onTagClick, activeFilter }) {
   const shareButtons = getShareButtons(pub)
   const matchedResearchers = findResearchersForPub(pub, researchers, provenance)
   const hasAltmetricId = Boolean(pub?.doi || pub?.pmid)
@@ -456,11 +465,11 @@ function PublicationItem({ pub, researchers, provenance, altmetricEnabled }) {
         </div>
       )}
       {pub.laySummary && (
-        <p className="text-sm text-[#1a1a1a] bg-white border border-black/[0.08] p-4 rounded shadow-sm leading-relaxed">
+        <p className="text-sm text-[#666] bg-[#F5F3F0] border border-black/[0.06] p-4 leading-relaxed">
           {pub.laySummary}
         </p>
       )}
-      <ClassificationTags pub={pub} />
+      <ClassificationTags pub={pub} onTagClick={onTagClick} activeFilter={activeFilter} />
     </article>
   )
 }
@@ -494,24 +503,42 @@ function findResearchersForPub(pub, researchers = [], provenance = {}) {
   return chips
 }
 
-function ClassificationTags({ pub }) {
+function ClassificationTags({ pub, onTagClick, activeFilter }) {
   const topics = pub.topics || []
   const studyDesign = pub.studyDesign || []
   const methodologicalFocus = pub.methodologicalFocus || []
 
-  const allTags = [...topics, ...studyDesign, ...methodologicalFocus]
-  if (allTags.length === 0) return null
+  // Build tags with their type info for filtering
+  const tagItems = [
+    ...topics.map((t) => ({ name: t, type: 'topic' })),
+    ...studyDesign.map((s) => ({ name: s, type: 'studyDesign' })),
+    ...methodologicalFocus.map((m) => ({ name: m, type: 'methodologicalFocus' })),
+  ]
+
+  if (tagItems.length === 0) return null
 
   return (
     <div className="flex flex-wrap gap-2 text-xs">
-      {allTags.map((tag, idx) => (
-        <span
-          key={`tag-${idx}-${tag}`}
-          className="inline-block px-2 py-0.5 rounded-full bg-purple/10 text-purple font-medium"
-        >
-          {tag}
-        </span>
-      ))}
+      {tagItems.map((tag, idx) => {
+        const isActive = activeFilter?.type === tag.type && activeFilter?.value === tag.name
+        return (
+          <button
+            key={`tag-${idx}-${tag.name}`}
+            onClick={() => onTagClick(tag.type, tag.name)}
+            className={`
+              inline-block px-2 py-0.5 rounded-full font-medium cursor-pointer
+              transition-all hover:scale-105
+              ${isActive 
+                ? 'bg-purple text-white' 
+                : 'bg-purple/10 text-purple hover:bg-purple/20'
+              }
+            `}
+            title={`Filter by "${tag.name}"`}
+          >
+            {tag.name}
+          </button>
+        )
+      })}
     </div>
   )
 }

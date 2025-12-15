@@ -50,6 +50,7 @@ async function upsertClassifications(entries = [], meta = {}) {
     const doc = {
       _type: 'pubmedClassification',
       pmid: entry.pmid,
+      title: entry.title || null,
       topics: entry.topics || [],
       studyDesign: entry.studyDesign || [],
       methodologicalFocus: entry.methodologicalFocus || [],
@@ -159,6 +160,7 @@ export async function POST(request) {
           )
           entries.push({
             pmid: pub.pmid,
+            title: pub.title || null,
             summary: pub.laySummary || null,
             topics: c.topics || [],
             studyDesign: c.studyDesign || [],
@@ -169,6 +171,7 @@ export async function POST(request) {
         } catch (err) {
           entries.push({
             pmid: pub.pmid,
+            title: pub.title || null,
             summary: pub.laySummary || null,
             topics: [],
             studyDesign: [],

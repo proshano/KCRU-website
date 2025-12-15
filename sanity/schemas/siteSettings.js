@@ -125,6 +125,20 @@ export default {
       }
     },
     {
+      name: 'llmConcurrency',
+      title: 'LLM Concurrency',
+      type: 'number',
+      description: 'Number of parallel LLM requests. Default: 1 for free models. Increase to 3-5 for paid models.',
+      initialValue: 1
+    },
+    {
+      name: 'llmDelayMs',
+      title: 'LLM Delay (ms)',
+      type: 'number',
+      description: 'Delay between batches in milliseconds. Default: 2000 for free models. Reduce to 500-1000 for paid models.',
+      initialValue: 2000
+    },
+    {
       name: 'llmClassificationProvider',
       title: 'LLM Provider (classification)',
       type: 'string',

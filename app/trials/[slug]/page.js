@@ -78,16 +78,6 @@ export default async function TrialDetailPage({ params }) {
           {trial.title}
         </h1>
         
-        {/* Conditions */}
-        {trial.conditions?.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {trial.conditions.map((condition, i) => (
-              <span key={i} className="px-3 py-1 text-sm font-medium bg-purple/10 text-purple rounded-full">
-                {condition}
-              </span>
-            ))}
-          </div>
-        )}
 
         {/* Meta info */}
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-gray-500">

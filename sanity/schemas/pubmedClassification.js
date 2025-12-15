@@ -11,6 +11,12 @@ export default {
       validation: (Rule) => Rule.required(),
     },
     {
+      name: 'title',
+      title: 'Publication Title',
+      type: 'string',
+      description: 'Title of the publication (for searchability)',
+    },
+    {
       name: 'topics',
       title: 'Topics',
       type: 'array',
@@ -89,8 +95,18 @@ export default {
   ],
   preview: {
     select: {
-      title: 'pmid',
-      subtitle: 'runAt',
+      pmid: 'pmid',
+      pubTitle: 'title',
+      runAt: 'runAt',
+      topics: 'topics',
+    },
+    prepare({ pmid, pubTitle, runAt, topics }) {
+      const topicStr = topics?.length ? topics.slice(0, 2).join(', ') : ''
+      const date = runAt ? new Date(runAt).toLocaleDateString() : ''
+      return {
+        title: pubTitle || `PMID: ${pmid}`,
+        subtitle: [topicStr, date].filter(Boolean).join(' • '),
+      }
     },
   },
 }

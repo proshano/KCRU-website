@@ -59,8 +59,9 @@ export default async function HomePage() {
         systemPrompt: settings.llmSystemPrompt
       }
     })
-    publications = pubData?.publications || []
-    publicationsStats = pubData?.stats || publicationsStats
+    // Filter out excluded publications (corrections, errata, etc.) for accurate counts
+    publications = (pubData?.publications || []).filter(pub => pub.exclude !== true)
+    publicationsStats = { totalPublications: publications.length }
     provenance = pubData?.provenance || {}
   } catch (e) {
     console.error('Failed to fetch publications:', e)

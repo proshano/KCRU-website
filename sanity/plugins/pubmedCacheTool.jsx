@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { definePlugin } from 'sanity'
-import { Card, Stack, Text, Button, Code, Heading, Flex, Badge, Box, Spinner } from '@sanity/ui'
-import { DatabaseIcon } from '@sanity/icons'
+import { Card, Stack, Text, Button, Code, Heading, Flex, Badge, Box, Spinner, TextInput } from '@sanity/ui'
+import { DatabaseIcon, SearchIcon } from '@sanity/icons'
 
 const BASE_URL = process.env.SANITY_STUDIO_API_URL || 'http://localhost:3000'
 const REFRESH_URL = process.env.SANITY_STUDIO_PUBMED_REFRESH_URL || `${BASE_URL}/api/pubmed/refresh`
 const CANCEL_URL = process.env.SANITY_STUDIO_PUBMED_CANCEL_URL || `${BASE_URL}/api/pubmed/cancel`
 const UPLOAD_URL = process.env.SANITY_STUDIO_PUBMED_UPLOAD_URL || `${BASE_URL}/api/pubmed/upload`
 const DOWNLOAD_URL = process.env.SANITY_STUDIO_PUBMED_DOWNLOAD_URL || `${BASE_URL}/api/pubmed/download`
+const PUBLICATION_URL = `${BASE_URL}/api/pubmed/publication`
 const AUTH_TOKEN =
   process.env.SANITY_STUDIO_PUBMED_REFRESH_TOKEN ||
   process.env.SANITY_STUDIO_PUBMED_CANCEL_TOKEN ||
@@ -30,6 +31,12 @@ function PubmedCacheTool({ tool }) {
   const [uploading, setUploading] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [message, setMessage] = useState(null)
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState(null)
+  const [searching, setSearching] = useState(false)
+  const [actionLoading, setActionLoading] = useState({}) // pmid -> 'delete' | 'regenerate' | null
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -70,6 +77,100 @@ function PubmedCacheTool({ tool }) {
     const interval = setInterval(fetchStatus, 30000) // refresh every 30s
     return () => clearInterval(interval)
   }, [fetchStatus])
+
+  const handleSearch = useCallback(async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults(null)
+      return
+    }
+    setSearching(true)
+    try {
+      const projectId = process.env.SANITY_STUDIO_PROJECT_ID || 't6eeltne'
+      const dataset = process.env.SANITY_STUDIO_DATASET || 'production'
+      const searchTerm = searchQuery.trim().toLowerCase()
+      // Fetch all publications and filter client-side for flexible search
+      const query = encodeURIComponent(`*[_type == "pubmedCache"][0].publications[]{
+        pmid,
+        title,
+        journal,
+        year,
+        laySummary,
+        authors
+      }`)
+      const res = await fetch(`https://${projectId}.api.sanity.io/v2024-01-01/data/query/${dataset}?query=${query}`)
+      const data = await res.json()
+      const pubs = data.result || []
+      // Filter by title, PMID, journal, or authors
+      const matches = pubs.filter(p => {
+        const titleMatch = p.title?.toLowerCase().includes(searchTerm)
+        const pmidMatch = p.pmid?.includes(searchTerm)
+        const journalMatch = p.journal?.toLowerCase().includes(searchTerm)
+        const authorMatch = p.authors?.some(a => a?.toLowerCase().includes(searchTerm))
+        const summaryMatch = p.laySummary?.toLowerCase().includes(searchTerm)
+        return titleMatch || pmidMatch || journalMatch || authorMatch || summaryMatch
+      }).slice(0, 25) // Limit to 25 results
+      setSearchResults(matches)
+    } catch (err) {
+      console.error('Search failed', err)
+      setSearchResults([])
+    } finally {
+      setSearching(false)
+    }
+  }, [searchQuery])
+
+  const handleDeletePublication = async (pmid) => {
+    if (!confirm(`Delete publication ${pmid} from cache?`)) return
+    setActionLoading(prev => ({ ...prev, [pmid]: 'delete' }))
+    try {
+      const res = await fetch(`${PUBLICATION_URL}?pmid=${pmid}`, {
+        method: 'DELETE',
+        headers: {
+          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+        },
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setMessage({ tone: 'positive', text: `Deleted ${pmid}` })
+        setSearchResults(prev => prev?.filter(p => p.pmid !== pmid) || null)
+        fetchStatus()
+      } else {
+        setMessage({ tone: 'critical', text: data.error || 'Delete failed' })
+      }
+    } catch (err) {
+      setMessage({ tone: 'critical', text: err.message || 'Delete failed' })
+    } finally {
+      setActionLoading(prev => ({ ...prev, [pmid]: null }))
+    }
+  }
+
+  const handleRegenerateSummary = async (pmid) => {
+    setActionLoading(prev => ({ ...prev, [pmid]: 'regenerate' }))
+    try {
+      const res = await fetch(PUBLICATION_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+        },
+        body: JSON.stringify({ pmid }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setMessage({ tone: 'positive', text: `Regenerated summary for ${pmid}` })
+        // Update the search result with new summary
+        setSearchResults(prev => prev?.map(p => 
+          p.pmid === pmid ? { ...p, laySummary: data.summary } : p
+        ) || null)
+        fetchStatus()
+      } else {
+        setMessage({ tone: 'critical', text: data.error || 'Regenerate failed' })
+      }
+    } catch (err) {
+      setMessage({ tone: 'critical', text: err.message || 'Regenerate failed' })
+    } finally {
+      setActionLoading(prev => ({ ...prev, [pmid]: null }))
+    }
+  }
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -234,6 +335,86 @@ function PubmedCacheTool({ tool }) {
               </Stack>
             ) : (
               <Text size={1} muted>No cache found. Run a refresh to create one.</Text>
+            )}
+          </Stack>
+        </Card>
+
+        {/* Search */}
+        <Card padding={4} radius={2} shadow={1} tone="default">
+          <Stack space={4}>
+            <Heading as="h2" size={1}>
+              <Flex align="center" gap={2}>
+                <SearchIcon />
+                Search Publications
+              </Flex>
+            </Heading>
+            <Flex gap={2}>
+              <Box flex={1}>
+                <TextInput
+                  placeholder="Search by title, PMID, journal, or author..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.currentTarget.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                />
+              </Box>
+              <Button
+                tone="primary"
+                text={searching ? 'Searching...' : 'Search'}
+                onClick={handleSearch}
+                disabled={searching}
+              />
+            </Flex>
+            
+            {searchResults !== null && (
+              <Stack space={3}>
+                <Text size={1} muted>
+                  {searchResults.length === 0
+                    ? 'No results found'
+                    : `Found ${searchResults.length}${searchResults.length === 25 ? '+' : ''} result${searchResults.length !== 1 ? 's' : ''}`}
+                </Text>
+                {searchResults.map((pub) => (
+                  <Card key={pub.pmid} padding={3} radius={2} tone="transparent" style={{ background: '#f9f9f9' }}>
+                    <Stack space={2}>
+                      <Text size={1} weight="semibold" style={{ lineHeight: 1.4 }}>
+                        {pub.title}
+                      </Text>
+                      <Text size={0} muted>
+                        {pub.journal} · {pub.year} · PMID: {pub.pmid}
+                      </Text>
+                      {pub.laySummary && (
+                        <Card padding={2} radius={1} tone="positive" style={{ background: '#ecfdf5' }}>
+                          <Text size={1} style={{ fontStyle: 'italic', color: '#065f46' }}>
+                            {pub.laySummary}
+                          </Text>
+                        </Card>
+                      )}
+                      {!pub.laySummary && (
+                        <Badge tone="caution">No summary</Badge>
+                      )}
+                      <Flex gap={2} marginTop={2}>
+                        <Button
+                          tone="primary"
+                          mode="ghost"
+                          fontSize={1}
+                          padding={2}
+                          text={actionLoading[pub.pmid] === 'regenerate' ? 'Regenerating...' : 'Regenerate Summary'}
+                          onClick={() => handleRegenerateSummary(pub.pmid)}
+                          disabled={!!actionLoading[pub.pmid]}
+                        />
+                        <Button
+                          tone="critical"
+                          mode="ghost"
+                          fontSize={1}
+                          padding={2}
+                          text={actionLoading[pub.pmid] === 'delete' ? 'Deleting...' : 'Delete'}
+                          onClick={() => handleDeletePublication(pub.pmid)}
+                          disabled={!!actionLoading[pub.pmid]}
+                        />
+                      </Flex>
+                    </Stack>
+                  </Card>
+                ))}
+              </Stack>
             )}
           </Stack>
         </Card>

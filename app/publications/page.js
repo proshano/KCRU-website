@@ -57,9 +57,8 @@ export default async function PublicationsPage() {
   const provenance = bundle.provenance || {}
 
   // Lay summaries are generated during cache refresh and stored with publications
-  const pubsWithSummaries = combinedPubs
-
-  const publications = pubsWithSummaries
+  // Filter out excluded publications (corrections, errata, etc.) for accurate counts
+  const publications = combinedPubs.filter(pub => pub.exclude !== true)
   const meta = bundle.meta || {}
   const sinceYear = getPublicationsSinceYear()
 

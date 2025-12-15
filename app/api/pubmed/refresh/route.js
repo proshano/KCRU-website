@@ -139,6 +139,10 @@ export async function POST(request) {
 async function runRefresh({ isCron = false } = {}) {
   try {
     const settings = (await sanityFetch(queries.siteSettings)) || {}
+    console.info('[pubmed] Sanity settings loaded', {
+      llmProvider: settings.llmProvider,
+      llmModel: settings.llmModel,
+    })
     const researchersRaw = await sanityFetch(queries.allResearchers)
     const researchers = (researchersRaw || []).map((r) => ({
       _id: r._id,
@@ -162,6 +166,8 @@ async function runRefresh({ isCron = false } = {}) {
         model: settings.llmModel,
         apiKey: settings.llmApiKey,
         systemPrompt: settings.llmSystemPrompt,
+        concurrency: settings.llmConcurrency || 1,
+        delayMs: settings.llmDelayMs || 2000,
       },
     })
 
