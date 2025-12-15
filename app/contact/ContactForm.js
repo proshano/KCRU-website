@@ -196,12 +196,12 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
       <form className="space-y-5" onSubmit={handleSubmit}>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-[#333]">
+            <label className="block text-base font-semibold text-[#333]">
               Name<span className="text-purple">*</span>
             </label>
             <input
               type="text"
-              className="w-full rounded-md border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple/50"
+              className="w-full rounded-md border border-black/10 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-purple/50"
               value={form.name}
               onChange={handleChange('name')}
               autoComplete="name"
@@ -210,12 +210,12 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-[#333]">
+            <label className="block text-base font-semibold text-[#333]">
               Contact email<span className="text-purple">*</span>
             </label>
             <input
               type="email"
-              className="w-full rounded-md border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple/50"
+              className="w-full rounded-md border border-black/10 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-purple/50"
               value={form.email}
               onChange={handleChange('email')}
               autoComplete="email"
@@ -225,11 +225,11 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
         </div>
 
         <div className="space-y-2">
-            <label className="block text-sm font-semibold text-[#333]">
+            <label className="block text-base font-semibold text-[#333]">
               Reason for contacting<span className="text-purple">*</span>
             </label>
           <select
-            className="w-full rounded-md border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple/50 bg-white"
+            className="w-full rounded-md border border-black/10 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-purple/50 bg-white"
             value={form.reasonKey}
             onChange={handleChange('reasonKey')}
             required
@@ -244,19 +244,19 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
             ))}
           </select>
           {selectedOption?.description && (
-            <p className="text-xs text-[#666]">{selectedOption.description}</p>
+            <p className="text-sm text-[#666]">{selectedOption.description}</p>
           )}
         </div>
 
         {selectedOption && (
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-[#333]">
+            <label className="block text-base font-semibold text-[#333]">
               {selectedOption.showOceanLink ? 'Referral via OceanMD' : 'How can we help?'}
               {!selectedOption.showOceanLink && <span className="text-purple">*</span>}
             </label>
 
             {selectedOption.showOceanLink ? (
-              <div className="rounded-md border border-purple/30 bg-purple/5 px-4 py-3 text-sm text-[#333]">
+              <div className="rounded-md border border-purple/30 bg-purple/5 px-4 py-3 text-base text-[#333]">
                 <p className="font-semibold text-[#1a1a1a]">Use our referral link</p>
                 <p className="mt-1 text-[#555]">
                   Share your contact email above, then continue to the OceanMD referral service.
@@ -274,7 +274,7 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
               </div>
             ) : (
               <textarea
-                className="w-full rounded-md border border-black/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple/50 min-h-[120px]"
+                className="w-full rounded-md border border-black/10 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-purple/50 min-h-[120px]"
                 value={form.message}
                 onChange={handleChange('message')}
                 placeholder={messagePlaceholder}
@@ -284,17 +284,17 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
 
             {selectedOption.key === 'training' && (
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-[#333]">Upload CV (PDF only)</label>
+                <label className="block text-base font-semibold text-[#333]">Upload CV (PDF only)</label>
                 <input
                   type="file"
                   accept="application/pdf"
                   onChange={handleFileChange}
-                  className="text-sm text-[#555]"
+                  className="text-base text-[#555]"
                 />
                 {attachment && (
                   <p className="text-xs text-[#666]">Attached: {attachment.name}</p>
                 )}
-                <p className="text-xs text-[#777]">Max 6MB. PDF only.</p>
+                <p className="text-sm text-[#777]">Max 6MB. PDF only.</p>
               </div>
             )}
           </div>
@@ -339,12 +339,12 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex items-center justify-center rounded-md bg-purple px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center rounded-md bg-purple px-5 py-2.5 text-base font-semibold text-white shadow-sm hover:bg-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? 'Sending…' : 'Submit'}
           </button>
-          <p className="text-xs text-[#777]">
-            We’ll use your email to follow up about this inquiry.
+          <p className="text-sm text-[#777]">
+            We will use your email to follow up about this inquiry.
           </p>
         </div>
       </form>
