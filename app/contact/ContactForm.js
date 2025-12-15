@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Script from 'next/script'
 
 function isValidEmail(value) {
@@ -8,12 +9,22 @@ function isValidEmail(value) {
 }
 
 export default function ContactForm({ options = [], recaptchaSiteKey }) {
+  const searchParams = useSearchParams()
+  const initialReason = searchParams.get('reason') || ''
+  
   const [form, setForm] = useState({
     name: '',
     email: '',
     reasonKey: '',
     message: ''
   })
+  
+  // Set initial reason from URL query parameter
+  useEffect(() => {
+    if (initialReason && options.some(opt => opt.key === initialReason)) {
+      setForm(prev => ({ ...prev, reasonKey: initialReason }))
+    }
+  }, [initialReason, options])
   const [attachment, setAttachment] = useState(null)
   const [honeypot, setHoneypot] = useState('')
   const [loading, setLoading] = useState(false)
