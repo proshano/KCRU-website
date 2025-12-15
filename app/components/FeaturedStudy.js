@@ -38,10 +38,6 @@ export default function FeaturedStudy({ trials = [] }) {
     router.push(href)
   }
 
-  const handleClick = () => {
-    router.push(href)
-  }
-
   return (
     <div 
       role="link"
