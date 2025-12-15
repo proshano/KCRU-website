@@ -195,7 +195,7 @@ export default async function HomePage() {
               <Link href="/contact" className="btn-secondary text-center flex-1">
                 Refer a Patient
               </Link>
-              <Link href="/capabilities" className="btn-secondary text-center flex-1">
+              <Link href="/contact" className="btn-secondary text-center flex-1">
                 Partner With Us
               </Link>
             </div>
