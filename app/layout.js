@@ -13,8 +13,6 @@ const navLinks = [
   { href: '/trials', label: 'Studies' },
   { href: '/team', label: 'Team' },
   { href: '/publications', label: 'Publications' },
-  { href: '/capabilities', label: 'Capabilities' },
-  { href: '/news', label: 'News' },
   { href: '/contact', label: 'Contact' },
 ]
 
@@ -34,11 +32,11 @@ export default async function RootLayout({ children }) {
 
           {/* Navigation */}
           <nav className="sticky top-0 z-50 bg-background border-b border-black/[0.06] px-6 md:px-12 py-5">
-            <div className="max-w-[1400px] mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="max-w-[1400px] mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-center md:gap-16">
               <Link href="/" className="font-bold text-base tracking-tight text-[#444]">
                 {settings?.unitName || 'London Kidney Clinical Research'}
               </Link>
-              <div className="flex flex-wrap gap-4 text-sm font-medium text-[#444] md:gap-9 md:text-base">
+              <div className="flex flex-wrap gap-4 text-sm font-medium text-[#444] md:gap-8 md:text-base">
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
