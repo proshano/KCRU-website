@@ -18,6 +18,12 @@
     "icon": "<svg data-sanity-icon=\"database\" width=\"1em\" height=\"1em\" viewBox=\"0 0 25 25\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M18.5 7V17.5C18.5 19.0594 16.0504 20.5 12.5 20.5C8.9496 20.5 6.5 19.0594 6.5 17.5V7M18.5 7C18.5 8.45543 15.8137 9.5 12.5 9.5C9.18629 9.5 6.5 8.45543 6.5 7C6.5 5.54457 9.18629 4.5 12.5 4.5C15.8137 4.5 18.5 5.54457 18.5 7Z\" stroke=\"currentColor\" stroke-width=\"1.2\" stroke-linejoin=\"round\"></path></svg>"
   },
   {
+    "title": "Classification",
+    "name": "pubmed-classification",
+    "type": null,
+    "icon": "<svg data-sanity-icon=\"tag\" width=\"1em\" height=\"1em\" viewBox=\"0 0 25 25\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M12.5 20L5 20L5 12.5L12.5 5L20 12.5L12.5 20Z\" stroke=\"currentColor\" stroke-width=\"1.2\" stroke-linejoin=\"round\"></path><path d=\"M11 15.5C11 16.3284 10.3284 17 9.5 17C8.67157 17 8 16.3284 8 15.5C8 14.6716 8.67157 14 9.5 14C10.3284 14 11 14.6716 11 15.5Z\" stroke=\"currentColor\" stroke-width=\"1.2\" stroke-linejoin=\"round\"></path></svg>"
+  },
+  {
     "title": "Schedules",
     "name": "schedules",
     "type": "sanity/scheduled-publishing",
@@ -27,6 +33,6 @@
     "title": "Releases",
     "name": "releases",
     "type": null,
-    "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"><rect width=\"32\" height=\"32\" rx=\"2\" fill=\"#a8bfff\"></rect><text x=\"50%\" y=\"50%\" text-anchor=\"middle\" alignment-baseline=\"middle\" fill=\"hsla(224, 100%, 43%, 1)\" class=\"sc-gzpDuk hfXNsv\">R</text></svg>"
+    "icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 32 32\"><rect width=\"32\" height=\"32\" rx=\"2\" fill=\"#a8bfff\"></rect><text x=\"50%\" y=\"50%\" text-anchor=\"middle\" alignment-baseline=\"middle\" fill=\"hsla(224, 100%, 43%, 1)\" style=\"font-family:Inter, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, &quot;Liberation Sans&quot;, Helvetica, Arial, system-ui, sans-serif;font-weight:500;font-size:13px;transform:translateY(1px)\">R</text></svg>"
   }
 ]
