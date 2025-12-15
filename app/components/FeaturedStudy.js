@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 export default function FeaturedStudy({ trials = [] }) {
+  const router = useRouter()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isVisible, setIsVisible] = useState(true)
 
@@ -25,22 +26,30 @@ export default function FeaturedStudy({ trials = [] }) {
 
   const trial = trials[currentIndex]
   // Prefer internal study page when slug is available
-  const slugValue = typeof trial.slug === 'string' ? trial.slug : trial.slug?.current
+  const slugValue = trial.slug?.current || trial.slug
   const href = slugValue ? `/trials/${slugValue}` : '/trials'
   const title = trial.title || 'Study'
   const desc = trial.purpose || trial.condition || 'Research study'
 
+  const handleClick = () => {
+    router.push(href)
+  }
+
   return (
     <div 
-      className="mt-8 p-7 bg-gradient-to-br from-[#F5F3F0] to-[#EEEBE6] relative overflow-hidden"
-      style={{ height: '200px', minHeight: '200px', maxHeight: '200px', flexShrink: 0 }}
+      role="link"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick() }}
+      className="block mt-8 p-7 bg-gradient-to-br from-[#F5F3F0] to-[#EEEBE6] relative overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:from-[#F0EDE8] hover:to-[#E9E6E1]"
+      style={{ height: '200px', minHeight: '200px', maxHeight: '200px', flexShrink: 0, touchAction: 'manipulation' }}
     >
       {/* Recruiting ribbon */}
       {trial.status === 'recruiting' && (
-        <div className="recruiting-ribbon">RECRUITING</div>
+        <div className="recruiting-ribbon pointer-events-none">RECRUITING</div>
       )}
 
-      <div className={`transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`pointer-events-none transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
         {/* Title area - fixed height */}
         <div style={{ height: '58px', overflow: 'hidden' }}>
           <div className="text-xl font-bold tracking-tight leading-[1.4] line-clamp-2">
@@ -56,14 +65,14 @@ export default function FeaturedStudy({ trials = [] }) {
         </div>
       </div>
 
-      {/* Link - placed after description with extra spacing */}
-      <div className="mt-8">
-        <Link href={href} className="arrow-link text-[13px]">
+      {/* Visual indicator at bottom */}
+      <div className="mt-8 pointer-events-none">
+        <span className="arrow-link text-[13px]">
           Learn more
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M5 12h14M12 5l7 7-7 7"/>
           </svg>
-        </Link>
+        </span>
       </div>
     </div>
   )
