@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { Suspense } from 'react'
 import ContactForm from './ContactForm'
 import { sanityFetch, queries } from '@/lib/sanity'
 
@@ -86,7 +86,9 @@ export default async function ContactPage() {
             )}
           </div>
           <section className="space-y-4">
-            <ContactForm options={publicOptions} recaptchaSiteKey={recaptchaSiteKey} />
+            <Suspense fallback={<div className="bg-white border border-black/[0.06] p-6 shadow-sm animate-pulse h-64" />}>
+              <ContactForm options={publicOptions} recaptchaSiteKey={recaptchaSiteKey} />
+            </Suspense>
           </section>
         </div>
 
