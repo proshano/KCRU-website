@@ -276,7 +276,7 @@ function StudiesSection({ studies }) {
     <section className="space-y-4">
       <div className="flex items-center gap-3">
         <h2 className="text-xl font-bold tracking-tight">
-          Clinical Studies
+          Active Clinical Studies
         </h2>
         {list.length > 0 && (
           <span className="text-sm text-[#888]">({list.length})</span>
@@ -300,9 +300,8 @@ function StudyItem({ study }) {
   const hasDetailPage = !!slugValue
   
   return (
-    <article className="px-5 py-4 space-y-2 hover:bg-[#fafafa] transition-colors">
-      {/* Title row */}
-      <div className="flex items-start gap-3">
+    <article className="px-5 py-3 hover:bg-[#fafafa] transition-colors">
+      <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
           <h3 className="text-base font-semibold leading-snug">
             {hasDetailPage ? (
@@ -313,15 +312,6 @@ function StudyItem({ study }) {
               <span className="text-[#1a1a1a]">{study.title}</span>
             )}
           </h3>
-          
-          {/* Therapeutic areas + Sponsor */}
-          {(study.therapeuticAreas?.length > 0 || study.ctGovData?.sponsor) && (
-            <p className="text-sm text-[#888] mt-1">
-              {study.therapeuticAreas?.length > 0 && study.therapeuticAreas.map(a => a.name).join(', ')}
-              {study.therapeuticAreas?.length > 0 && study.ctGovData?.sponsor && ' · '}
-              {study.ctGovData?.sponsor}
-            </p>
-          )}
         </div>
         
         {/* Status badge */}
@@ -331,11 +321,6 @@ function StudyItem({ study }) {
           </span>
         )}
       </div>
-      
-      {/* Summary */}
-      {study.laySummary && (
-        <p className="text-sm text-[#666]">{study.laySummary}</p>
-      )}
     </article>
   )
 }
