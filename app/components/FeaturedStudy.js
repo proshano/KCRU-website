@@ -25,7 +25,7 @@ export default function FeaturedStudy({ trials = [] }) {
 
   const trial = trials[currentIndex]
   // Prefer internal study page when slug is available
-  const slugValue = typeof trial.slug === 'string' ? trial.slug : trial.slug?.current
+  const slugValue = trial.slug?.current || trial.slug
   const href = slugValue ? `/trials/${slugValue}` : '/trials'
   const title = trial.title || 'Study'
   const desc = trial.purpose || trial.condition || 'Research study'
