@@ -25,3 +25,6 @@ mnt/
 # PubMed cache (stored in Sanity, local file is just for upload workflow)
 runtime/pubmed-cache.json
 
+# Sanity Studio build artifacts (auto-generated)
+.sanity/
+
