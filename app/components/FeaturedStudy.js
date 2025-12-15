@@ -34,14 +34,14 @@ export default function FeaturedStudy({ trials = [] }) {
     <Link 
       href={href}
       className="block mt-8 p-7 bg-gradient-to-br from-[#F5F3F0] to-[#EEEBE6] relative overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:from-[#F0EDE8] hover:to-[#E9E6E1]"
-      style={{ height: '200px', minHeight: '200px', maxHeight: '200px', flexShrink: 0 }}
+      style={{ height: '200px', minHeight: '200px', maxHeight: '200px', flexShrink: 0, touchAction: 'manipulation' }}
     >
       {/* Recruiting ribbon */}
       {trial.status === 'recruiting' && (
-        <div className="recruiting-ribbon">RECRUITING</div>
+        <div className="recruiting-ribbon pointer-events-none">RECRUITING</div>
       )}
 
-      <div className={`transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`pointer-events-none transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
         {/* Title area - fixed height */}
         <div style={{ height: '58px', overflow: 'hidden' }}>
           <div className="text-xl font-bold tracking-tight leading-[1.4] line-clamp-2">
@@ -58,7 +58,7 @@ export default function FeaturedStudy({ trials = [] }) {
       </div>
 
       {/* Visual indicator at bottom */}
-      <div className="mt-8">
+      <div className="mt-8 pointer-events-none">
         <span className="arrow-link text-[13px]">
           Learn more
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
