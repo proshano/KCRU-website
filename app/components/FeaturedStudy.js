@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 export default function FeaturedStudy({ trials = [] }) {
+  const router = useRouter()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isVisible, setIsVisible] = useState(true)
 
@@ -30,9 +31,16 @@ export default function FeaturedStudy({ trials = [] }) {
   const title = trial.title || 'Study'
   const desc = trial.purpose || trial.condition || 'Research study'
 
+  const handleClick = () => {
+    router.push(href)
+  }
+
   return (
-    <Link 
-      href={href}
+    <div 
+      role="link"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick() }}
       className="block mt-8 p-7 bg-gradient-to-br from-[#F5F3F0] to-[#EEEBE6] relative overflow-hidden cursor-pointer transition-all hover:shadow-lg hover:from-[#F0EDE8] hover:to-[#E9E6E1]"
       style={{ height: '200px', minHeight: '200px', maxHeight: '200px', flexShrink: 0, touchAction: 'manipulation' }}
     >
@@ -66,6 +74,6 @@ export default function FeaturedStudy({ trials = [] }) {
           </svg>
         </span>
       </div>
-    </Link>
+    </div>
   )
 }
