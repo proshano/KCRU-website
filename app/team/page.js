@@ -147,6 +147,30 @@ export default async function TeamPage() {
     { key: 'staff', title: 'Research Staff' }
   ]
 
+  const computeArcPositions = (count) => {
+    const visibleCount = Math.min(count, 4)
+    if (visibleCount <= 0) return []
+
+    // Compute positions relative to the photo itself so it stays correct regardless
+    // of grid column width. We stagger tags along an arc, keeping pills horizontal.
+    // Anchor on the photo's right edge so pills never overlap the portrait.
+    const edgeGap = 0
+    const ySpread = visibleCount === 1 ? 0 : 46
+    const xBump = 8
+
+    return Array.from({ length: visibleCount }).map((_, idx) => {
+      const t = visibleCount === 1 ? 0.5 : idx / (visibleCount - 1)
+      const y = (t - 0.5) * 2 * ySpread
+      const norm = ySpread === 0 ? 0 : Math.abs(y) / ySpread
+      const x = edgeGap + xBump * (1 - norm * norm)
+
+      return {
+        x,
+        y
+      }
+    })
+  }
+
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
       <header>
@@ -187,41 +211,59 @@ export default async function TeamPage() {
 
                 // Get research tags for this person
                 const tags = researcherTags[person._id] || { topics: [], studyTypes: [] }
-                const displayTags = [...tags.topics, ...tags.studyTypes]
+                const displayTags = Array.from(
+                  new Set([...(tags.topics || []), ...(tags.studyTypes || [])].filter(Boolean))
+                )
+                const visibleTags = displayTags.slice(0, 4)
+                const arcPositions = computeArcPositions(visibleTags.length)
 
                 const cardBody = (
                   <div className="team-member">
                     <div
-                      className="team-photo mx-auto"
-                      style={{ width: '132px', height: '132px' }}
+                      className="relative mx-auto w-full max-w-[320px] flex flex-col items-center pt-1"
                     >
-                      {person.photo ? (
-                        <Image
-                          src={urlFor(person.photo).width(165).height(165).fit('crop').url()}
-                          alt={person.name || 'Researcher'}
-                          width={165}
-                          height={165}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-[24px] font-semibold text-[#aaa]">{initials}</span>
-                      )}
-                    </div>
-                    <div className="text-sm font-semibold text-[#1a1a1a]">
-                      {person.name}
-                    </div>
-                    {displayTags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-2 justify-center">
-                        {displayTags.slice(0, 4).map((tag, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-block px-2.5 py-1 text-xs font-medium rounded-full bg-purple/10 text-purple"
-                          >
-                            {tag}
-                          </span>
-                        ))}
+                      <div className="relative" style={{ width: '132px', height: '132px' }}>
+                        {visibleTags.length > 0 && (
+                          <div className="absolute inset-0 pointer-events-none z-0">
+                            {visibleTags.map((tag, idx) => {
+                              const position = arcPositions[idx]
+                              return (
+                                <span
+                                  key={idx}
+                                  className="absolute inline-block px-2.5 py-1 text-xs font-medium rounded-full bg-purple/10 text-purple shadow-sm whitespace-nowrap max-w-[170px] truncate"
+                                  style={{
+                                    top: `calc(50% + ${position?.y ?? 0}px)`,
+                                    left: `calc(100% + ${position?.x ?? 0}px)`,
+                                    transform: 'translate(0, -50%)'
+                                  }}
+                                >
+                                  {tag}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        )}
+                        <div
+                          className="team-photo relative z-10"
+                          style={{ width: '132px', height: '132px' }}
+                        >
+                          {person.photo ? (
+                            <Image
+                              src={urlFor(person.photo).width(165).height(165).fit('crop').url()}
+                              alt={person.name || 'Researcher'}
+                              width={165}
+                              height={165}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-[24px] font-semibold text-[#aaa]">{initials}</span>
+                          )}
+                        </div>
                       </div>
-                    )}
+                      <div className="text-sm font-semibold text-[#1a1a1a] mt-4">
+                        {person.name}
+                      </div>
+                    </div>
                   </div>
                 )
 
