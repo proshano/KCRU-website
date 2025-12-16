@@ -48,9 +48,9 @@ export default function FeaturedStudy({ trials = [] }) {
       onMouseLeave={() => setIsHovered(false)}
       className="block mt-8 p-7 bg-gradient-to-br from-[#F5F3F0] to-[#EEEBE6] relative overflow-hidden cursor-pointer transition-all"
       style={{ 
-        height: '210px', 
-        minHeight: '210px', 
-        maxHeight: '210px', 
+        height: '250px', 
+        minHeight: '250px', 
+        maxHeight: '250px', 
         flexShrink: 0, 
         touchAction: 'manipulation',
         border: isHovered ? '1.5px solid #5B21B6' : '1.5px solid transparent'
@@ -63,7 +63,7 @@ export default function FeaturedStudy({ trials = [] }) {
 
       <div className={`pointer-events-none transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
         {/* Title area - fixed height */}
-        <div style={{ height: '116px', overflow: 'hidden' }}>
+        <div style={{ height: '150px', overflow: 'hidden' }}>
           <div className="text-xl font-bold tracking-tight leading-[1.4] line-clamp-4">
             {title}
           </div>
