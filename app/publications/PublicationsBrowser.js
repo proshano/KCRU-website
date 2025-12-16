@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 import { urlFor } from '@/lib/sanity'
 
-const DEFAULT_VISIBLE_TAGS = 7
+const DEFAULT_VISIBLE_TAGS = 5
+const METHODS_VISIBLE_TAGS = 4
 
 // Canonical category assignments - each tag belongs to exactly one category
 const TOPIC_TAGS = new Set([
@@ -100,19 +101,24 @@ export default function PublicationsBrowser({
   altmetricEnabled,
 }) {
   const [activeFilter, setActiveFilter] = useState(null) // { type: 'topic' | 'studyDesign' | 'methodologicalFocus', value: string }
-  const [maxVisibleTags, setMaxVisibleTags] = useState(DEFAULT_VISIBLE_TAGS)
+  const [visibleCounts, setVisibleCounts] = useState({
+    default: DEFAULT_VISIBLE_TAGS,
+    methods: METHODS_VISIBLE_TAGS,
+  })
 
   useEffect(() => {
     const computeVisible = () => {
-      if (typeof window === 'undefined') return DEFAULT_VISIBLE_TAGS
+      if (typeof window === 'undefined') return {
+        default: DEFAULT_VISIBLE_TAGS,
+        methods: METHODS_VISIBLE_TAGS,
+      }
       const w = window.innerWidth
-      if (w >= 1280) return 7
-      if (w >= 960) return 6
-      if (w >= 720) return 5
-      return 4
+      const defaultCount = w >= 1280 ? 5 : w >= 900 ? 4 : 2
+      const methodsCount = w >= 1280 ? 4 : w >= 900 ? 3 : 2
+      return { default: defaultCount, methods: methodsCount }
     }
-    setMaxVisibleTags(computeVisible())
-    const handle = () => setMaxVisibleTags(computeVisible())
+    setVisibleCounts(computeVisible())
+    const handle = () => setVisibleCounts(computeVisible())
     window.addEventListener('resize', handle)
     return () => window.removeEventListener('resize', handle)
   }, [])
@@ -184,7 +190,7 @@ export default function PublicationsBrowser({
         activeFilter={activeFilter}
         onTagClick={handleTagClick}
         totalPublications={publications.length}
-        maxVisibleTags={maxVisibleTags}
+        visibleCounts={visibleCounts}
       />
 
       {activeFilter && (
@@ -250,7 +256,7 @@ function aggregateTagStats(publications) {
   }
 }
 
-function ResearchProfile({ tagStats, activeFilter, onTagClick, totalPublications, maxVisibleTags }) {
+function ResearchProfile({ tagStats, activeFilter, onTagClick, totalPublications, visibleCounts }) {
   const { topics, studyDesign, methodologicalFocus } = tagStats
   const hasAnyTags = topics.length > 0 || studyDesign.length > 0 || methodologicalFocus.length > 0
 
@@ -268,13 +274,14 @@ function ResearchProfile({ tagStats, activeFilter, onTagClick, totalPublications
   const renderTagSection = (items, label, typeKey) => {
     if (!items.length) return null
 
-    const visibleItems = expanded[typeKey] ? items : items.slice(0, maxVisibleTags)
-    const hasOverflow = items.length > maxVisibleTags
-    const hiddenCount = Math.max(items.length - maxVisibleTags, 0)
+    const limit = typeKey === 'methodologicalFocus' ? visibleCounts.methods : visibleCounts.default
+    const visibleItems = expanded[typeKey] ? items : items.slice(0, limit)
+    const hasOverflow = items.length > limit
+    const hiddenCount = Math.max(items.length - limit, 0)
 
     return (
       <div className="space-y-2">
-        <h3 className="sr-only">{label}</h3>
+        <h3 className="text-sm font-medium text-[#666] uppercase tracking-wide">{label}</h3>
         <div className="flex flex-wrap items-center gap-2">
           {visibleItems.map(({ name, count }) => (
             <TagBar
@@ -319,7 +326,8 @@ function ResearchProfile({ tagStats, activeFilter, onTagClick, totalPublications
 function TagBar({ name, count, maxCount, total, isActive, onClick }) {
   const ratio = count / maxCount
   const opacity = 0.4 + ratio * 0.6
-  const percentage = Math.round((count / total) * 100)
+  const rawPct = total > 0 ? (count / total) * 100 : 0
+  const percentage = rawPct > 0 && rawPct < 1 ? 1 : Math.round(rawPct)
 
   return (
     <button
@@ -333,7 +341,7 @@ function TagBar({ name, count, maxCount, total, isActive, onClick }) {
         }
       `}
       style={isActive ? {} : { backgroundColor: `rgba(102, 51, 153, ${opacity * 0.15})` }}
-      title={`${count} publications (${percentage}%) – Click to filter`}
+      title={`${count} publications (${percentage}% of total) – Click to filter`}
     >
       <span>{name}</span>
       <span
@@ -341,7 +349,7 @@ function TagBar({ name, count, maxCount, total, isActive, onClick }) {
           isActive ? 'bg-white/25 text-white' : 'bg-purple/20 text-purple/80'
         }`}
       >
-        {count}
+        {`${percentage}%`}
       </span>
     </button>
   )
@@ -375,7 +383,7 @@ function YearSections({ years, byYear, researchers, provenance, altmetricEnabled
 function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled, onTagClick, activeFilter }) {
   return (
     <section className="border border-black/[0.06] bg-white">
-      <details className="group" open>
+      <details className="group">
         <summary className="flex w-full cursor-pointer list-none items-center justify-between text-left px-6 py-4 hover:bg-[#fafafa] transition-colors">
           <div className="flex items-center gap-4">
             <span className="text-2xl font-bold text-purple">{year}</span>
