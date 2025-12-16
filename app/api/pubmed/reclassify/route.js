@@ -28,22 +28,35 @@ function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n))
 }
 
-async function fetchExistingClassificationMap(pmids = []) {
+function sortByYearDesc(a, b) {
+  return (parseInt(b.year, 10) || 0) - (parseInt(a.year, 10) || 0)
+}
+
+async function fetchExistingClassifications(pmids = []) {
   if (!pmids.length) return new Map()
   const docs = await sanityClient.fetch(
-    `*[_type == "pubmedClassification" && pmid in $pmids]{pmid, _id}`,
+    `*[_type == "pubmedClassification" && pmid in $pmids]{pmid, _id, status, runAt}`,
     { pmids }
   )
   const map = new Map()
   for (const d of docs || []) {
-    if (d?.pmid) map.set(d.pmid, d._id)
+    if (d?.pmid) map.set(d.pmid, { id: d._id, status: d.status || null, runAt: d.runAt || null })
   }
   return map
 }
 
-async function upsertClassifications(entries = [], meta = {}) {
+async function fetchExistingClassificationMap(pmids = []) {
+  const docs = await fetchExistingClassifications(pmids)
+  const map = new Map()
+  for (const [pmid, info] of docs.entries()) {
+    if (info?.id) map.set(pmid, info.id)
+  }
+  return map
+}
+
+async function upsertClassifications(entries = [], meta = {}, existingIdMap = null) {
   const tx = sanityWriteClient.transaction()
-  const existingMap = await fetchExistingClassificationMap(entries.map(e => e.pmid).filter(Boolean))
+  const existingMap = existingIdMap || await fetchExistingClassificationMap(entries.map(e => e.pmid).filter(Boolean))
 
   for (const entry of entries) {
     if (!entry.pmid) continue
@@ -66,7 +79,9 @@ async function upsertClassifications(entries = [], meta = {}) {
     }
     const existingId = existingMap.get(entry.pmid)
     if (existingId) {
-      tx.patch(existingId).set(doc)
+      const patchDoc = { ...doc }
+      delete patchDoc._type
+      tx.patch(existingId, { set: patchDoc })
     } else {
       tx.create(doc)
     }
@@ -112,26 +127,101 @@ export async function POST(request) {
     const model = body?.model || settings.llmClassificationModel || settings.llmModel || undefined
     const apiKey = body?.apiKey || settings.llmClassificationApiKey || settings.llmApiKey || undefined
     const systemPrompt = settings.llmSystemPrompt || undefined
+    const cacheGeneratedAtTs = cache?.generatedAt ? Date.parse(cache.generatedAt) : null
 
     // Allow classification even if abstract is missing (prompt rules handle this)
-    let candidates = (cache.publications || []).filter(p => p?.pmid && p?.title)
-    if (pmidsFilter.length) {
-      candidates = candidates.filter(p => pmidsFilter.includes(p.pmid))
-    } else if (all) {
-      candidates = candidates.sort((a, b) => (parseInt(b.year, 10) || 0) - (parseInt(a.year, 10) || 0))
-    } else {
-      candidates = candidates
-        .sort((a, b) => (parseInt(b.year, 10) || 0) - (parseInt(a.year, 10) || 0))
-        .slice(0, requestedCount)
-    }
+    const publications = (cache.publications || []).filter(p => p?.pmid && p?.title)
+    const sortedPublications = [...publications].sort(sortByYearDesc)
+
+    // Start with PMIDs filter (if provided), otherwise all sorted publications.
+    let candidates = pmidsFilter.length
+      ? sortedPublications.filter(p => pmidsFilter.includes(p.pmid))
+      : sortedPublications
 
     if (!candidates.length) {
       return NextResponse.json({ ok: false, error: 'No publications selected/found.' }, { status: 400, headers: CORS_HEADERS })
     }
 
+    const appliedMissingOnly = !pmidsFilter.length && !all && !clearExisting
+    const initialCandidateCount = candidates.length
+    let existingClassifications = null
+    let skippedAlreadyClassified = 0
+    let missingCount = 0
+    let erroredCount = 0
+    let staleCount = 0
+
+    if (appliedMissingOnly) {
+      existingClassifications = await fetchExistingClassifications(candidates.map(c => c.pmid))
+      candidates = candidates.filter(pub => {
+        const existing = existingClassifications.get(pub.pmid)
+        if (existing) {
+          const runAtTs = existing.runAt ? Date.parse(existing.runAt) : null
+          const isFresh = cacheGeneratedAtTs && runAtTs && runAtTs >= cacheGeneratedAtTs
+          if (existing.status !== 'error' && isFresh) {
+            skippedAlreadyClassified += 1
+            return false
+          }
+          if (existing.status === 'error') {
+            erroredCount += 1
+            return true
+          }
+          // Existing but stale or missing timestamp: re-run
+          staleCount += 1
+          return true
+        }
+        missingCount += 1
+        return true
+      })
+    }
+
+    // Default (no pmids provided and not "all"): take the most recent unclassified items
+    if (!pmidsFilter.length && !all) {
+      candidates = candidates.slice(0, requestedCount)
+    }
+
+    const selection = {
+      appliedMissingOnly,
+      requestedCount,
+      totalAvailable: publications.length,
+      pmidsProvided: pmidsFilter.length,
+      initialCandidateCount,
+      skippedAlreadyClassified,
+      missingCount,
+      erroredCount,
+      staleCount,
+      selectedCount: candidates.length,
+      cacheGeneratedAt: cache?.generatedAt || null,
+      targetPmids: candidates.map(c => c.pmid),
+      targetPreview: candidates.slice(0, 20).map(c => ({
+        pmid: c.pmid,
+        title: c.title,
+        year: c.year || null,
+      })),
+    }
+
+    if (!candidates.length) {
+      return NextResponse.json({
+        ok: true,
+        count: 0,
+        usedPrompt: classificationPrompt,
+        provider,
+        model,
+        selection,
+        message: appliedMissingOnly ? 'No unclassified publications found.' : 'No publications selected.',
+      }, { headers: CORS_HEADERS })
+    }
+
     if (clearExisting) {
       await deleteClassifications(candidates.map(c => c.pmid))
     }
+
+    const existingIdMap = !clearExisting && existingClassifications
+      ? new Map(
+        [...existingClassifications.entries()]
+          .filter(([, info]) => info?.id)
+          .map(([pmid, info]) => [pmid, info.id])
+      )
+      : null
 
     const meta = { promptText: classificationPrompt, promptVersion: null, provider, model }
     let processed = 0
@@ -182,7 +272,7 @@ export async function POST(request) {
         }
       }
 
-      await upsertClassifications(entries, meta)
+      await upsertClassifications(entries, meta, existingIdMap)
       processed += entries.length
 
       if (delayMs > 0 && i + batchSize < candidates.length) {
@@ -196,6 +286,7 @@ export async function POST(request) {
       usedPrompt: classificationPrompt,
       provider,
       model,
+      selection,
     }, { headers: CORS_HEADERS })
   } catch (err) {
     console.error('[pubmed] reclassify failed', err)
