@@ -282,7 +282,10 @@ export default async function HomePage() {
                 <h3 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-1">
                   Investigator Affiliations
                 </h3>
-                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div
+                  className="flex flex-wrap items-center justify-center"
+                  style={{ columnGap: 32, rowGap: 24 }}
+                >
                   {settings.affiliations.map((affiliation, idx) => {
                     // Check if logo exists and has an asset reference
                     const hasValidLogo = affiliation.logo && affiliation.logo.asset && affiliation.logo.asset._ref
