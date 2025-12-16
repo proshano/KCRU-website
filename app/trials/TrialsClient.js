@@ -179,7 +179,7 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
                   }`}
                 >
                   {area.icon && <span>{area.icon}</span>}
-                  {area.shortLabel || area.name}
+                  {area.name}
                   <span className={`text-xs ${isActive ? 'text-white/70' : 'text-gray-500'}`}>
                     ({area.trialCount})
                   </span>

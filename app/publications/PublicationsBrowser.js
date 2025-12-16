@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 import { urlFor } from '@/lib/sanity'
+
+const DEFAULT_VISIBLE_TAGS = 7
 
 // Canonical category assignments - each tag belongs to exactly one category
 const TOPIC_TAGS = new Set([
@@ -98,6 +100,22 @@ export default function PublicationsBrowser({
   altmetricEnabled,
 }) {
   const [activeFilter, setActiveFilter] = useState(null) // { type: 'topic' | 'studyDesign' | 'methodologicalFocus', value: string }
+  const [maxVisibleTags, setMaxVisibleTags] = useState(DEFAULT_VISIBLE_TAGS)
+
+  useEffect(() => {
+    const computeVisible = () => {
+      if (typeof window === 'undefined') return DEFAULT_VISIBLE_TAGS
+      const w = window.innerWidth
+      if (w >= 1280) return 7
+      if (w >= 960) return 6
+      if (w >= 720) return 5
+      return 4
+    }
+    setMaxVisibleTags(computeVisible())
+    const handle = () => setMaxVisibleTags(computeVisible())
+    window.addEventListener('resize', handle)
+    return () => window.removeEventListener('resize', handle)
+  }, [])
 
   // Normalize tags to canonical categories (fixes LLM misclassifications)
   // and filter out excluded publications (corrections, errata, etc.)
@@ -166,6 +184,7 @@ export default function PublicationsBrowser({
         activeFilter={activeFilter}
         onTagClick={handleTagClick}
         totalPublications={publications.length}
+        maxVisibleTags={maxVisibleTags}
       />
 
       {activeFilter && (
@@ -231,75 +250,68 @@ function aggregateTagStats(publications) {
   }
 }
 
-function ResearchProfile({ tagStats, activeFilter, onTagClick, totalPublications }) {
+function ResearchProfile({ tagStats, activeFilter, onTagClick, totalPublications, maxVisibleTags }) {
   const { topics, studyDesign, methodologicalFocus } = tagStats
   const hasAnyTags = topics.length > 0 || studyDesign.length > 0 || methodologicalFocus.length > 0
+
+  const [expanded, setExpanded] = useState({
+    topic: false,
+    studyDesign: false,
+    methodologicalFocus: false,
+  })
 
   if (!hasAnyTags) return null
 
   const allCounts = [...topics, ...studyDesign, ...methodologicalFocus].map((t) => t.count)
   const maxCount = Math.max(...allCounts, 1)
 
+  const renderTagSection = (items, label, typeKey) => {
+    if (!items.length) return null
+
+    const visibleItems = expanded[typeKey] ? items : items.slice(0, maxVisibleTags)
+    const hasOverflow = items.length > maxVisibleTags
+    const hiddenCount = Math.max(items.length - maxVisibleTags, 0)
+
+    return (
+      <div className="space-y-2">
+        <h3 className="sr-only">{label}</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          {visibleItems.map(({ name, count }) => (
+            <TagBar
+              key={name}
+              name={name}
+              count={count}
+              maxCount={maxCount}
+              total={totalPublications}
+              isActive={activeFilter?.type === typeKey && activeFilter?.value === name}
+              onClick={() => onTagClick(typeKey, name)}
+            />
+          ))}
+          {hasOverflow && (
+            <button
+              onClick={() => setExpanded((prev) => ({ ...prev, [typeKey]: !prev[typeKey] }))}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold bg-purple/10 border border-purple/20 text-purple hover:bg-purple/20 transition-colors"
+              title={expanded[typeKey] ? 'Show fewer tags' : 'Show all tags'}
+              aria-label={expanded[typeKey] ? 'Collapse tags' : `Show ${hiddenCount} more tags`}
+            >
+              <span className="leading-none">
+                {expanded[typeKey] ? 'Hide' : `+${hiddenCount}`}
+              </span>
+              <span className="text-base leading-none">{expanded[typeKey] ? '▲' : '▼'}</span>
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <section className="bg-white border border-black/[0.06] p-6 space-y-6">
+    <section className="bg-white border border-black/[0.06] p-5 space-y-4">
       <h2 className="text-xl font-semibold text-[#1a1a1a]">Research Profile</h2>
 
-      {topics.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-[#666] uppercase tracking-wide">Research Areas</h3>
-          <div className="flex flex-wrap gap-2">
-            {topics.map(({ name, count }) => (
-              <TagBar
-                key={name}
-                name={name}
-                count={count}
-                maxCount={maxCount}
-                total={totalPublications}
-                isActive={activeFilter?.type === 'topic' && activeFilter?.value === name}
-                onClick={() => onTagClick('topic', name)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {studyDesign.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-[#666] uppercase tracking-wide">Study Types</h3>
-          <div className="flex flex-wrap gap-2">
-            {studyDesign.map(({ name, count }) => (
-              <TagBar
-                key={name}
-                name={name}
-                count={count}
-                maxCount={maxCount}
-                total={totalPublications}
-                isActive={activeFilter?.type === 'studyDesign' && activeFilter?.value === name}
-                onClick={() => onTagClick('studyDesign', name)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {methodologicalFocus.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-medium text-[#666] uppercase tracking-wide">Methods & Approaches</h3>
-          <div className="flex flex-wrap gap-2">
-            {methodologicalFocus.map(({ name, count }) => (
-              <TagBar
-                key={name}
-                name={name}
-                count={count}
-                maxCount={maxCount}
-                total={totalPublications}
-                isActive={activeFilter?.type === 'methodologicalFocus' && activeFilter?.value === name}
-                onClick={() => onTagClick('methodologicalFocus', name)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      {renderTagSection(topics, 'Research Areas', 'topic')}
+      {renderTagSection(studyDesign, 'Study Types', 'studyDesign')}
+      {renderTagSection(methodologicalFocus, 'Methods & Approaches', 'methodologicalFocus')}
     </section>
   )
 }
@@ -313,10 +325,10 @@ function TagBar({ name, count, maxCount, total, isActive, onClick }) {
     <button
       onClick={onClick}
       className={`
-        group relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium 
-        transition-all hover:scale-105 cursor-pointer
+        group relative inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold 
+        transition-colors cursor-pointer
         ${isActive 
-          ? 'bg-purple text-white shadow-md' 
+          ? 'bg-purple text-white shadow-sm' 
           : 'text-purple hover:ring-2 hover:ring-purple/30'
         }
       `}
@@ -325,8 +337,8 @@ function TagBar({ name, count, maxCount, total, isActive, onClick }) {
     >
       <span>{name}</span>
       <span
-        className={`text-xs px-1.5 py-0.5 rounded-full ${
-          isActive ? 'bg-white/20 text-white' : 'bg-purple/20 text-purple/80'
+        className={`text-xs px-2 py-0.5 rounded-full ${
+          isActive ? 'bg-white/25 text-white' : 'bg-purple/20 text-purple/80'
         }`}
       >
         {count}
