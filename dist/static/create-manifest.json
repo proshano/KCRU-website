@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "createdAt": "2025-12-15T10:48:56.786Z",
+  "createdAt": "2025-12-16T18:47:01.909Z",
   "workspaces": [
     {
       "name": "kcru-website",
@@ -12,7 +12,7 @@
       "mediaLibrary": {
         "enabled": false
       },
-      "schema": "5fa5e376.create-schema.json",
+      "schema": "2f831ff3.create-schema.json",
       "tools": "400b120c.create-tools.json"
     }
   ],
