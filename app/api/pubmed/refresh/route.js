@@ -33,13 +33,30 @@ function extractToken(request) {
 }
 
 function isVercelCron(request) {
-  // Vercel cron jobs set this header
+  // Method 1: Check CRON_SECRET (recommended by Vercel)
+  // When CRON_SECRET is set in Vercel env vars, Vercel sends it as Bearer token
   const authHeader = request.headers.get('authorization')
   if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) {
     return true
   }
-  // Also check for Vercel's internal cron header (older method)
-  return request.headers.get('x-vercel-cron') === '1'
+  
+  // Method 2: Check Vercel's internal cron header (set automatically by Vercel)
+  if (request.headers.get('x-vercel-cron') === '1') {
+    return true
+  }
+  
+  // Method 3: If no CRON_SECRET is configured, allow unauthenticated cron requests
+  // This is less secure but allows crons to work without extra configuration
+  // Remove this if you want stricter security
+  if (!CRON_SECRET) {
+    // Check if this looks like a Vercel cron request (User-Agent, etc.)
+    const userAgent = request.headers.get('user-agent') || ''
+    if (userAgent.includes('vercel-cron')) {
+      return true
+    }
+  }
+  
+  return false
 }
 
 export async function OPTIONS() {
@@ -85,14 +102,35 @@ function shouldRunNow({ timeZone, targetHour, allowedMinutes }) {
 
 // GET handler for Vercel cron
 export async function GET(request) {
+  const now = new Date()
+  const nowParts = getZonedParts(now, CRON_TIMEZONE)
+  
+  console.info('[pubmed] Cron GET request received', {
+    timestamp: now.toISOString(),
+    localTime: nowParts,
+    timezone: CRON_TIMEZONE,
+    hasXVercelCron: request.headers.get('x-vercel-cron'),
+    hasAuthHeader: !!request.headers.get('authorization'),
+    hasCronSecret: !!CRON_SECRET,
+  })
+
   // Only allow cron requests
   if (!isVercelCron(request)) {
+    console.warn('[pubmed] Cron request rejected: unauthorized', {
+      xVercelCron: request.headers.get('x-vercel-cron'),
+      authHeaderPresent: !!request.headers.get('authorization'),
+      cronSecretConfigured: !!CRON_SECRET,
+    })
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
   // Run only at 3:00am America/New_York (DST-aware), otherwise skip.
   if (!shouldRunNow({ timeZone: CRON_TIMEZONE, targetHour: CRON_TARGET_HOUR, allowedMinutes: CRON_ALLOWED_MINUTES })) {
-    const nowParts = getZonedParts(new Date(), CRON_TIMEZONE)
+    console.info('[pubmed] Cron skipped: outside time window', {
+      nowLocal: nowParts,
+      targetHour: CRON_TARGET_HOUR,
+      allowedMinutes: CRON_ALLOWED_MINUTES,
+    })
     return NextResponse.json({
       ok: true,
       skipped: true,
@@ -192,3 +230,5 @@ async function runRefresh({ isCron = false } = {}) {
 
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
+// Allow up to 60 seconds for cron jobs (Vercel Hobby limit)
+export const maxDuration = 60
