@@ -48,9 +48,7 @@ export default async function HomePage() {
     }))
     const pubData = await getCachedPublicationsDisplay({
       researchers: strippedResearchers,
-      affiliation: settings?.pubmedAffiliation || '',
-      maxPerResearcher: 120,
-      maxAffiliation: 80,
+      maxPerResearcher: 1000,
       summariesPerRun: Infinity,
       llmOptions: {
         provider: settings.llmProvider || 'openrouter',

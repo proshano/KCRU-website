@@ -194,9 +194,7 @@ async function runRefresh({ isCron = false } = {}) {
 
     const result = await refreshPubmedCache({
       researchers,
-      affiliation: settings?.pubmedAffiliation || '',
-      maxPerResearcher: Number(process.env.PUBMED_MAX_PER_RESEARCHER || 120),
-      maxAffiliation: Number(process.env.PUBMED_MAX_AFFILIATION || 80),
+      maxPerResearcher: Number(process.env.PUBMED_MAX_PER_RESEARCHER || 1000),
       summariesPerRun,
       force: true,
       llmOptions: {
