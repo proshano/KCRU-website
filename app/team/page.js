@@ -1,112 +1,17 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
-import { getCachedPublicationsDisplay } from '@/lib/publications'
 
 export const revalidate = 3600 // 1 hour
 
-/**
- * Compute top research tags for each researcher from their publications
- * Returns: { researcherId: { topics: string[], studyType: string | null } }
- */
-function computeResearcherTags(publications, provenance, researchers) {
-  const tagsByResearcher = {}
-
-  // Initialize for all researchers
-  for (const r of researchers) {
-    tagsByResearcher[r._id] = { topicCounts: {}, studyDesignCounts: {} }
-  }
-
-  // Count tags for each researcher based on provenance
-  for (const pub of publications) {
-    const pmid = pub.pmid
-    const researcherIds = provenance[pmid] || []
-    
-    for (const rId of researcherIds) {
-      if (!tagsByResearcher[rId]) continue
-      
-      // Count topics
-      for (const topic of (pub.topics || [])) {
-        tagsByResearcher[rId].topicCounts[topic] = (tagsByResearcher[rId].topicCounts[topic] || 0) + 1
-      }
-      
-      // Count study designs
-      for (const sd of (pub.studyDesign || [])) {
-        tagsByResearcher[rId].studyDesignCounts[sd] = (tagsByResearcher[rId].studyDesignCounts[sd] || 0) + 1
-      }
-    }
-  }
-
-  // Convert counts to top tags
-  const result = {}
-  for (const [rId, data] of Object.entries(tagsByResearcher)) {
-    // Top 2 topics by count
-    const topTopics = Object.entries(data.topicCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 2)
-      .map(([name]) => name)
-
-    // Top 2 study types, but ensure Interventional Study is included first if count >= 2
-    const interventionalCount = data.studyDesignCounts['Interventional Study'] || 0
-    const sortedStudyTypes = Object.entries(data.studyDesignCounts)
-      .sort((a, b) => b[1] - a[1])
-    
-    let studyTypes = []
-    const top2 = sortedStudyTypes.slice(0, 2).map(([name]) => name)
-    
-    if (interventionalCount >= 2) {
-      // Interventional qualifies - put it first, then add the top non-interventional
-      const otherTop = sortedStudyTypes
-        .filter(([name]) => name !== 'Interventional Study')
-        .slice(0, 1)
-        .map(([name]) => name)
-      studyTypes = ['Interventional Study', ...otherTop]
-    } else {
-      studyTypes = top2
-    }
-
-    result[rId] = { topics: topTopics, studyTypes }
-  }
-
-  return result
-}
-
 export default async function TeamPage() {
-  const [researchersRaw, pageContentRaw, settingsRaw] = await Promise.all([
+  const [researchersRaw, pageContentRaw] = await Promise.all([
     sanityFetch(queries.allResearchers),
-    sanityFetch(queries.pageContent),
-    sanityFetch(queries.siteSettings)
+    sanityFetch(queries.pageContent)
   ])
   // Strip Sanity data to plain JSON to break any circular references
   const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
   const content = JSON.parse(JSON.stringify(pageContentRaw || {}))
-  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
-
-  // Fetch publications to compute tags per researcher
-  let researcherTags = {}
-  try {
-    const strippedResearchers = researchers.map(r => ({
-      _id: r._id,
-      name: r.name,
-      slug: r.slug,
-      pubmedQuery: r.pubmedQuery
-    }))
-    const pubBundle = await getCachedPublicationsDisplay({
-      researchers: strippedResearchers,
-      affiliation: settings?.pubmedAffiliation || '',
-      maxPerResearcher: 120,
-      maxAffiliation: 80,
-      summariesPerRun: 0, // Don't generate summaries on team page
-      llmOptions: {}
-    })
-    researcherTags = computeResearcherTags(
-      pubBundle.publications || [],
-      pubBundle.provenance || {},
-      researchers
-    )
-  } catch (err) {
-    console.error('Failed to compute researcher tags:', err)
-  }
 
   // Page content with fallbacks
   const eyebrow = content.teamEyebrow || 'Our Team'
@@ -210,11 +115,7 @@ export default async function TeamPage() {
                   .toUpperCase() || '?'
 
                 // Get research tags for this person
-                const tags = researcherTags[person._id] || { topics: [], studyTypes: [] }
-                const displayTags = Array.from(
-                  new Set([...(tags.topics || []), ...(tags.studyTypes || [])].filter(Boolean))
-                )
-                const visibleTags = displayTags.slice(0, 4)
+                const visibleTags = (person.researchTags || []).filter(Boolean).slice(0, 4)
                 const arcPositions = computeArcPositions(visibleTags.length)
 
                 const cardBody = (
