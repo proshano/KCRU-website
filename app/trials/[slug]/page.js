@@ -23,7 +23,7 @@ const statusConfig = {
   recruiting: { 
     label: 'Actively Recruiting', 
     style: 'text-emerald-800 bg-emerald-50 border-emerald-200',
-    message: 'This study is currently accepting participants.'
+    message: ''
   },
   coming_soon: { 
     label: 'Coming Soon', 
@@ -106,7 +106,7 @@ export default async function TrialDetailPage({ params }) {
             </span>
             <div>
               <p className="font-semibold text-emerald-800">{config.label}</p>
-              <p className="text-sm text-emerald-900/80">{config.message}</p>
+              {config.message && <p className="text-sm text-emerald-900/80">{config.message}</p>}
             </div>
           </div>
           
