@@ -1363,6 +1363,27 @@
         "title": "PubMed Search Query"
       },
       {
+        "validation": [
+          {
+            "rules": [
+              {
+                "flag": "max",
+                "constraint": 4
+              }
+            ],
+            "level": "error"
+          }
+        ],
+        "description": "Shown on the Team page (max 4). Drag to reorder.",
+        "of": [
+          {
+            "type": "string"
+          }
+        ],
+        "name": "researchTags",
+        "type": "array"
+      },
+      {
         "name": "orcid",
         "type": "string",
         "title": "ORCID"
