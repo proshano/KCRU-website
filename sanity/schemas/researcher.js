@@ -64,6 +64,14 @@ export default {
       description: 'Use full PubMed syntax (Boolean + field tags). Examples: \n- Smith J[Author] AND ("Western University"[Affiliation] OR "University of Western Ontario"[Affiliation])\n- ("Doe J"[Author] OR "Doe John"[Author]) AND London[Affiliation] AND 2020:2025[dp]\nTip: combine OR variants for institution names; include [Author]/[Affiliation]/[dp] for date ranges.'
     },
     {
+      name: 'researchTags',
+      title: 'Research Tags',
+      type: 'array',
+      of: [{ type: 'string' }],
+      validation: Rule => Rule.max(4).unique(),
+      description: 'Shown on the Team page (max 4). Drag to reorder.'
+    },
+    {
       name: 'orcid',
       title: 'ORCID',
       type: 'string'
@@ -93,4 +101,3 @@ export default {
     }
   ]
 }
-
