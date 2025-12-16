@@ -11,6 +11,9 @@ import site from './site'
 import pubmedCache from './pubmedCache'
 import pubmedClassification from './pubmedClassification'
 import pageContent from './pageContent'
+import contactRouting from './contactRouting'
+import contactLocation from './contactLocation'
+import contactSubmission from './contactSubmission'
 
 export const schemaTypes = [
   // Singletons (one instance)
@@ -20,6 +23,8 @@ export const schemaTypes = [
   pubmedCache,
   pubmedClassification,
   pageContent,
+  contactRouting,
+  contactLocation,
   
   // Collections
   researcher,
@@ -28,6 +33,7 @@ export const schemaTypes = [
   therapeuticArea,
   traineeOpportunity,
   alumnus,
-  site
+  site,
+  contactSubmission
 ]
 
