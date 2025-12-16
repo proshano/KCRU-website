@@ -216,6 +216,7 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers, altmet
           researchers={researchers}
           provenance={provenance}
           altmetricEnabled={altmetricEnabled}
+          hideYearCounts
         />
       )}
     </section>
