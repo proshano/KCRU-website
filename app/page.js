@@ -176,7 +176,7 @@ export default async function HomePage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="px-6 md:px-12 pt-12 pb-6 max-w-[1400px] mx-auto">
+      <section className="px-6 md:px-12 pt-12 pb-4 max-w-[1400px] mx-auto">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
           {/* Left side - Hero content */}
           <div className="flex flex-col">
@@ -284,7 +284,7 @@ export default async function HomePage() {
                 </h3>
                 <div
                   className="flex flex-wrap items-center justify-center"
-                  style={{ columnGap: 32, rowGap: 24 }}
+                  style={{ columnGap: 28, rowGap: 12 }}
                 >
                   {settings.affiliations.map((affiliation, idx) => {
                     // Check if logo exists and has an asset reference
@@ -315,7 +315,7 @@ export default async function HomePage() {
                       <img
                         src={logoUrl}
                         alt={affiliation.name || 'Affiliation'}
-                        style={{ objectFit: 'contain', width: 'auto', height: 'auto', maxWidth: 140, maxHeight: 70 }}
+                        style={{ objectFit: 'contain', width: 'auto', height: 'auto', maxWidth: 140, maxHeight: 60 }}
                       />
                     )
                     return affiliation.url ? (
@@ -419,8 +419,8 @@ export default async function HomePage() {
             line-height: 1.4;
           }
         `}</style>
-        <div style={{ background: '#1a1a1a', padding: '12px 0', overflow: 'hidden' }}>
-          <div style={{ color: '#666', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 12px 48px' }}>
+        <div style={{ background: '#1a1a1a', padding: '10px 0', overflow: 'hidden' }}>
+          <div style={{ color: '#666', fontSize: '10px', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '0 0 10px 48px' }}>
             Recent research
           </div>
           <div className="ticker-track">
