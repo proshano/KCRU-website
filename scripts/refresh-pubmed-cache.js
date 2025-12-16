@@ -1,8 +1,7 @@
 import { sanityFetch, queries } from '../lib/sanity.js'
 import { refreshPubmedCache } from '../lib/publications.js'
 
-const MAX_PER_RESEARCHER = Number(process.env.PUBMED_MAX_PER_RESEARCHER || 120)
-const MAX_AFFILIATION = Number(process.env.PUBMED_MAX_AFFILIATION || 80)
+const MAX_PER_RESEARCHER = Number(process.env.PUBMED_MAX_PER_RESEARCHER || 1000)
 
 async function main() {
   try {
@@ -16,9 +15,7 @@ async function main() {
 
     const result = await refreshPubmedCache({
       researchers,
-      affiliation: settings?.pubmedAffiliation || '',
       maxPerResearcher: MAX_PER_RESEARCHER,
-      maxAffiliation: MAX_AFFILIATION,
       force: true,
       summariesPerRun: Infinity,
       llmOptions: {
@@ -34,7 +31,7 @@ async function main() {
       }
     })
 
-    const count = result?.meta?.counts?.combined || result?.publications?.length || 0
+    const count = result?.meta?.counts?.total || result?.publications?.length || 0
     const summariesGenerated = result?.meta?.summaries?.generated || 0
     console.log(`[pubmed] cache refreshed: ${count} publications; summaries generated this run: ${summariesGenerated}; cache at ${result?.meta?.cachePath || 'runtime/pubmed-cache.json'}`)
   } catch (err) {

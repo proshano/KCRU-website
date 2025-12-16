@@ -55,9 +55,7 @@ export default async function TeamMemberPage({ params }) {
     try {
       const fullBundle = await getCachedPublicationsDisplay({
         researchers: strippedResearchers,
-        affiliation: settings?.pubmedAffiliation || '',
-        maxPerResearcher: 120,
-        maxAffiliation: 80,
+        maxPerResearcher: 1000,
         summariesPerRun: Infinity,
         llmOptions: {
           provider: settings.llmProvider || 'openrouter',

@@ -29,14 +29,11 @@ export default async function PublicationsPage() {
     pubmedQuery: r.pubmedQuery
   }))
 
-  // Always use researcher queries; optionally augment with affiliation if present
   let bundle = { publications: [], provenance: {}, byYear: {}, years: [], meta: {} }
   try {
     bundle = await getCachedPublicationsDisplay({
       researchers: strippedResearchers,
-      affiliation: settings?.pubmedAffiliation || '',
-      maxPerResearcher: 120,
-      maxAffiliation: 80,
+      maxPerResearcher: 1000,
       summariesPerRun: Infinity,
       llmOptions: {
         provider: settings.llmProvider || 'openrouter',
