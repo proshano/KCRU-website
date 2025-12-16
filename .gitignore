@@ -27,4 +27,5 @@ runtime/pubmed-cache.json
 
 # Sanity Studio build artifacts (auto-generated)
 .sanity/
+dist/
 
