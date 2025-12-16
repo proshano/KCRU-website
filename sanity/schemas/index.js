@@ -14,6 +14,7 @@ import pageContent from './pageContent'
 import contactRouting from './contactRouting'
 import contactLocation from './contactLocation'
 import contactSubmission from './contactSubmission'
+import studyReferral from './studyReferral'
 
 export const schemaTypes = [
   // Singletons (one instance)
@@ -34,6 +35,7 @@ export const schemaTypes = [
   traineeOpportunity,
   alumnus,
   site,
-  contactSubmission
+  contactSubmission,
+  studyReferral
 ]
 

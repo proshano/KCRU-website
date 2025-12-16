@@ -228,6 +228,14 @@ export default {
       group: 'localInfo',
       description: 'Link to sponsor\'s study page (e.g., Novartis, AstraZeneca trial pages)'
     },
+    {
+      name: 'acceptsReferrals',
+      title: 'Accepts Referrals',
+      type: 'boolean',
+      group: 'localInfo',
+      initialValue: false,
+      description: 'Enable the "Refer a Patient" form on this study page. Requires a coordinator email to be set above.'
+    },
 
     // ============================================
     // ELIGIBILITY (Synced + Manual Override)

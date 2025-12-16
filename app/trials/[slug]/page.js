@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
+import ReferralForm from './ReferralForm'
 
 // Revalidate every 12 hours
 export const revalidate = 43200
@@ -52,6 +53,8 @@ export default async function TrialDetailPage({ params }) {
   const isRecruiting = trial.status === 'recruiting'
   const showStatusBanner = !isRecruiting
   const ctGovUrl = trial.ctGovData?.url || (trial.nctId ? `https://clinicaltrials.gov/study/${trial.nctId}` : null)
+  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''
+  const studySlug = trial.slug?.current || trial.slug
 
   return (
     <main className="max-w-4xl mx-auto px-6 md:px-12 py-12">
@@ -135,12 +138,13 @@ export default async function TrialDetailPage({ params }) {
           )}
 
           <div className="flex flex-wrap gap-3 mt-4">
-            <Link
-              href="/contact"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple text-white font-medium rounded-lg hover:bg-purple/90 transition"
-            >
-              Refer a patient
-            </Link>
+            <ReferralForm
+              acceptsReferrals={trial.acceptsReferrals}
+              studySlug={studySlug}
+              studyTitle={trial.title}
+              coordinatorEmail={trial.localContact?.email}
+              recaptchaSiteKey={recaptchaSiteKey}
+            />
             {ctGovUrl && (
               <a
                 href={ctGovUrl}
