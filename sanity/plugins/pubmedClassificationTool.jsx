@@ -125,7 +125,24 @@ function ClassificationTool() {
       if (!res.ok || !data?.ok) {
         throw new Error(data?.error || 'Reclassify failed')
       }
-      setClassifyMsg({ tone: 'positive', text: `Classified ${data.count} items` })
+      const bits = [`Classified ${data.count} items`]
+      if (data.selection?.skippedAlreadyClassified) {
+        bits.push(`skipped ${data.selection.skippedAlreadyClassified} already classified`)
+      }
+      if (data.selection?.appliedMissingOnly) {
+        bits.push('mode: unclassified only')
+      }
+      if (data.selection?.staleCount) {
+        bits.push(`${data.selection.staleCount} stale`)
+      }
+      if (data.selection?.missingCount) {
+        bits.push(`${data.selection.missingCount} missing`)
+      }
+      if (data.selection?.erroredCount) {
+        bits.push(`${data.selection.erroredCount} errored`)
+      }
+      if (data.message) bits.push(data.message)
+      setClassifyMsg({ tone: 'positive', text: bits.join(' · ') })
     } catch (err) {
       setClassifyMsg({ tone: 'critical', text: err.message || 'Reclassify failed' })
     } finally {
@@ -320,6 +337,9 @@ function ClassificationTool() {
                 disabled={classifyLoading}
               />
             </Flex>
+            <Text size={1} muted>
+              With PMIDs blank and &ldquo;Clear existing&rdquo; off, only unclassified (or errored) publications are selected after a PubMed refresh.
+            </Text>
 
             <Flex gap={3} wrap="wrap">
               <Box style={{ minWidth: 180 }}>
