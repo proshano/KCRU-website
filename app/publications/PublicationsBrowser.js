@@ -99,6 +99,7 @@ export default function PublicationsBrowser({
   researchers,
   provenance,
   altmetricEnabled,
+  hideYearCounts = false,
 }) {
   const [activeFilter, setActiveFilter] = useState(null) // { type: 'topic' | 'studyDesign' | 'methodologicalFocus', value: string }
   const [visibleCounts, setVisibleCounts] = useState({
@@ -221,6 +222,7 @@ export default function PublicationsBrowser({
         altmetricEnabled={altmetricEnabled}
         onTagClick={handleTagClick}
         activeFilter={activeFilter}
+        hideYearCounts={hideYearCounts}
       />
     </div>
   )
@@ -355,7 +357,7 @@ function TagBar({ name, count, maxCount, total, isActive, onClick }) {
   )
 }
 
-function YearSections({ years, byYear, researchers, provenance, altmetricEnabled, onTagClick, activeFilter }) {
+function YearSections({ years, byYear, researchers, provenance, altmetricEnabled, onTagClick, activeFilter, hideYearCounts }) {
   if (years.length === 0) {
     return (
       <p className="text-[#666] text-center py-8">No publications match the current filter.</p>
@@ -364,7 +366,7 @@ function YearSections({ years, byYear, researchers, provenance, altmetricEnabled
 
   return (
     <div className="space-y-2">
-      {years.map((year) => (
+      {years.map((year, idx) => (
         <YearBlock
           key={year}
           year={year}
@@ -374,20 +376,28 @@ function YearSections({ years, byYear, researchers, provenance, altmetricEnabled
           altmetricEnabled={altmetricEnabled}
           onTagClick={onTagClick}
           activeFilter={activeFilter}
+          isLatestYear={idx === 0}
+          hideYearCounts={hideYearCounts}
         />
       ))}
     </div>
   )
 }
 
-function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled, onTagClick, activeFilter }) {
+function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled, onTagClick, activeFilter, isLatestYear, hideYearCounts }) {
   return (
     <section className="border border-black/[0.06] bg-white">
       <details className="group">
         <summary className="flex w-full cursor-pointer list-none items-center justify-between text-left px-6 py-4 hover:bg-[#fafafa] transition-colors">
           <div className="flex items-center gap-4">
             <span className="text-2xl font-bold text-purple">{year}</span>
-            <span className="text-sm text-[#888] font-medium">{pubs.length} publications</span>
+            {hideYearCounts ? (
+              isLatestYear && (
+                <span className="text-sm text-[#888] font-medium">click to view publications</span>
+              )
+            ) : (
+              <span className="text-sm text-[#888] font-medium">{pubs.length} publications</span>
+            )}
           </div>
           <span className="text-purple text-lg font-bold hidden group-open:inline" aria-hidden>
             −
