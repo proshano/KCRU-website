@@ -337,48 +337,50 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Publications Ticker */}
-      {tickerItems.length > 0 && (
-        <>
-        <style>{`
-          @keyframes tickerAnim {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-          }
-          @-webkit-keyframes tickerAnim {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-          }
-          .ticker-track {
-            display: flex;
-            gap: 20px;
-            padding: 4px 48px 8px;
-            width: max-content;
-            min-width: 100%;
-            animation: tickerAnim 70s linear infinite;
-            -webkit-animation: tickerAnim 70s linear infinite;
-            animation-play-state: running;
-            will-change: transform;
-          }
-          @media (max-width: 768px) {
-            .ticker-track {
-              animation-duration: 55s;
-              -webkit-animation-duration: 55s;
-            }
-          }
-          @media (prefers-reduced-motion: reduce) {
-            .ticker-track {
-              animation-duration: 0.01ms;
-              -webkit-animation-duration: 0.01ms;
-              animation-iteration-count: 1;
-              -webkit-animation-iteration-count: 1;
-              transform: translateX(0);
-            }
-          }
-          .ticker-card {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
+	      {/* Publications Ticker */}
+	      {tickerItems.length > 0 && (
+	        <>
+	        <style>{`
+	          @keyframes tickerAnim {
+	            0% { transform: translate3d(0, 0, 0); }
+	            100% { transform: translate3d(-50%, 0, 0); }
+	          }
+	          @-webkit-keyframes tickerAnim {
+	            0% { transform: translate3d(0, 0, 0); }
+	            100% { transform: translate3d(-50%, 0, 0); }
+	          }
+	          .ticker-track {
+	            display: flex;
+	            gap: 20px;
+	            padding: 4px 48px 8px;
+	            width: max-content;
+	            min-width: 100%;
+	            animation: tickerAnim 70s linear infinite;
+	            -webkit-animation: tickerAnim 70s linear infinite;
+	            animation-play-state: running;
+	            will-change: transform;
+	          }
+	          .ticker-track:hover,
+	          .ticker-track:focus-within {
+	            animation-play-state: paused;
+	            -webkit-animation-play-state: paused;
+	          }
+	          @media (max-width: 768px) {
+	            .ticker-track {
+	              animation-duration: 55s;
+	              -webkit-animation-duration: 55s;
+	            }
+	          }
+	          @media (prefers-reduced-motion: reduce) {
+	            .ticker-track {
+	              animation-duration: 140s;
+	              -webkit-animation-duration: 140s;
+	            }
+	          }
+	          .ticker-card {
+	            display: flex;
+	            flex-direction: column;
+	            gap: 6px;
             width: 320px;
             min-width: 320px;
             padding: 14px 18px;
