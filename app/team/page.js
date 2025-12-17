@@ -77,7 +77,7 @@ export default async function TeamPage() {
   }
 
   return (
-    <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-8">
+    <main className="max-w-[1600px] mx-auto px-6 md:px-12 py-12 space-y-8">
       <header>
         <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em] mb-2">
           {eyebrow}
@@ -103,7 +103,7 @@ export default async function TeamPage() {
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold tracking-tight">{section.title}</h2>
             </div>
-            <div className="grid gap-5 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid gap-x-6 gap-y-6 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
               {list.map((person) => {
                 const slugValue = typeof person.slug === 'string' ? person.slug : person.slug?.current
                 const href = slugValue ? `/team/${slugValue}` : null
@@ -120,49 +120,50 @@ export default async function TeamPage() {
 
                 const cardBody = (
                   <div className="team-member">
-                    <div
-                      className="relative mx-auto w-full max-w-[320px] flex flex-col items-center pt-1"
-                    >
-                      <div className="relative" style={{ width: '132px', height: '132px' }}>
-                        {visibleTags.length > 0 && (
-                          <div className="absolute inset-0 pointer-events-none z-0">
-                            {visibleTags.map((tag, idx) => {
-                              const position = arcPositions[idx]
-                              return (
-                                <span
-                                  key={idx}
-                                  className="absolute inline-block px-2.5 py-1 text-xs font-medium rounded-full bg-purple/10 text-purple shadow-sm whitespace-nowrap max-w-[170px] truncate"
-                                  style={{
-                                    top: `calc(50% + ${position?.y ?? 0}px)`,
-                                    left: `calc(100% + ${position?.x ?? 0}px)`,
-                                    transform: 'translate(0, -50%)'
-                                  }}
-                                >
-                                  {tag}
-                                </span>
-                              )
-                            })}
-                          </div>
-                        )}
-                        <div
-                          className="team-photo relative z-10"
-                          style={{ width: '132px', height: '132px' }}
-                        >
-                          {person.photo ? (
-                            <Image
-                              src={urlFor(person.photo).width(165).height(165).fit('crop').url()}
-                              alt={person.name || 'Researcher'}
-                              width={165}
-                              height={165}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-[24px] font-semibold text-[#aaa]">{initials}</span>
+                    <div className="relative w-full flex pt-1">
+                      {/* Photo and name wrapper - keeps name centered under photo */}
+                      <div className="flex flex-col items-center">
+                        <div className="relative" style={{ width: '132px', height: '132px' }}>
+                          {visibleTags.length > 0 && (
+                            <div className="absolute inset-0 pointer-events-none z-0">
+                              {visibleTags.map((tag, idx) => {
+                                const position = arcPositions[idx]
+                                return (
+                                  <span
+                                    key={idx}
+                                    className="absolute inline-block px-2.5 py-1 text-xs font-medium rounded-full bg-purple/10 text-purple shadow-sm whitespace-nowrap"
+                                    style={{
+                                      top: `calc(50% + ${position?.y ?? 0}px)`,
+                                      left: `calc(100% + ${position?.x ?? 0}px)`,
+                                      transform: 'translate(0, -50%)'
+                                    }}
+                                  >
+                                    {tag}
+                                  </span>
+                                )
+                              })}
+                            </div>
                           )}
+                          <div
+                            className="team-photo relative z-10"
+                            style={{ width: '132px', height: '132px' }}
+                          >
+                            {person.photo ? (
+                              <Image
+                                src={urlFor(person.photo).width(165).height(165).fit('crop').url()}
+                                alt={person.name || 'Researcher'}
+                                width={165}
+                                height={165}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-[24px] font-semibold text-[#aaa]">{initials}</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-sm font-semibold text-[#1a1a1a] mt-4">
-                        {person.name}
+                        <div className="text-sm font-semibold text-[#1a1a1a] mt-2 whitespace-nowrap text-center">
+                          {person.name}
+                        </div>
                       </div>
                     </div>
                   </div>
