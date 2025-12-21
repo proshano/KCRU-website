@@ -125,7 +125,9 @@ export async function GET(request) {
   }
 
   // Run only at 3:00am America/New_York (DST-aware), otherwise skip.
-  if (!shouldRunNow({ timeZone: CRON_TIMEZONE, targetHour: CRON_TARGET_HOUR, allowedMinutes: CRON_ALLOWED_MINUTES })) {
+  // Set CRON_SKIP_TIME_CHECK=true to bypass for debugging
+  const skipTimeCheck = process.env.CRON_SKIP_TIME_CHECK === 'true'
+  if (!skipTimeCheck && !shouldRunNow({ timeZone: CRON_TIMEZONE, targetHour: CRON_TARGET_HOUR, allowedMinutes: CRON_ALLOWED_MINUTES })) {
     console.info('[pubmed] Cron skipped: outside time window', {
       nowLocal: nowParts,
       targetHour: CRON_TARGET_HOUR,
