@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { sanityFetch, queries } from '@/lib/sanity'
 import { generateMissingSummaries } from '@/lib/publications'
 
@@ -106,6 +107,14 @@ async function runSummarize({ isCron = false, maxSummaries = 5 } = {}) {
         delayMs: settings.llmDelayMs || 2000,
       },
     })
+
+    // Revalidate the publications page so fresh data appears
+    try {
+      revalidatePath('/publications')
+      revalidatePath('/team', 'layout') // Also revalidate team pages which show publications
+    } catch (revalErr) {
+      console.warn('[pubmed-summarize] Revalidation warning:', revalErr.message)
+    }
 
     return NextResponse.json({
       ok: true,
