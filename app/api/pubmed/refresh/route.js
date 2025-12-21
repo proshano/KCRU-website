@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { sanityFetch, queries } from '@/lib/sanity'
 import { refreshPubmedCache } from '@/lib/publications'
 import { readCache } from '@/lib/pubmedCache'
@@ -206,6 +207,14 @@ async function runRefresh({ isCron = false } = {}) {
         delayMs: settings.llmDelayMs || 2000,
       },
     })
+
+    // Revalidate the publications page so fresh data appears
+    try {
+      revalidatePath('/publications')
+      revalidatePath('/team', 'layout') // Also revalidate team pages which show publications
+    } catch (revalErr) {
+      console.warn('[pubmed] Revalidation warning:', revalErr.message)
+    }
 
     return NextResponse.json({
       ok: true,
