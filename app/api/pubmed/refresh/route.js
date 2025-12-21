@@ -13,11 +13,9 @@ const CRON_TARGET_HOUR = Number(process.env.CRON_TARGET_HOUR || 3)
 // Allow a small window in case of minor scheduling drift.
 const CRON_ALLOWED_MINUTES = Number(process.env.CRON_ALLOWED_MINUTES || 10)
 
-// Max summaries to generate per cron run
-// Default: Infinity (generate all). Set CRON_SUMMARIES_LIMIT env var to limit if hitting timeouts
-const CRON_SUMMARIES_LIMIT = process.env.CRON_SUMMARIES_LIMIT 
-  ? Number(process.env.CRON_SUMMARIES_LIMIT) 
-  : Infinity
+// Cron job 1 (refresh) should NOT generate summaries - that's handled by cron job 2 (summarize)
+// Manual POST requests still generate summaries by default
+const CRON_SUMMARIES_LIMIT = 0
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
