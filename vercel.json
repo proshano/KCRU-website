@@ -5,7 +5,7 @@
       "schedule": "0 7 * * *"
     },
     {
-      "path": "/api/pubmed/refresh",
+      "path": "/api/pubmed/summarize",
       "schedule": "0 8 * * *"
     }
   ]
