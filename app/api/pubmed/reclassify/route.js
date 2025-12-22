@@ -34,13 +34,16 @@ function sortByYearDesc(a, b) {
 
 async function fetchExistingClassifications(pmids = []) {
   if (!pmids.length) return new Map()
+  const pmidsStr = pmids.map(String).filter(Boolean)
+  const pmidsNum = pmidsStr.map((p) => Number(p)).filter(Number.isFinite)
   const docs = await sanityClient.fetch(
-    `*[_type == "pubmedClassification" && pmid in $pmids]{pmid, _id, status, runAt}`,
-    { pmids }
+    `*[_type == "pubmedClassification" && (pmid in $pmids || pmid in $pmidsNum)]{pmid, _id, status, runAt}`,
+    { pmids: pmidsStr, pmidsNum }
   )
   const map = new Map()
   for (const d of docs || []) {
-    if (d?.pmid) map.set(d.pmid, { id: d._id, status: d.status || null, runAt: d.runAt || null })
+    const key = d?.pmid ? String(d.pmid) : ''
+    if (key) map.set(key, { id: d._id, status: d.status || null, runAt: d.runAt || null })
   }
   return map
 }
@@ -92,9 +95,11 @@ async function upsertClassifications(entries = [], meta = {}, existingIdMap = nu
 
 async function deleteClassifications(pmids = []) {
   if (!pmids.length) return
+  const pmidsStr = pmids.map(String).filter(Boolean)
+  const pmidsNum = pmidsStr.map((p) => Number(p)).filter(Number.isFinite)
   await sanityWriteClient.delete({
-    query: `*[_type == "pubmedClassification" && pmid in $pmids]._id`,
-    params: { pmids },
+    query: `*[_type == "pubmedClassification" && (pmid in $pmids || pmid in $pmidsNum)]._id`,
+    params: { pmids: pmidsStr, pmidsNum },
   })
 }
 
@@ -155,19 +160,17 @@ export async function POST(request) {
       candidates = candidates.filter(pub => {
         const existing = existingClassifications.get(pub.pmid)
         if (existing) {
-          const runAtTs = existing.runAt ? Date.parse(existing.runAt) : null
-          const isFresh = cacheGeneratedAtTs && runAtTs && runAtTs >= cacheGeneratedAtTs
-          if (existing.status !== 'error' && isFresh) {
-            skippedAlreadyClassified += 1
-            return false
-          }
           if (existing.status === 'error') {
             erroredCount += 1
             return true
           }
-          // Existing but stale or missing timestamp: re-run
-          staleCount += 1
-          return true
+          const runAtTs = existing.runAt ? Date.parse(existing.runAt) : null
+          const isStale = cacheGeneratedAtTs && runAtTs && runAtTs < cacheGeneratedAtTs
+          if (isStale || !runAtTs) {
+            staleCount += 1
+          }
+          skippedAlreadyClassified += 1
+          return false
         }
         missingCount += 1
         return true
