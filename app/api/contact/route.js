@@ -6,6 +6,8 @@ const MIN_FORM_TIME_MS = 800
 const MAX_MESSAGE_LENGTH = 2000
 const RECAPTCHA_ENDPOINT = 'https://www.google.com/recaptcha/api/siteverify'
 const MAX_ATTACHMENT_BYTES = 6 * 1024 * 1024 // 6MB
+const CONTACT_SENDER_NAME =
+  (process.env.CONTACT_FROM_NAME || 'London Kidney Clinical Research').trim() || 'London Kidney Clinical Research'
 const DEFAULT_OPTIONS = [
   { key: 'referral', label: 'Healthcare provider making a research or clinical referral', showOceanLink: true },
   { key: 'industry', label: 'Industry interested in partnering on research', showOceanLink: false },
@@ -99,9 +101,9 @@ async function sendNotification({ payload, option, attachment }) {
   }
 
   const submittedAt = new Date().toISOString()
-  const subject = `KCRU website contact form — ${option.label}`
+  const subject = `${CONTACT_SENDER_NAME} contact form — ${option.label}`
   const text = [
-    'KCRU Website contact form submission',
+    `${CONTACT_SENDER_NAME} contact form submission`,
     '',
     `Submitted: ${submittedAt}`,
     `Reason: ${option.label} (${option.key})`,
@@ -119,7 +121,7 @@ async function sendNotification({ payload, option, attachment }) {
 
   const html = `
     <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.5;">
-      <p style="margin: 0 0 12px;"><strong>KCRU Website contact form submission</strong></p>
+      <p style="margin: 0 0 12px;"><strong>${CONTACT_SENDER_NAME} contact form submission</strong></p>
       <p style="margin: 0 0 12px;">
         <strong>Submitted:</strong> ${submittedAt}<br/>
         <strong>Reason:</strong> ${option.label} (${option.key})
@@ -264,7 +266,6 @@ export async function POST(request) {
 }
 
 export const dynamic = 'force-dynamic'
-
 
 
 
