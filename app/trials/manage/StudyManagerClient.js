@@ -55,6 +55,7 @@ const EMPTY_FORM = {
 
 const TOKEN_STORAGE_KEY = 'kcru-study-session'
 const EMAIL_STORAGE_KEY = 'kcru-study-email'
+const DRAFT_STORAGE_KEY = 'kcru-study-draft'
 const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
 
 function slugify(value) {
@@ -113,6 +114,28 @@ function mapTrialToForm(trial) {
   }
 }
 
+function mergeDraft(data) {
+  const payload = data && typeof data === 'object' ? data : {}
+  return {
+    ...EMPTY_FORM,
+    ...payload,
+    therapeuticAreaIds: splitList(payload.therapeuticAreaIds),
+    inclusionCriteria: splitList(payload.inclusionCriteria),
+    exclusionCriteria: splitList(payload.exclusionCriteria),
+    localContact: {
+      ...EMPTY_FORM.localContact,
+      ...(payload.localContact || {}),
+    },
+  }
+}
+
+function formatDraftTimestamp(value) {
+  if (!value) return 'recently'
+  const time = Date.parse(value)
+  if (Number.isNaN(time)) return 'recently'
+  return new Date(time).toLocaleString()
+}
+
 function statusBadge(status) {
   if (status === 'recruiting') return 'bg-emerald-100 text-emerald-800'
   if (status === 'coming_soon') return 'bg-amber-100 text-amber-800'
@@ -140,6 +163,7 @@ export default function StudyManagerClient() {
   const [meta, setMeta] = useState({ areas: [], researchers: [] })
   const [form, setForm] = useState(EMPTY_FORM)
   const [search, setSearch] = useState('')
+  const [draft, setDraft] = useState(null)
   const inclusionCriteriaRefs = useRef([])
   const exclusionCriteriaRefs = useRef([])
   const criteriaFocusRef = useRef(null)
@@ -155,6 +179,15 @@ export default function StudyManagerClient() {
     if (storedEmail) {
       setEmail(storedEmail)
     }
+    try {
+      const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY)
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft)
+        if (parsed?.data && typeof parsed.data === 'object') {
+          setDraft(parsed)
+        }
+      }
+    } catch (err) {}
   }, [])
 
   useEffect(() => {
@@ -459,6 +492,11 @@ export default function StudyManagerClient() {
     }
   }
 
+  function clearDraftStorage() {
+    localStorage.removeItem(DRAFT_STORAGE_KEY)
+    setDraft(null)
+  }
+
   async function handleSave(event) {
     event.preventDefault()
     setError('')
@@ -507,11 +545,35 @@ export default function StudyManagerClient() {
       }
       setSuccess(form.id ? 'Update submitted for approval.' : 'New study submitted for approval.')
       await loadData()
+      clearDraftStorage()
     } catch (err) {
       setError(err.message || 'Submission failed')
     } finally {
       setSaving(false)
     }
+  }
+
+  function handleSaveDraft() {
+    setError('')
+    setSuccess('')
+    const savedAt = new Date().toISOString()
+    const payload = { savedAt, data: form }
+    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload))
+    setDraft(payload)
+    setSuccess('Draft saved locally.')
+  }
+
+  function handleRestoreDraft() {
+    if (!draft?.data) return
+    setError('')
+    setSuccess('Draft restored.')
+    setForm(mergeDraft(draft.data))
+    criteriaFocusRef.current = null
+  }
+
+  function handleClearDraft() {
+    clearDraftStorage()
+    setSuccess('Draft discarded.')
   }
 
   const inclusionItems = Array.isArray(form.inclusionCriteria) ? form.inclusionCriteria : []
@@ -664,14 +726,43 @@ export default function StudyManagerClient() {
             <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Study Details</h2>
-                <button
-                  type="submit"
-                  disabled={saving || !canSubmit}
-                  className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
-                >
-                  {saving ? 'Submitting...' : form.id ? 'Submit changes' : 'Submit new study'}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    disabled={saving}
+                    className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
+                  >
+                    Save draft
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving || !canSubmit}
+                    className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
+                  >
+                    {saving ? 'Submitting...' : form.id ? 'Submit changes' : 'Submit new study'}
+                  </button>
+                </div>
               </div>
+              {draft?.savedAt && (
+                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                  <span>Draft saved {formatDraftTimestamp(draft.savedAt)}.</span>
+                  <button
+                    type="button"
+                    onClick={handleRestoreDraft}
+                    className="font-medium text-purple hover:text-purple/80"
+                  >
+                    Restore draft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearDraft}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Discard
+                  </button>
+                </div>
+              )}
 
               <div className="space-y-1">
                 <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
