@@ -673,26 +673,28 @@ export default function StudyManagerClient() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">NCT ID (start here)</label>
-                  <input
-                    type="text"
-                    value={form.nctId}
-                    onChange={(e) => updateFormField('nctId', e.target.value.toUpperCase())}
-                    placeholder="NCT12345678"
-                    className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono"
-                  />
-                  <p className="text-xs text-gray-500">Enter the NCT ID to pull details from ClinicalTrials.gov.</p>
+              <div className="space-y-1">
+                <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium">NCT ID (start here)</label>
+                    <input
+                      type="text"
+                      value={form.nctId}
+                      onChange={(e) => updateFormField('nctId', e.target.value.toUpperCase())}
+                      placeholder="NCT12345678"
+                      className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSync}
+                    disabled={syncLoading || !form.nctId}
+                    className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
+                  >
+                    {syncLoading ? 'Syncing...' : 'Fetch from ClinicalTrials.gov'}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSync}
-                  disabled={syncLoading || !form.nctId}
-                  className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
-                >
-                  {syncLoading ? 'Syncing...' : 'Fetch from ClinicalTrials.gov'}
-                </button>
+                <p className="text-xs text-gray-500">Enter the NCT ID to pull details from ClinicalTrials.gov.</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -824,7 +826,6 @@ export default function StudyManagerClient() {
           <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
             <div>
               <h3 className="text-lg font-semibold">Local Contact & PI</h3>
-              <p className="text-sm text-gray-500">Displayed in referrals and optionally on the study page.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
