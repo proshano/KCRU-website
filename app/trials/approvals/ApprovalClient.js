@@ -1,0 +1,450 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+
+const TOKEN_STORAGE_KEY = 'kcru-approval-token'
+const EMAIL_STORAGE_KEY = 'kcru-approval-email'
+
+function formatList(items) {
+  if (!items || !items.length) return 'None'
+  return items.join(', ')
+}
+
+function formatDate(value) {
+  if (!value) return 'Unknown'
+  try {
+    return new Date(value).toLocaleString()
+  } catch (err) {
+    return value
+  }
+}
+
+export default function ApprovalClient() {
+  const [token, setToken] = useState('')
+  const [email, setEmail] = useState('')
+  const [passcode, setPasscode] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [submissions, setSubmissions] = useState([])
+  const [meta, setMeta] = useState({ areas: [], sites: [], researchers: [] })
+  const [reviewingId, setReviewingId] = useState('')
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+    const storedEmail = sessionStorage.getItem(EMAIL_STORAGE_KEY)
+    if (stored) setToken(stored)
+    if (storedEmail) setEmail(storedEmail)
+  }, [])
+
+  useEffect(() => {
+    if (token) {
+      sessionStorage.setItem(TOKEN_STORAGE_KEY, token)
+    } else {
+      sessionStorage.removeItem(TOKEN_STORAGE_KEY)
+    }
+  }, [token])
+
+  useEffect(() => {
+    if (email) {
+      sessionStorage.setItem(EMAIL_STORAGE_KEY, email)
+    } else {
+      sessionStorage.removeItem(EMAIL_STORAGE_KEY)
+    }
+  }, [email])
+
+  const areaMap = useMemo(() => {
+    return new Map(
+      (meta.areas || []).map((area) => [
+        area._id,
+        area.shortLabel ? `${area.shortLabel} - ${area.name}` : area.name,
+      ])
+    )
+  }, [meta.areas])
+
+  const siteMap = useMemo(() => {
+    return new Map(
+      (meta.sites || []).map((site) => [
+        site._id,
+        site.shortName ? `${site.shortName} - ${site.name}` : site.name,
+      ])
+    )
+  }, [meta.sites])
+
+  const researcherMap = useMemo(() => {
+    return new Map((meta.researchers || []).map((r) => [r._id, r.name]))
+  }, [meta.researchers])
+
+  async function loadSubmissions(activeToken = token) {
+    if (!activeToken) return
+    setLoading(true)
+    setError('')
+    setSuccess('')
+    try {
+      const res = await fetch('/api/trials/approvals', {
+        headers: { Authorization: `Bearer ${activeToken}` },
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        if (res.status === 401) {
+          handleLogout()
+        }
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setSubmissions(data.submissions || [])
+      setMeta(data.meta || { areas: [], sites: [], researchers: [] })
+    } catch (err) {
+      setError(err.message || 'Failed to load submissions.')
+      if ((err.message || '').toLowerCase().includes('unauthorized')) {
+        sessionStorage.removeItem(TOKEN_STORAGE_KEY)
+        setToken('')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (token) loadSubmissions(token)
+  }, [token])
+
+  async function handleSendLink(event) {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+    setSending(true)
+    try {
+      const res = await fetch('/api/trials/approvals/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        if (res.status === 401) {
+          handleLogout()
+        }
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setSuccess('Passcode sent. Check your email.')
+    } catch (err) {
+      setError(err.message || 'Failed to send passcode.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function handleVerify(event) {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+    if (!email || !passcode) {
+      setError('Enter your email and passcode.')
+      return
+    }
+    setVerifying(true)
+    try {
+      const res = await fetch('/api/trials/approvals/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: passcode }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setToken(data.token || '')
+      setSuccess('Signed in. Loading submissions...')
+      setPasscode('')
+    } catch (err) {
+      setError(err.message || 'Failed to verify passcode.')
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  async function handleDecision(submissionId, decision) {
+    if (!token) return
+    setError('')
+    setSuccess('')
+    setReviewingId(submissionId)
+    try {
+      const res = await fetch('/api/trials/approvals', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ submissionId, decision }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setSuccess(`Submission ${decision === 'approve' ? 'approved' : 'rejected'}.`)
+      await loadSubmissions(token)
+    } catch (err) {
+      setError(err.message || 'Failed to review submission.')
+    } finally {
+      setReviewingId('')
+    }
+  }
+
+  function handleLogout() {
+    sessionStorage.removeItem(TOKEN_STORAGE_KEY)
+    sessionStorage.removeItem(EMAIL_STORAGE_KEY)
+    setToken('')
+    setSubmissions([])
+    setSuccess('')
+    setError('')
+  }
+
+  return (
+    <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-10 space-y-8">
+      <header className="space-y-3">
+        <p className="text-sm font-semibold text-purple uppercase tracking-wide">Admin Portal</p>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Study Approvals</h1>
+        <p className="text-gray-600 max-w-2xl">
+          Review study submissions from coordinators. Approving a submission updates the live studies list.
+        </p>
+      </header>
+
+      {!token && (
+        <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4 max-w-xl">
+          <div>
+            <h2 className="text-lg font-semibold">Sign in</h2>
+            <p className="text-sm text-gray-500">
+              Enter your admin email to receive a passcode. Admin emails are configured in Sanity.
+            </p>
+          </div>
+          <form onSubmit={handleSendLink} className="space-y-3">
+            <label className="text-sm font-medium">Admin email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@lhsc.on.ca"
+              className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
+            />
+            <button
+              type="submit"
+              disabled={sending || !email}
+              className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
+            >
+              {sending ? 'Sending...' : 'Send passcode'}
+            </button>
+          </form>
+          <form onSubmit={handleVerify} className="space-y-3">
+            <label className="text-sm font-medium">Passcode</label>
+            <input
+              type="text"
+              value={passcode}
+              onChange={(e) => setPasscode(e.target.value)}
+              placeholder="6-digit code"
+              className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono"
+            />
+            <button
+              type="submit"
+              disabled={verifying || !email || !passcode}
+              className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
+            >
+              {verifying ? 'Verifying...' : 'Verify passcode'}
+            </button>
+          </form>
+          {(error || success) && (
+            <div className="text-sm">
+              {error && <p className="text-red-600">{error}</p>}
+              {success && <p className="text-emerald-700">{success}</p>}
+            </div>
+          )}
+        </section>
+      )}
+
+      {token && (
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold">Pending submissions</h2>
+              <p className="text-sm text-gray-500">
+                {submissions.length} submissions awaiting review.
+              </p>
+              {email && <p className="text-sm text-gray-500">Signed in as {email}.</p>}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => loadSubmissions(token)}
+                disabled={loading}
+                className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
+              >
+                {loading ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex items-center justify-center text-sm text-gray-500 hover:text-gray-700"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+
+          {(error || success) && (
+            <div className="text-sm">
+              {error && <p className="text-red-600">{error}</p>}
+              {success && <p className="text-emerald-700">{success}</p>}
+            </div>
+          )}
+
+          <div className="space-y-6">
+            {submissions.map((submission) => {
+              const payload = submission.payload || {}
+              const therapeuticNames = (payload.therapeuticAreaIds || []).map((id) => areaMap.get(id) || id)
+              const siteNames = (payload.recruitmentSiteIds || []).map((id) => siteMap.get(id) || id)
+              const piName = payload.principalInvestigatorId
+                ? researcherMap.get(payload.principalInvestigatorId) || payload.principalInvestigatorId
+                : 'None'
+              return (
+                <article
+                  key={submission._id}
+                  className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-purple font-semibold">
+                        {submission.action === 'update' ? 'Update submission' : 'New study submission'}
+                      </p>
+                      <h3 className="text-xl font-semibold">{submission.title || 'Untitled study'}</h3>
+                      <p className="text-sm text-gray-500">
+                        Submitted {formatDate(submission.submittedAt)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDecision(submission._id, 'approve')}
+                        disabled={reviewingId === submission._id}
+                        className="inline-flex items-center justify-center bg-emerald-600 text-white px-4 py-2 rounded shadow hover:bg-emerald-700 disabled:opacity-60"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDecision(submission._id, 'reject')}
+                        disabled={reviewingId === submission._id}
+                        className="inline-flex items-center justify-center border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 disabled:opacity-60"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+
+                  {submission.study && (
+                    <div className="rounded-lg border border-black/10 bg-gray-50 p-3 text-sm text-gray-700">
+                      <p className="font-medium text-gray-900">Current study</p>
+                      <p>
+                        {submission.study.title} ({submission.study.status || 'status unknown'})
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {submission.study.nctId || 'No NCT ID'} - {submission.study.slug || 'no-slug'}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+                    <div>
+                      <p className="font-medium text-gray-900">Basics</p>
+                      <p>Title: {payload.title || 'None'}</p>
+                      <p>Slug: {payload.slug || 'None'}</p>
+                      <p>NCT ID: {payload.nctId || 'None'}</p>
+                      <p>Status: {payload.status || 'None'}</p>
+                      <p>Study type: {payload.studyType || 'None'}</p>
+                      <p>Phase: {payload.phase || 'None'}</p>
+                      <p>Sex: {payload.sex || 'None'}</p>
+                      <p>Featured: {payload.featured ? 'Yes' : 'No'}</p>
+                      <p>Accepts referrals: {payload.acceptsReferrals ? 'Yes' : 'No'}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">Sites and people</p>
+                      <p>Therapeutic areas: {formatList(therapeuticNames)}</p>
+                      <p>Recruitment sites: {formatList(siteNames)}</p>
+                      <p>Principal investigator: {piName}</p>
+                      <p>Sponsor website: {payload.sponsorWebsite || 'None'}</p>
+                      <p>Duration: {payload.duration || 'None'}</p>
+                      <p>Compensation: {payload.compensation || 'None'}</p>
+                    </div>
+                  </div>
+
+                  <details className="text-sm text-gray-700">
+                    <summary className="cursor-pointer font-medium text-gray-900">Descriptions</summary>
+                    <div className="mt-3 space-y-2">
+                      <p>
+                        <span className="font-medium">Plain language summary:</span> {payload.laySummary || 'None'}
+                      </p>
+                      <p>
+                        <span className="font-medium">Eligibility overview:</span>{' '}
+                        {payload.eligibilityOverview || 'None'}
+                      </p>
+                      <p>
+                        <span className="font-medium">What to expect:</span> {payload.whatToExpect || 'None'}
+                      </p>
+                      <p>
+                        <span className="font-medium">Conditions:</span>{' '}
+                        {formatList(payload.conditions || [])}
+                      </p>
+                    </div>
+                  </details>
+
+                  <details className="text-sm text-gray-700">
+                    <summary className="cursor-pointer font-medium text-gray-900">Eligibility criteria</summary>
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="font-medium">Inclusion</p>
+                        <ul className="list-disc pl-5 space-y-1">
+                          {(payload.inclusionCriteria || []).length
+                            ? payload.inclusionCriteria.map((item, index) => (
+                                <li key={`inc-${index}`}>{item}</li>
+                              ))
+                            : 'None'}
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="font-medium">Exclusion</p>
+                        <ul className="list-disc pl-5 space-y-1">
+                          {(payload.exclusionCriteria || []).length
+                            ? payload.exclusionCriteria.map((item, index) => (
+                                <li key={`exc-${index}`}>{item}</li>
+                              ))
+                            : 'None'}
+                        </ul>
+                      </div>
+                    </div>
+                  </details>
+
+                  <details className="text-sm text-gray-700">
+                    <summary className="cursor-pointer font-medium text-gray-900">Local contact</summary>
+                    <div className="mt-3 space-y-1">
+                      <p>Name: {payload.localContact?.name || 'None'}</p>
+                      <p>Role: {payload.localContact?.role || 'None'}</p>
+                      <p>Email: {payload.localContact?.email || 'None'}</p>
+                      <p>Phone: {payload.localContact?.phone || 'None'}</p>
+                      <p>Display publicly: {payload.localContact?.displayPublicly ? 'Yes' : 'No'}</p>
+                    </div>
+                  </details>
+                </article>
+              )
+            })}
+
+            {!submissions.length && (
+              <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm text-sm text-gray-600">
+                No pending submissions right now.
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+    </main>
+  )
+}
