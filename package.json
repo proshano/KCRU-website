@@ -11,7 +11,8 @@
     "lint": "next lint",
     "clear:pubmed": "node scripts/clear-pubmed-cache.js",
     "refresh:pubmed": "node scripts/refresh-pubmed-cache.js",
-    "upload:pubmed": "node scripts/upload-cache-to-sanity.js"
+    "upload:pubmed": "node scripts/upload-cache-to-sanity.js",
+    "migrate:trial-fields": "node scripts/migrate-trial-fields.js"
   },
   "keywords": [],
   "author": "",

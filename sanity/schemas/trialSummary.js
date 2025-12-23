@@ -131,15 +131,6 @@ export default {
       }
     },
     {
-      name: 'conditions',
-      title: 'Conditions / Population',
-      type: 'array',
-      group: 'basic',
-      of: [{ type: 'string' }],
-      options: { layout: 'tags' },
-      description: 'Specific conditions (e.g., Lupus Nephritis, ANCA Vasculitis, IgA Nephropathy)'
-    },
-    {
       name: 'therapeuticAreas',
       title: 'Therapeutic Areas',
       type: 'array',
@@ -223,10 +214,10 @@ export default {
     },
     {
       name: 'sponsorWebsite',
-      title: 'Sponsor Study Website',
+      title: 'Study website (if available)',
       type: 'url',
       group: 'localInfo',
-      description: 'Link to sponsor\'s study page (e.g., Novartis, AstraZeneca trial pages)'
+      description: 'Link to the study page (sponsor or registry)'
     },
     {
       name: 'acceptsReferrals',
@@ -264,19 +255,6 @@ export default {
       of: [{ type: 'string' }],
       description: 'Key exclusion criteria (fetched from ClinicalTrials.gov or entered manually)'
     },
-    {
-      name: 'sex',
-      title: 'Sex',
-      type: 'string',
-      group: 'eligibility',
-      options: {
-        list: [
-          { title: 'All', value: 'all' },
-          { title: 'Female', value: 'female' },
-          { title: 'Male', value: 'male' }
-        ]
-      }
-    },
 
     // ============================================
     // SYNCED DATA FROM CLINICALTRIALS.GOV
@@ -300,7 +278,6 @@ export default {
         { name: 'enrollmentCount', title: 'Enrollment', type: 'number', readOnly: true },
         { name: 'startDate', title: 'Start Date', type: 'string', readOnly: true },
         { name: 'completionDate', title: 'Completion Date', type: 'string', readOnly: true },
-        { name: 'conditions', title: 'Conditions', type: 'array', of: [{ type: 'string' }], readOnly: true },
         { name: 'interventions', title: 'Interventions', type: 'array', of: [{ type: 'string' }], readOnly: true },
         { name: 'eligibilityCriteriaRaw', title: 'Raw Eligibility Text', type: 'text', readOnly: true },
         { name: 'lastSyncedAt', title: 'Last Synced', type: 'datetime', readOnly: true },
@@ -308,31 +285,6 @@ export default {
       ]
     },
 
-    // ============================================
-    // ADDITIONAL DETAILS (Optional)
-    // ============================================
-    {
-      name: 'whatToExpect',
-      title: 'What to Expect',
-      type: 'text',
-      group: 'basic',
-      rows: 4,
-      description: 'What participation involves (visits, procedures, time commitment)'
-    },
-    {
-      name: 'duration',
-      title: 'Study Duration',
-      type: 'string',
-      group: 'basic',
-      description: 'e.g., "12 months" or "2-3 years"'
-    },
-    {
-      name: 'compensation',
-      title: 'Compensation/Reimbursement',
-      type: 'string',
-      group: 'basic',
-      description: 'e.g., "Parking costs covered" or "Honorarium provided"'
-    }
   ],
 
   preview: {

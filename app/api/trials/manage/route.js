@@ -13,6 +13,7 @@ const CORS_HEADERS = {
 const FALLBACK_NOTIFY_EMAIL = (process.env.STUDY_EDITOR_NOTIFY_EMAIL || '').trim()
 const APPROVAL_BASE_URL = `${(process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')}/trials/approvals`
 const APPROVAL_SESSION_TTL_HOURS = 8
+const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
 
 function extractToken(request) {
   const header = request.headers.get('authorization') || ''
@@ -69,21 +70,15 @@ async function notifyAdmins({ action, submissionId, payload, headers, recipients
     status: payload.status || null,
     studyType: payload.studyType || null,
     phase: payload.phase || null,
-    sex: payload.sex || null,
-    conditions: payload.conditions || [],
     therapeuticAreaIds: payload.therapeuticAreaIds || [],
-    recruitmentSiteIds: payload.recruitmentSiteIds || [],
     principalInvestigatorId: payload.principalInvestigatorId || null,
     acceptsReferrals: payload.acceptsReferrals,
     featured: payload.featured,
     sponsorWebsite: payload.sponsorWebsite || null,
-    duration: payload.duration || null,
-    compensation: payload.compensation || null,
     laySummary: payload.laySummary || null,
     eligibilityOverview: payload.eligibilityOverview || null,
     inclusionCriteria: payload.inclusionCriteria || [],
     exclusionCriteria: payload.exclusionCriteria || [],
-    whatToExpect: payload.whatToExpect || null,
     localContact: payload.localContact || null,
     meta: {
       ip: getClientIp(headers),
@@ -146,11 +141,13 @@ async function requireCoordinatorSession(request) {
 }
 
 export async function GET(request) {
-  const auth = await requireCoordinatorSession(request)
-  if (auth) return auth
+  if (!DEV_PREVIEW_MODE) {
+    const auth = await requireCoordinatorSession(request)
+    if (auth) return auth
+  }
 
   try {
-    const [trialsRaw, areasRaw, researchersRaw, sitesRaw] = await Promise.all([
+    const [trialsRaw, areasRaw, researchersRaw] = await Promise.all([
       sanityFetch(`
         *[_type == "trialSummary"] | order(status asc, title asc) {
           _id,
@@ -160,21 +157,15 @@ export async function GET(request) {
           status,
           studyType,
           phase,
-          conditions,
           laySummary,
           eligibilityOverview,
           inclusionCriteria,
           exclusionCriteria,
-          sex,
-          whatToExpect,
-          duration,
-          compensation,
           featured,
           sponsorWebsite,
           acceptsReferrals,
           localContact,
           "therapeuticAreaIds": therapeuticAreas[]._ref,
-          "recruitmentSiteIds": recruitmentSites[]._ref,
           "principalInvestigatorId": principalInvestigator._ref
         }
       `),
@@ -192,14 +183,6 @@ export async function GET(request) {
           slug
         }
       `),
-      sanityFetch(`
-        *[_type == "site" && active == true] | order(order asc, name asc) {
-          _id,
-          name,
-          shortName,
-          city
-        }
-      `),
     ])
 
     return NextResponse.json(
@@ -209,7 +192,6 @@ export async function GET(request) {
         meta: {
           areas: areasRaw || [],
           researchers: researchersRaw || [],
-          sites: sitesRaw || [],
         },
       },
       { headers: CORS_HEADERS }
