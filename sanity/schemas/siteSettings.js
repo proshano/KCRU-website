@@ -246,7 +246,33 @@ export default {
           initialValue: false
         }
       ]
+    },
+    {
+      name: 'studyApprovals',
+      title: 'Study Approvals',
+      type: 'object',
+      description: 'Configure who can approve study submissions and receive approval notifications.',
+      fields: [
+        {
+          name: 'coordinatorDomain',
+          title: 'Coordinator Email Domain',
+          type: 'string',
+          description: 'Only emails at this domain can submit studies (e.g., lhsc.on.ca).',
+          initialValue: 'lhsc.on.ca'
+        },
+        {
+          name: 'admins',
+          title: 'Approval Admin Emails',
+          type: 'array',
+          of: [{ type: 'string' }],
+          description: 'Only these emails can request approval links and receive submission notifications.',
+          validation: Rule =>
+            Rule.custom((items = []) => {
+              const invalid = (items || []).find((item) => item && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(item))
+              return invalid ? 'Provide valid email addresses.' : true
+            })
+        }
+      ]
     }
   ]
 }
-
