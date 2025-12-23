@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 const TOKEN_STORAGE_KEY = 'kcru-approval-token'
-const EMAIL_STORAGE_KEY = 'kcru-approval-email'
 
 function formatList(items) {
   if (!items || !items.length) return 'None'
@@ -20,12 +20,11 @@ function formatDate(value) {
 }
 
 export default function ApprovalClient() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [token, setToken] = useState('')
-  const [email, setEmail] = useState('')
-  const [passcode, setPasscode] = useState('')
+  const [adminEmail, setAdminEmail] = useState('')
   const [loading, setLoading] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submissions, setSubmissions] = useState([])
@@ -33,11 +32,16 @@ export default function ApprovalClient() {
   const [reviewingId, setReviewingId] = useState('')
 
   useEffect(() => {
+    const queryToken = searchParams.get('token')
+    if (queryToken) {
+      sessionStorage.setItem(TOKEN_STORAGE_KEY, queryToken)
+      setToken(queryToken)
+      router.replace('/trials/approvals')
+      return
+    }
     const stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
-    const storedEmail = sessionStorage.getItem(EMAIL_STORAGE_KEY)
     if (stored) setToken(stored)
-    if (storedEmail) setEmail(storedEmail)
-  }, [])
+  }, [router, searchParams])
 
   useEffect(() => {
     if (token) {
@@ -46,14 +50,6 @@ export default function ApprovalClient() {
       sessionStorage.removeItem(TOKEN_STORAGE_KEY)
     }
   }, [token])
-
-  useEffect(() => {
-    if (email) {
-      sessionStorage.setItem(EMAIL_STORAGE_KEY, email)
-    } else {
-      sessionStorage.removeItem(EMAIL_STORAGE_KEY)
-    }
-  }, [email])
 
   const areaMap = useMemo(() => {
     return new Map(
@@ -95,6 +91,7 @@ export default function ApprovalClient() {
       }
       setSubmissions(data.submissions || [])
       setMeta(data.meta || { areas: [], sites: [], researchers: [] })
+      setAdminEmail(data.adminEmail || '')
     } catch (err) {
       setError(err.message || 'Failed to load submissions.')
       if ((err.message || '').toLowerCase().includes('unauthorized')) {
@@ -109,61 +106,6 @@ export default function ApprovalClient() {
   useEffect(() => {
     if (token) loadSubmissions(token)
   }, [token])
-
-  async function handleSendLink(event) {
-    event.preventDefault()
-    setError('')
-    setSuccess('')
-    setSending(true)
-    try {
-      const res = await fetch('/api/trials/approvals/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) {
-        if (res.status === 401) {
-          handleLogout()
-        }
-        throw new Error(data?.error || `Request failed (${res.status})`)
-      }
-      setSuccess('Passcode sent. Check your email.')
-    } catch (err) {
-      setError(err.message || 'Failed to send passcode.')
-    } finally {
-      setSending(false)
-    }
-  }
-
-  async function handleVerify(event) {
-    event.preventDefault()
-    setError('')
-    setSuccess('')
-    if (!email || !passcode) {
-      setError('Enter your email and passcode.')
-      return
-    }
-    setVerifying(true)
-    try {
-      const res = await fetch('/api/trials/approvals/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: passcode }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || `Request failed (${res.status})`)
-      }
-      setToken(data.token || '')
-      setSuccess('Signed in. Loading submissions...')
-      setPasscode('')
-    } catch (err) {
-      setError(err.message || 'Failed to verify passcode.')
-    } finally {
-      setVerifying(false)
-    }
-  }
 
   async function handleDecision(submissionId, decision) {
     if (!token) return
@@ -194,11 +136,11 @@ export default function ApprovalClient() {
 
   function handleLogout() {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY)
-    sessionStorage.removeItem(EMAIL_STORAGE_KEY)
     setToken('')
     setSubmissions([])
     setSuccess('')
     setError('')
+    setAdminEmail('')
   }
 
   return (
@@ -214,45 +156,11 @@ export default function ApprovalClient() {
       {!token && (
         <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4 max-w-xl">
           <div>
-            <h2 className="text-lg font-semibold">Sign in</h2>
+            <h2 className="text-lg font-semibold">Approval access</h2>
             <p className="text-sm text-gray-500">
-              Enter your admin email to receive a passcode. Admin emails are configured in Sanity.
+              Use the secure approval link sent to admin emails when a study is submitted.
             </p>
           </div>
-          <form onSubmit={handleSendLink} className="space-y-3">
-            <label className="text-sm font-medium">Admin email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@lhsc.on.ca"
-              className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-            />
-            <button
-              type="submit"
-              disabled={sending || !email}
-              className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
-            >
-              {sending ? 'Sending...' : 'Send passcode'}
-            </button>
-          </form>
-          <form onSubmit={handleVerify} className="space-y-3">
-            <label className="text-sm font-medium">Passcode</label>
-            <input
-              type="text"
-              value={passcode}
-              onChange={(e) => setPasscode(e.target.value)}
-              placeholder="6-digit code"
-              className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono"
-            />
-            <button
-              type="submit"
-              disabled={verifying || !email || !passcode}
-              className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
-            >
-              {verifying ? 'Verifying...' : 'Verify passcode'}
-            </button>
-          </form>
           {(error || success) && (
             <div className="text-sm">
               {error && <p className="text-red-600">{error}</p>}
@@ -270,7 +178,7 @@ export default function ApprovalClient() {
               <p className="text-sm text-gray-500">
                 {submissions.length} submissions awaiting review.
               </p>
-              {email && <p className="text-sm text-gray-500">Signed in as {email}.</p>}
+              {adminEmail && <p className="text-sm text-gray-500">Signed in as {adminEmail}.</p>}
             </div>
             <div className="flex items-center gap-2">
               <button

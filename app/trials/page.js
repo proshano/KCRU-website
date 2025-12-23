@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { sanityFetch, queries } from '@/lib/sanity'
 import TrialsClient from './TrialsClient'
 
@@ -54,6 +55,14 @@ export default async function TrialsPage({ searchParams }) {
             {description}
           </p>
         )}
+        <div className="mt-4">
+          <Link
+            href="/trials/manage"
+            className="text-sm font-medium text-purple hover:text-purple/80"
+          >
+            Manage studies
+          </Link>
+        </div>
       </header>
 
       {/* Client-side interactive content with search */}

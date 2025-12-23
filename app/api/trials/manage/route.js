@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
+import crypto from 'crypto'
 import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
 
 const CORS_HEADERS = {
@@ -10,7 +11,8 @@ const CORS_HEADERS = {
 }
 
 const FALLBACK_NOTIFY_EMAIL = (process.env.STUDY_EDITOR_NOTIFY_EMAIL || '').trim()
-const APPROVAL_PAGE_URL = `${(process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')}/trials/approvals`
+const APPROVAL_BASE_URL = `${(process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')}/trials/approvals`
+const APPROVAL_SESSION_TTL_HOURS = 8
 
 function extractToken(request) {
   const header = request.headers.get('authorization') || ''
@@ -35,6 +37,21 @@ async function getApprovalAdmins() {
   if (admins.length) return admins
   if (FALLBACK_NOTIFY_EMAIL) return [FALLBACK_NOTIFY_EMAIL]
   return []
+}
+
+async function createApprovalSessionLink(email) {
+  const token = crypto.randomBytes(32).toString('hex')
+  const createdAt = new Date().toISOString()
+  const expiresAt = new Date(Date.now() + APPROVAL_SESSION_TTL_HOURS * 60 * 60 * 1000).toISOString()
+  await writeClient.create({
+    _type: 'studyApprovalSession',
+    email,
+    token,
+    createdAt,
+    expiresAt,
+    revoked: false,
+  })
+  return `${APPROVAL_BASE_URL}?token=${token}`
 }
 
 async function notifyAdmins({ action, submissionId, payload, headers, recipients }) {
@@ -75,25 +92,27 @@ async function notifyAdmins({ action, submissionId, payload, headers, recipients
   }
 
   const subject = `Study submission pending approval (${action})`
-  const text = [
-    `A study submission requires approval (${action}).`,
-    '',
-    `Approval page: ${APPROVAL_PAGE_URL}`,
-    '',
-    JSON.stringify(summary, null, 2),
-  ].join('\n')
-  const html = `
-    <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.5;">
-      <p style="margin: 0 0 12px;"><strong>Study submission pending approval (${action})</strong></p>
-      <p style="margin: 0 0 12px;">
-        Approval page: <a href="${APPROVAL_PAGE_URL}">${APPROVAL_PAGE_URL}</a>
-      </p>
-      <pre style="white-space: pre-wrap; background: #f7f7f7; border: 1px solid #eee; padding: 12px; border-radius: 8px;">${JSON.stringify(summary, null, 2)}</pre>
-    </div>
-  `
-
   const results = await Promise.allSettled(
-    targets.map((to) => sendEmail({ to, subject, text, html }))
+    targets.map(async (to) => {
+      const approvalLink = await createApprovalSessionLink(to)
+      const text = [
+        `A study submission requires approval (${action}).`,
+        '',
+        `Open approvals (valid for ${APPROVAL_SESSION_TTL_HOURS} hours): ${approvalLink}`,
+        '',
+        JSON.stringify(summary, null, 2),
+      ].join('\n')
+      const html = `
+        <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.5;">
+          <p style="margin: 0 0 12px;"><strong>Study submission pending approval (${action})</strong></p>
+          <p style="margin: 0 0 12px;">
+            Open approvals (valid for ${APPROVAL_SESSION_TTL_HOURS} hours): <a href="${approvalLink}">${approvalLink}</a>
+          </p>
+          <pre style="white-space: pre-wrap; background: #f7f7f7; border: 1px solid #eee; padding: 12px; border-radius: 8px;">${JSON.stringify(summary, null, 2)}</pre>
+        </div>
+      `
+      return sendEmail({ to, subject, text, html })
+    })
   )
   for (const result of results) {
     if (result.status === 'rejected') {
