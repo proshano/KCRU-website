@@ -768,7 +768,7 @@ export default function StudyManagerClient() {
     if (draftSaving) return draftAction === 'delete' ? 'Discarding draft...' : 'Autosaving...'
     if (draftError) return draftError
     if (draft?.savedAt) return `Draft saved ${formatDraftTimestamp(draft.savedAt)}.`
-    return 'Autosave on.'
+    return 'Drafts autosave every 10s.'
   })()
   const autosaveStatusClass = draftError ? 'text-xs text-red-600' : 'text-xs text-gray-500'
 
