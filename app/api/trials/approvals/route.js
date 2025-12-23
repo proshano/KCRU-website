@@ -46,7 +46,7 @@ export async function GET(request) {
   }
 
   try {
-    const [submissionsRaw, areasRaw, researchersRaw, sitesRaw] = await Promise.all([
+    const [submissionsRaw, areasRaw, researchersRaw] = await Promise.all([
       sanityFetch(`
         *[_type == "studySubmission" && status == "pending"] | order(submittedAt desc) {
           _id,
@@ -79,14 +79,6 @@ export async function GET(request) {
           slug
         }
       `),
-      sanityFetch(`
-        *[_type == "site" && active == true] | order(order asc, name asc) {
-          _id,
-          name,
-          shortName,
-          city
-        }
-      `),
     ])
 
     return NextResponse.json(
@@ -97,7 +89,6 @@ export async function GET(request) {
         meta: {
           areas: areasRaw || [],
           researchers: researchersRaw || [],
-          sites: sitesRaw || [],
         },
       },
       { headers: CORS_HEADERS }
@@ -214,21 +205,15 @@ export async function PATCH(request) {
         nctId: normalized.nctId || undefined,
         studyType: normalized.studyType || undefined,
         phase: normalized.phase || undefined,
-        conditions: normalized.conditions || [],
         laySummary: normalized.laySummary || null,
         eligibilityOverview: normalized.eligibilityOverview || null,
         inclusionCriteria: normalized.inclusionCriteria || [],
         exclusionCriteria: normalized.exclusionCriteria || [],
-        sex: normalized.sex || undefined,
-        whatToExpect: normalized.whatToExpect || null,
-        duration: normalized.duration || null,
-        compensation: normalized.compensation || null,
         sponsorWebsite: normalized.sponsorWebsite || null,
         featured: normalized.featured,
         acceptsReferrals: normalized.acceptsReferrals,
         localContact: normalized.localContact || undefined,
         therapeuticAreas: buildReferences(normalized.therapeuticAreaIds),
-        recruitmentSites: buildReferences(normalized.recruitmentSiteIds),
         principalInvestigator: normalized.principalInvestigatorId
           ? { _type: 'reference', _ref: normalized.principalInvestigatorId }
           : undefined,

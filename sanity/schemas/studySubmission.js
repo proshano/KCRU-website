@@ -87,17 +87,12 @@ export default {
         },
         { name: 'studyType', title: 'Study Type', type: 'string' },
         { name: 'phase', title: 'Phase', type: 'string' },
-        { name: 'sex', title: 'Sex', type: 'string' },
-        { name: 'conditions', title: 'Conditions', type: 'array', of: [{ type: 'string' }] },
         { name: 'therapeuticAreaIds', title: 'Therapeutic Areas', type: 'array', of: [{ type: 'string' }] },
         { name: 'laySummary', title: 'Plain Language Summary', type: 'text', rows: 4 },
         { name: 'eligibilityOverview', title: 'Eligibility Overview', type: 'text', rows: 3 },
         { name: 'inclusionCriteria', title: 'Inclusion Criteria', type: 'array', of: [{ type: 'string' }] },
         { name: 'exclusionCriteria', title: 'Exclusion Criteria', type: 'array', of: [{ type: 'string' }] },
-        { name: 'whatToExpect', title: 'What To Expect', type: 'text', rows: 3 },
-        { name: 'duration', title: 'Duration', type: 'string' },
-        { name: 'compensation', title: 'Compensation', type: 'string' },
-        { name: 'sponsorWebsite', title: 'Sponsor Website', type: 'url' },
+        { name: 'sponsorWebsite', title: 'Study website (if available)', type: 'url' },
         { name: 'acceptsReferrals', title: 'Accepts Referrals', type: 'boolean' },
         { name: 'featured', title: 'Featured', type: 'boolean' },
         {
@@ -112,7 +107,6 @@ export default {
             { name: 'displayPublicly', title: 'Display Publicly', type: 'boolean' }
           ]
         },
-        { name: 'recruitmentSiteIds', title: 'Recruitment Sites', type: 'array', of: [{ type: 'string' }] },
         { name: 'principalInvestigatorId', title: 'Principal Investigator', type: 'string' },
         {
           name: 'ctGovData',
@@ -130,7 +124,6 @@ export default {
             { name: 'enrollmentCount', title: 'Enrollment Count', type: 'number' },
             { name: 'startDate', title: 'Start Date', type: 'string' },
             { name: 'completionDate', title: 'Completion Date', type: 'string' },
-            { name: 'conditions', title: 'Conditions', type: 'array', of: [{ type: 'string' }] },
             { name: 'interventions', title: 'Interventions', type: 'array', of: [{ type: 'string' }] },
             { name: 'eligibilityCriteriaRaw', title: 'Eligibility Criteria', type: 'text' },
             { name: 'lastSyncedAt', title: 'Last Synced', type: 'datetime' },

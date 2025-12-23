@@ -28,7 +28,7 @@ export default function ApprovalClient() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submissions, setSubmissions] = useState([])
-  const [meta, setMeta] = useState({ areas: [], sites: [], researchers: [] })
+  const [meta, setMeta] = useState({ areas: [], researchers: [] })
   const [reviewingId, setReviewingId] = useState('')
 
   useEffect(() => {
@@ -60,15 +60,6 @@ export default function ApprovalClient() {
     )
   }, [meta.areas])
 
-  const siteMap = useMemo(() => {
-    return new Map(
-      (meta.sites || []).map((site) => [
-        site._id,
-        site.shortName ? `${site.shortName} - ${site.name}` : site.name,
-      ])
-    )
-  }, [meta.sites])
-
   const researcherMap = useMemo(() => {
     return new Map((meta.researchers || []).map((r) => [r._id, r.name]))
   }, [meta.researchers])
@@ -90,7 +81,7 @@ export default function ApprovalClient() {
         throw new Error(data?.error || `Request failed (${res.status})`)
       }
       setSubmissions(data.submissions || [])
-      setMeta(data.meta || { areas: [], sites: [], researchers: [] })
+      setMeta(data.meta || { areas: [], researchers: [] })
       setAdminEmail(data.adminEmail || '')
     } catch (err) {
       setError(err.message || 'Failed to load submissions.')
@@ -210,7 +201,6 @@ export default function ApprovalClient() {
             {submissions.map((submission) => {
               const payload = submission.payload || {}
               const therapeuticNames = (payload.therapeuticAreaIds || []).map((id) => areaMap.get(id) || id)
-              const siteNames = (payload.recruitmentSiteIds || []).map((id) => siteMap.get(id) || id)
               const piName = payload.principalInvestigatorId
                 ? researcherMap.get(payload.principalInvestigatorId) || payload.principalInvestigatorId
                 : 'None'
@@ -270,18 +260,14 @@ export default function ApprovalClient() {
                       <p>Status: {payload.status || 'None'}</p>
                       <p>Study type: {payload.studyType || 'None'}</p>
                       <p>Phase: {payload.phase || 'None'}</p>
-                      <p>Sex: {payload.sex || 'None'}</p>
                       <p>Featured: {payload.featured ? 'Yes' : 'No'}</p>
                       <p>Accepts referrals: {payload.acceptsReferrals ? 'Yes' : 'No'}</p>
                     </div>
                     <div>
                       <p className="font-medium text-gray-900">Sites and people</p>
                       <p>Therapeutic areas: {formatList(therapeuticNames)}</p>
-                      <p>Recruitment sites: {formatList(siteNames)}</p>
                       <p>Principal investigator: {piName}</p>
-                      <p>Sponsor website: {payload.sponsorWebsite || 'None'}</p>
-                      <p>Duration: {payload.duration || 'None'}</p>
-                      <p>Compensation: {payload.compensation || 'None'}</p>
+                      <p>Study website (if available): {payload.sponsorWebsite || 'None'}</p>
                     </div>
                   </div>
 
@@ -294,13 +280,6 @@ export default function ApprovalClient() {
                       <p>
                         <span className="font-medium">Eligibility overview:</span>{' '}
                         {payload.eligibilityOverview || 'None'}
-                      </p>
-                      <p>
-                        <span className="font-medium">What to expect:</span> {payload.whatToExpect || 'None'}
-                      </p>
-                      <p>
-                        <span className="font-medium">Conditions:</span>{' '}
-                        {formatList(payload.conditions || [])}
                       </p>
                     </div>
                   </details>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 const STATUS_OPTIONS = [
   { value: 'recruiting', label: 'Recruiting' },
@@ -26,13 +26,6 @@ const PHASE_OPTIONS = [
   { value: 'na', label: 'N/A' },
 ]
 
-const SEX_OPTIONS = [
-  { value: '', label: 'Select sex' },
-  { value: 'all', label: 'All' },
-  { value: 'female', label: 'Female' },
-  { value: 'male', label: 'Male' },
-]
-
 const EMPTY_FORM = {
   id: '',
   title: '',
@@ -41,16 +34,11 @@ const EMPTY_FORM = {
   status: 'recruiting',
   studyType: '',
   phase: '',
-  conditions: '',
   therapeuticAreaIds: [],
   laySummary: '',
   eligibilityOverview: '',
-  inclusionCriteria: '',
-  exclusionCriteria: '',
-  sex: '',
-  whatToExpect: '',
-  duration: '',
-  compensation: '',
+  inclusionCriteria: [],
+  exclusionCriteria: [],
   sponsorWebsite: '',
   acceptsReferrals: false,
   featured: false,
@@ -61,13 +49,13 @@ const EMPTY_FORM = {
     phone: '',
     displayPublicly: false,
   },
-  recruitmentSiteIds: [],
   principalInvestigatorId: '',
   ctGovData: null,
 }
 
 const TOKEN_STORAGE_KEY = 'kcru-study-session'
 const EMAIL_STORAGE_KEY = 'kcru-study-email'
+const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
 
 function slugify(value) {
   return String(value || '')
@@ -79,8 +67,13 @@ function slugify(value) {
 }
 
 function splitList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || '').trim())
+      .filter(Boolean)
+  }
   if (!value) return []
-  return value
+  return String(value)
     .split(/[\n,]+/)
     .map((item) => item.trim())
     .filter(Boolean)
@@ -100,16 +93,11 @@ function mapTrialToForm(trial) {
     status: trial?.status || 'recruiting',
     studyType: trial?.studyType || '',
     phase: trial?.phase || '',
-    conditions: joinList(trial?.conditions || []),
     therapeuticAreaIds: trial?.therapeuticAreaIds || [],
     laySummary: trial?.laySummary || '',
     eligibilityOverview: trial?.eligibilityOverview || '',
-    inclusionCriteria: joinList(trial?.inclusionCriteria || []),
-    exclusionCriteria: joinList(trial?.exclusionCriteria || []),
-    sex: trial?.sex || '',
-    whatToExpect: trial?.whatToExpect || '',
-    duration: trial?.duration || '',
-    compensation: trial?.compensation || '',
+    inclusionCriteria: splitList(trial?.inclusionCriteria),
+    exclusionCriteria: splitList(trial?.exclusionCriteria),
     sponsorWebsite: trial?.sponsorWebsite || '',
     acceptsReferrals: Boolean(trial?.acceptsReferrals),
     featured: Boolean(trial?.featured),
@@ -120,7 +108,6 @@ function mapTrialToForm(trial) {
       phone: trial?.localContact?.phone || '',
       displayPublicly: Boolean(trial?.localContact?.displayPublicly),
     },
-    recruitmentSiteIds: trial?.recruitmentSiteIds || [],
     principalInvestigatorId: trial?.principalInvestigatorId || '',
     ctGovData: null,
   }
@@ -131,6 +118,11 @@ function statusBadge(status) {
   if (status === 'coming_soon') return 'bg-amber-100 text-amber-800'
   if (status === 'active_not_recruiting') return 'bg-purple/10 text-purple'
   return 'bg-gray-100 text-gray-600'
+}
+
+function statusLabel(status) {
+  const match = STATUS_OPTIONS.find((option) => option.value === status)
+  return match?.label || status || 'draft'
 }
 
 export default function StudyManagerClient() {
@@ -145,9 +137,14 @@ export default function StudyManagerClient() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [trials, setTrials] = useState([])
-  const [meta, setMeta] = useState({ areas: [], sites: [], researchers: [] })
+  const [meta, setMeta] = useState({ areas: [], researchers: [] })
   const [form, setForm] = useState(EMPTY_FORM)
   const [search, setSearch] = useState('')
+  const inclusionCriteriaRefs = useRef([])
+  const exclusionCriteriaRefs = useRef([])
+  const criteriaFocusRef = useRef(null)
+  const canViewManager = Boolean(token) || DEV_PREVIEW_MODE
+  const canSubmit = Boolean(token)
 
   useEffect(() => {
     const stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
@@ -177,10 +174,23 @@ export default function StudyManagerClient() {
   }, [email])
 
   useEffect(() => {
-    if (token) {
+    if (token || DEV_PREVIEW_MODE) {
       loadData()
     }
   }, [token])
+
+  useEffect(() => {
+    const pending = criteriaFocusRef.current
+    if (!pending) return
+    const refs =
+      pending.key === 'inclusionCriteria' ? inclusionCriteriaRefs.current : exclusionCriteriaRefs.current
+    const target = refs[pending.index]
+    if (target) {
+      target.focus()
+      target.select?.()
+    }
+    criteriaFocusRef.current = null
+  }, [form.inclusionCriteria, form.exclusionCriteria])
 
   const filteredTrials = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -195,7 +205,7 @@ export default function StudyManagerClient() {
   async function loadData() {
     setError('')
     setSuccess('')
-    if (!token) {
+    if (!token && !DEV_PREVIEW_MODE) {
       setError('Sign in to load studies.')
       return null
     }
@@ -212,7 +222,10 @@ export default function StudyManagerClient() {
         throw new Error(data?.error || `Request failed (${res.status})`)
       }
       setTrials(data.trials || [])
-      setMeta(data.meta || { areas: [], sites: [], researchers: [] })
+      setMeta({
+        areas: data.meta?.areas || [],
+        researchers: data.meta?.researchers || [],
+      })
       return data
     } catch (err) {
       setError(err.message || 'Failed to load studies')
@@ -303,6 +316,75 @@ export default function StudyManagerClient() {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  function updateCriteriaItem(key, index, value) {
+    setForm((prev) => {
+      const existing = Array.isArray(prev[key]) ? prev[key] : []
+      const next = [...existing]
+      next[index] = value
+      return { ...prev, [key]: next }
+    })
+  }
+
+  function addCriteriaItem(key) {
+    setForm((prev) => {
+      const existing = Array.isArray(prev[key]) ? prev[key] : []
+      const nextIndex = existing.length
+      criteriaFocusRef.current = { key, index: nextIndex }
+      return { ...prev, [key]: [...existing, ''] }
+    })
+  }
+
+  function removeCriteriaItem(key, index) {
+    setForm((prev) => {
+      const existing = Array.isArray(prev[key]) ? prev[key] : []
+      const next = existing.filter((_, itemIndex) => itemIndex !== index)
+      return { ...prev, [key]: next }
+    })
+  }
+
+  function insertCriteriaItemAfter(key, index) {
+    setForm((prev) => {
+      const existing = Array.isArray(prev[key]) ? prev[key] : []
+      const next = [...existing]
+      next.splice(index + 1, 0, '')
+      criteriaFocusRef.current = { key, index: index + 1 }
+      return { ...prev, [key]: next }
+    })
+  }
+
+  function handleCriteriaPaste(event, key, index) {
+    const pasted = event.clipboardData?.getData('text') || ''
+    const items = splitList(pasted)
+    if (items.length <= 1) return
+    event.preventDefault()
+    setForm((prev) => {
+      const existing = Array.isArray(prev[key]) ? prev[key] : []
+      const next = [...existing]
+      next.splice(index, 1, ...items)
+      return { ...prev, [key]: next }
+    })
+  }
+
+  function handleCriteriaKeyDown(event, key, index, value) {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      insertCriteriaItemAfter(key, index)
+      return
+    }
+    if (event.key === 'Backspace' && !String(value || '').trim()) {
+      const existing = Array.isArray(form[key]) ? form[key] : []
+      if (existing.length <= 1) return
+      event.preventDefault()
+      setForm((prev) => {
+        const current = Array.isArray(prev[key]) ? prev[key] : []
+        const next = current.filter((_, itemIndex) => itemIndex !== index)
+        const focusIndex = Math.max(0, index - 1)
+        criteriaFocusRef.current = { key, index: focusIndex }
+        return { ...prev, [key]: next }
+      })
+    }
+  }
+
   function updateContactField(key, value) {
     setForm((prev) => ({
       ...prev,
@@ -347,16 +429,24 @@ export default function StudyManagerClient() {
       }
       const synced = data?.data || {}
       const suggestedTitle = synced?.ctGovData?.briefTitle || synced?.ctGovData?.officialTitle
+      const hasSyncedInclusion =
+        Array.isArray(synced.inclusionCriteria) ||
+        (typeof synced.inclusionCriteria === 'string' && synced.inclusionCriteria.trim())
+      const hasSyncedExclusion =
+        Array.isArray(synced.exclusionCriteria) ||
+        (typeof synced.exclusionCriteria === 'string' && synced.exclusionCriteria.trim())
       setForm((prev) => ({
         ...prev,
         title: prev.title || suggestedTitle || '',
         slug: prev.slug || (suggestedTitle ? slugify(suggestedTitle) : ''),
         studyType: synced.studyType || prev.studyType,
         phase: synced.phase || prev.phase,
-        conditions: joinList(synced.conditions || splitList(prev.conditions)),
-        inclusionCriteria: joinList(synced.inclusionCriteria || splitList(prev.inclusionCriteria)),
-        exclusionCriteria: joinList(synced.exclusionCriteria || splitList(prev.exclusionCriteria)),
-        sex: synced.sex || prev.sex,
+        inclusionCriteria: hasSyncedInclusion
+          ? splitList(synced.inclusionCriteria)
+          : splitList(prev.inclusionCriteria),
+        exclusionCriteria: hasSyncedExclusion
+          ? splitList(synced.exclusionCriteria)
+          : splitList(prev.exclusionCriteria),
         laySummary: synced.laySummary || prev.laySummary,
         eligibilityOverview: synced.eligibilityOverview || prev.eligibilityOverview,
         ctGovData: synced.ctGovData || prev.ctGovData,
@@ -373,6 +463,10 @@ export default function StudyManagerClient() {
     event.preventDefault()
     setError('')
     setSuccess('')
+    if (!token) {
+      setError('Sign in to submit studies.')
+      return
+    }
     setSaving(true)
     try {
       const payload = {
@@ -383,21 +477,15 @@ export default function StudyManagerClient() {
         status: form.status,
         studyType: form.studyType,
         phase: form.phase,
-        sex: form.sex,
-        conditions: splitList(form.conditions),
         therapeuticAreaIds: form.therapeuticAreaIds,
         laySummary: form.laySummary,
         eligibilityOverview: form.eligibilityOverview,
         inclusionCriteria: splitList(form.inclusionCriteria),
         exclusionCriteria: splitList(form.exclusionCriteria),
-        whatToExpect: form.whatToExpect,
-        duration: form.duration,
-        compensation: form.compensation,
         sponsorWebsite: form.sponsorWebsite,
         acceptsReferrals: form.acceptsReferrals,
         featured: form.featured,
         localContact: form.localContact,
-        recruitmentSiteIds: form.recruitmentSiteIds,
         principalInvestigatorId: form.principalInvestigatorId || '',
         ctGovData: form.ctGovData || undefined,
       }
@@ -426,14 +514,18 @@ export default function StudyManagerClient() {
     }
   }
 
+  const inclusionItems = Array.isArray(form.inclusionCriteria) ? form.inclusionCriteria : []
+  const exclusionItems = Array.isArray(form.exclusionCriteria) ? form.exclusionCriteria : []
+
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-10 space-y-8">
       <header className="space-y-3">
         <p className="text-sm font-semibold text-purple uppercase tracking-wide">Coordinator Portal</p>
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Study Manager</h1>
         <p className="text-gray-600 max-w-2xl">
-          Submit study updates without accessing the Sanity backend. Submissions are sent to an approval admin before
-          changes go live. Use the sync tool to pull details from ClinicalTrials.gov first.
+          Submit or edit studies. Submissions are sent to an approval admin before changes go live. For studies
+          registered with ClinicalTrials.gov (i.e., those that have an NCT number), use the sync tool to pull details
+          from ClinicalTrials.gov first.
         </p>
       </header>
 
@@ -508,19 +600,6 @@ export default function StudyManagerClient() {
           </div>
         )}
 
-        {token && form.nctId && (
-          <div className="flex items-end">
-            <button
-              type="button"
-              onClick={handleSync}
-              disabled={syncLoading}
-              className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
-            >
-              {syncLoading ? 'Syncing...' : 'Fetch from ClinicalTrials.gov'}
-            </button>
-          </div>
-        )}
-
         {(error || success) && (
           <div className="text-sm">
             {error && <p className="text-red-600">{error}</p>}
@@ -529,199 +608,194 @@ export default function StudyManagerClient() {
         )}
       </section>
 
-      <section className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-8">
-        <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4 h-fit">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">Existing Studies</h2>
-            <button
-              type="button"
-              onClick={handleNewStudy}
-              className="text-sm font-medium text-purple hover:text-purple/80"
-            >
-              + New study
-            </button>
-          </div>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title or NCT ID"
-            className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple text-sm"
-          />
-          <div className="text-xs text-gray-500">
-            {filteredTrials.length} studies loaded
-          </div>
-          <div className="max-h-[70vh] overflow-y-auto divide-y divide-black/5">
-            {filteredTrials.map((trial) => (
+      {canViewManager ? (
+        <section className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-8">
+          <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4 h-fit">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Existing Studies</h2>
               <button
-                key={trial._id}
                 type="button"
-                onClick={() => handleSelectStudy(trial)}
-                className={`w-full text-left py-3 px-1 space-y-1 hover:bg-purple/5 ${
-                  form.id === trial._id ? 'bg-purple/10' : ''
-                }`}
+                onClick={handleNewStudy}
+                className="text-sm font-medium text-purple hover:text-purple/80"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-sm text-[#222]">{trial.title || 'Untitled study'}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${statusBadge(trial.status)}`}>
-                    {trial.status || 'draft'}
-                  </span>
-                </div>
-                <div className="text-xs text-gray-500">
-                  {trial.nctId || 'No NCT ID'} - {trial.slug || 'no-slug'}
-                </div>
-              </button>
-            ))}
-            {!filteredTrials.length && (
-              <div className="text-sm text-gray-500 py-4">
-                No studies loaded yet. Sign in to load studies.
-              </div>
-            )}
-          </div>
-        </div>
-
-        <form onSubmit={handleSave} className="space-y-6">
-          <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">Study Details</h2>
-              <button
-                type="submit"
-                disabled={saving}
-                className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
-              >
-                {saving ? 'Submitting...' : form.id ? 'Submit changes' : 'Submit new study'}
+                + New study
               </button>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Display title</label>
-                <input
-                  type="text"
-                  value={form.title}
-                  onChange={(e) => {
-                    const nextTitle = e.target.value
-                    setForm((prev) => ({
-                      ...prev,
-                      title: nextTitle,
-                      slug: prev.slug ? prev.slug : slugify(nextTitle),
-                    }))
-                  }}
-                  placeholder="Patient-friendly study title"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">URL slug</label>
-                <input
-                  type="text"
-                  value={form.slug}
-                  onChange={(e) => updateFormField('slug', e.target.value)}
-                  placeholder="auto-generated"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono text-sm"
-                />
-              </div>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by title or NCT ID"
+              className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple text-sm"
+            />
+            <div className="text-xs text-gray-500">
+              {filteredTrials.length} studies loaded
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">NCT ID</label>
-                <input
-                  type="text"
-                  value={form.nctId}
-                  onChange={(e) => updateFormField('nctId', e.target.value.toUpperCase())}
-                  placeholder="NCT12345678"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono"
-                />
-                <p className="text-xs text-gray-500">Use "Fetch from ClinicalTrials.gov" above to auto-fill.</p>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Recruitment status</label>
-                <select
-                  value={form.status}
-                  onChange={(e) => updateFormField('status', e.target.value)}
-                  className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
+            <div className="max-h-[140vh] overflow-y-auto divide-y divide-black/5">
+              {filteredTrials.map((trial) => (
+                <button
+                  key={trial._id}
+                  type="button"
+                  onClick={() => handleSelectStudy(trial)}
+                  className={`w-full text-left py-3 px-1 space-y-1 hover:bg-purple/5 ${
+                    form.id === trial._id ? 'bg-purple/10' : ''
+                  }`}
                 >
-                  {STATUS_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Sex</label>
-                <select
-                  value={form.sex}
-                  onChange={(e) => updateFormField('sex', e.target.value)}
-                  className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
-                >
-                  {SEX_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Study type</label>
-                <select
-                  value={form.studyType}
-                  onChange={(e) => updateFormField('studyType', e.target.value)}
-                  className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
-                >
-                  {STUDY_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Phase</label>
-                <select
-                  value={form.phase}
-                  onChange={(e) => updateFormField('phase', e.target.value)}
-                  className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
-                >
-                  {PHASE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-6 text-sm text-gray-700">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.featured}
-                  onChange={(e) => updateFormField('featured', e.target.checked)}
-                  className="h-4 w-4"
-                />
-                Feature on homepage
-              </label>
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.acceptsReferrals}
-                  onChange={(e) => updateFormField('acceptsReferrals', e.target.checked)}
-                  className="h-4 w-4"
-                />
-                Accepts referrals
-              </label>
+                  <div className="space-y-1">
+                    <div className="font-medium text-sm text-[#222]">{trial.title || 'Untitled study'}</div>
+                    <div className="text-xs text-gray-500">
+                      {trial.nctId || 'No NCT ID'} - {trial.slug || 'no-slug'}
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap inline-flex ${statusBadge(trial.status)}`}>
+                      {statusLabel(trial.status)}
+                    </span>
+                  </div>
+                </button>
+              ))}
+              {!filteredTrials.length && (
+                <div className="text-sm text-gray-500 py-4">
+                  No studies loaded yet. Refresh to load studies.
+                </div>
+              )}
             </div>
           </div>
+
+          <form onSubmit={handleSave} className="space-y-6">
+            <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Study Details</h2>
+                <button
+                  type="submit"
+                  disabled={saving || !canSubmit}
+                  className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
+                >
+                  {saving ? 'Submitting...' : form.id ? 'Submit changes' : 'Submit new study'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">NCT ID (start here)</label>
+                  <input
+                    type="text"
+                    value={form.nctId}
+                    onChange={(e) => updateFormField('nctId', e.target.value.toUpperCase())}
+                    placeholder="NCT12345678"
+                    className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono"
+                  />
+                  <p className="text-xs text-gray-500">Enter the NCT ID to pull details from ClinicalTrials.gov.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSync}
+                  disabled={syncLoading || !form.nctId}
+                  className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
+                >
+                  {syncLoading ? 'Syncing...' : 'Fetch from ClinicalTrials.gov'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Display title</label>
+                  <input
+                    type="text"
+                    value={form.title}
+                    onChange={(e) => {
+                      const nextTitle = e.target.value
+                      setForm((prev) => ({
+                        ...prev,
+                        title: nextTitle,
+                        slug: prev.slug ? prev.slug : slugify(nextTitle),
+                      }))
+                    }}
+                    placeholder="Patient-friendly study title"
+                    className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">URL slug</label>
+                  <input
+                    type="text"
+                    value={form.slug}
+                    onChange={(e) => updateFormField('slug', e.target.value)}
+                    placeholder="auto-generated"
+                    className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Recruitment status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => updateFormField('status', e.target.value)}
+                    className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
+                  >
+                    {STATUS_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Study type</label>
+                  <select
+                    value={form.studyType}
+                    onChange={(e) => updateFormField('studyType', e.target.value)}
+                    className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
+                  >
+                    {STUDY_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Phase</label>
+                  <select
+                    value={form.phase}
+                    onChange={(e) => updateFormField('phase', e.target.value)}
+                    className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
+                  >
+                    {PHASE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-6 text-sm text-gray-700">
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={form.featured}
+                    onChange={(e) => updateFormField('featured', e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  Feature on homepage
+                </label>
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={form.acceptsReferrals}
+                    onChange={(e) => updateFormField('acceptsReferrals', e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  Accepts referrals
+                </label>
+              </div>
+            </div>
 
           <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
             <div>
-              <h3 className="text-lg font-semibold">Therapeutic Areas & Sites</h3>
-              <p className="text-sm text-gray-500">Select all that apply for filtering and referrals.</p>
+              <h3 className="text-lg font-semibold">Therapeutic Areas</h3>
+              <p className="text-sm text-gray-500">Select all that apply for filtering.</p>
             </div>
 
             <div className="space-y-2">
@@ -745,27 +819,6 @@ export default function StudyManagerClient() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Recruitment sites</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {(meta.sites || []).map((site) => (
-                  <label key={site._id} className="inline-flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={form.recruitmentSiteIds.includes(site._id)}
-                      onChange={() => toggleMultiSelect('recruitmentSiteIds', site._id)}
-                      className="h-4 w-4"
-                    />
-                    <span>
-                      {site.shortName ? `${site.shortName} - ` : ''}
-                      {site.name}
-                      {site.city ? ` (${site.city})` : ''}
-                    </span>
-                  </label>
-                ))}
-                {!meta.sites?.length && <p className="text-xs text-gray-500">No active sites configured.</p>}
-              </div>
-            </div>
           </div>
 
           <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
@@ -866,85 +919,123 @@ export default function StudyManagerClient() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium">Conditions / population</label>
-              <textarea
-                value={form.conditions}
-                onChange={(e) => updateFormField('conditions', e.target.value)}
-                rows={3}
-                placeholder="One per line"
-                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono text-sm"
+              <label className="text-sm font-medium">Study website (if available)</label>
+              <input
+                type="url"
+                value={form.sponsorWebsite}
+                onChange={(e) => updateFormField('sponsorWebsite', e.target.value)}
+                placeholder="https://"
+                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
               />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-sm font-medium">What to expect</label>
-                <textarea
-                  value={form.whatToExpect}
-                  onChange={(e) => updateFormField('whatToExpect', e.target.value)}
-                  rows={3}
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                />
-              </div>
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Duration</label>
-                  <input
-                    type="text"
-                    value={form.duration}
-                    onChange={(e) => updateFormField('duration', e.target.value)}
-                    className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Compensation</label>
-                  <input
-                    type="text"
-                    value={form.compensation}
-                    onChange={(e) => updateFormField('compensation', e.target.value)}
-                    className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Sponsor website</label>
-                  <input
-                    type="url"
-                    value={form.sponsorWebsite}
-                    onChange={(e) => updateFormField('sponsorWebsite', e.target.value)}
-                    placeholder="https://"
-                    className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                  />
-                </div>
-              </div>
             </div>
           </div>
 
           <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
             <div>
               <h3 className="text-lg font-semibold">Eligibility Criteria</h3>
-              <p className="text-sm text-gray-500">List key criteria on separate lines.</p>
+              <p className="text-sm text-gray-500">Add each criterion as its own item.</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label className="text-sm font-medium">Inclusion criteria</label>
-                <textarea
-                  value={form.inclusionCriteria}
-                  onChange={(e) => updateFormField('inclusionCriteria', e.target.value)}
-                  rows={6}
-                  placeholder="One per line"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono text-sm"
-                />
+                <div className="space-y-2">
+                  {inclusionItems.length ? (
+                    inclusionItems.map((item, index) => (
+                      <div
+                        key={`inclusion-${index}`}
+                        className="flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2"
+                      >
+                        <span className="w-6 text-right text-xs text-gray-400">{index + 1}.</span>
+                        <input
+                          ref={(el) => {
+                            inclusionCriteriaRefs.current[index] = el
+                          }}
+                          type="text"
+                          value={item}
+                          onChange={(e) => updateCriteriaItem('inclusionCriteria', index, e.target.value)}
+                          onBlur={(e) => {
+                            const trimmed = e.target.value.trim()
+                            if (trimmed !== e.target.value) {
+                              updateCriteriaItem('inclusionCriteria', index, trimmed)
+                            }
+                          }}
+                          onKeyDown={(e) => handleCriteriaKeyDown(e, 'inclusionCriteria', index, item)}
+                          onPaste={(e) => handleCriteriaPaste(e, 'inclusionCriteria', index)}
+                          placeholder="Add inclusion criterion"
+                          className="flex-1 bg-transparent text-sm focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeCriteriaItem('inclusionCriteria', index)}
+                          className="text-xs text-gray-400 hover:text-gray-700"
+                          aria-label={`Remove inclusion criterion ${index + 1}`}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-gray-500">No inclusion criteria yet.</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addCriteriaItem('inclusionCriteria')}
+                  className="inline-flex items-center gap-2 rounded border border-dashed border-black/15 px-3 py-2 text-sm text-gray-600 hover:border-purple hover:text-purple"
+                >
+                  + Add item
+                </button>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label className="text-sm font-medium">Exclusion criteria</label>
-                <textarea
-                  value={form.exclusionCriteria}
-                  onChange={(e) => updateFormField('exclusionCriteria', e.target.value)}
-                  rows={6}
-                  placeholder="One per line"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono text-sm"
-                />
+                <div className="space-y-2">
+                  {exclusionItems.length ? (
+                    exclusionItems.map((item, index) => (
+                      <div
+                        key={`exclusion-${index}`}
+                        className="flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2"
+                      >
+                        <span className="w-6 text-right text-xs text-gray-400">{index + 1}.</span>
+                        <input
+                          ref={(el) => {
+                            exclusionCriteriaRefs.current[index] = el
+                          }}
+                          type="text"
+                          value={item}
+                          onChange={(e) => updateCriteriaItem('exclusionCriteria', index, e.target.value)}
+                          onBlur={(e) => {
+                            const trimmed = e.target.value.trim()
+                            if (trimmed !== e.target.value) {
+                              updateCriteriaItem('exclusionCriteria', index, trimmed)
+                            }
+                          }}
+                          onKeyDown={(e) => handleCriteriaKeyDown(e, 'exclusionCriteria', index, item)}
+                          onPaste={(e) => handleCriteriaPaste(e, 'exclusionCriteria', index)}
+                          placeholder="Add exclusion criterion"
+                          className="flex-1 bg-transparent text-sm focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeCriteriaItem('exclusionCriteria', index)}
+                          className="text-xs text-gray-400 hover:text-gray-700"
+                          aria-label={`Remove exclusion criterion ${index + 1}`}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-gray-500">No exclusion criteria yet.</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => addCriteriaItem('exclusionCriteria')}
+                  className="inline-flex items-center gap-2 rounded border border-dashed border-black/15 px-3 py-2 text-sm text-gray-600 hover:border-purple hover:text-purple"
+                >
+                  + Add item
+                </button>
               </div>
             </div>
           </div>
@@ -952,14 +1043,17 @@ export default function StudyManagerClient() {
           <div className="flex items-center justify-end gap-3">
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || !canSubmit}
               className="inline-flex items-center justify-center bg-purple text-white px-5 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
             >
               {saving ? 'Submitting...' : form.id ? 'Submit changes' : 'Submit new study'}
             </button>
           </div>
-        </form>
-      </section>
+          </form>
+        </section>
+      ) : (
+        <p className="text-sm text-gray-500">Sign in to view and manage studies.</p>
+      )}
     </main>
   )
 }

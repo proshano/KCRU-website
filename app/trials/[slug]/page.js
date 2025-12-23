@@ -177,22 +177,6 @@ export default async function TrialDetailPage({ params }) {
           </p>
         )}
 
-        {/* Quick eligibility facts */}
-        <div className="grid md:grid-cols-2 gap-4 mb-6">
-          {trial.sex && trial.sex !== 'all' && (
-            <div className="p-3 bg-white rounded-lg border border-gray-100">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Sex</p>
-              <p className="font-medium capitalize">{trial.sex} only</p>
-            </div>
-          )}
-          {trial.duration && (
-            <div className="p-3 bg-white rounded-lg border border-gray-100">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Duration</p>
-              <p className="font-medium">{trial.duration}</p>
-            </div>
-          )}
-        </div>
-
         {/* Detailed criteria */}
         <div className="grid md:grid-cols-2 gap-6">
           {trial.inclusionCriteria?.length > 0 && (
@@ -229,23 +213,7 @@ export default async function TrialDetailPage({ params }) {
         </div>
       </section>
 
-      {/* What to Expect */}
-      {trial.whatToExpect && (
-        <section className="mb-10">
-          <h2 className="text-xl font-bold mb-3">What to Expect</h2>
-          <p className="text-gray-700 leading-relaxed">{trial.whatToExpect}</p>
-        </section>
-      )}
-
-      {/* Compensation */}
-      {trial.compensation && (
-        <section className="mb-10">
-          <h2 className="text-xl font-bold mb-3">Compensation</h2>
-          <p className="text-gray-700">{trial.compensation}</p>
-        </section>
-      )}
-
-      {/* External links (sponsor only; CT.gov already linked above) */}
+      {/* External links (study website; CT.gov already linked above) */}
       {trial.sponsorWebsite && (
         <section className="flex flex-wrap gap-4 text-sm">
           <a
@@ -254,7 +222,7 @@ export default async function TrialDetailPage({ params }) {
             rel="noopener noreferrer"
             className="text-gray-500 hover:text-purple transition"
           >
-            Sponsor study page ↗
+            Study website ↗
           </a>
         </section>
       )}

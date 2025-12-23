@@ -73,9 +73,7 @@ function TrialSyncAction(props) {
         exclusionCriteria: syncedData.exclusionCriteria || [],
         studyType: syncedData.studyType,
         phase: syncedData.phase,
-        conditions: syncedData.conditions || [],
         ageRange: syncedData.ageRange,
-        sex: syncedData.sex,
         laySummary: syncedData.laySummary,
         eligibilityOverview: syncedData.eligibilityOverview,
       }
