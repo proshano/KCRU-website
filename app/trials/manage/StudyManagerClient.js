@@ -55,8 +55,8 @@ const EMPTY_FORM = {
 
 const TOKEN_STORAGE_KEY = 'kcru-study-session'
 const EMAIL_STORAGE_KEY = 'kcru-study-email'
-const DRAFT_STORAGE_KEY = 'kcru-study-draft'
 const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
+const AUTOSAVE_DEBOUNCE_MS = 10000
 
 function slugify(value) {
   return String(value || '')
@@ -136,6 +136,14 @@ function formatDraftTimestamp(value) {
   return new Date(time).toLocaleString()
 }
 
+function serializeDraft(data) {
+  try {
+    return JSON.stringify(data)
+  } catch (err) {
+    return ''
+  }
+}
+
 function statusBadge(status) {
   if (status === 'recruiting') return 'bg-emerald-100 text-emerald-800'
   if (status === 'coming_soon') return 'bg-amber-100 text-amber-800'
@@ -164,6 +172,15 @@ export default function StudyManagerClient() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [search, setSearch] = useState('')
   const [draft, setDraft] = useState(null)
+  const [draftLoading, setDraftLoading] = useState(false)
+  const [draftSaving, setDraftSaving] = useState(false)
+  const [draftError, setDraftError] = useState('')
+  const [draftAction, setDraftAction] = useState('')
+  const autosaveTimeoutRef = useRef(null)
+  const autosavePendingRef = useRef(false)
+  const autosaveSuppressRef = useRef(false)
+  const lastSavedSnapshotRef = useRef('')
+  const draftSavingRef = useRef(false)
   const inclusionCriteriaRefs = useRef([])
   const exclusionCriteriaRefs = useRef([])
   const criteriaFocusRef = useRef(null)
@@ -179,15 +196,6 @@ export default function StudyManagerClient() {
     if (storedEmail) {
       setEmail(storedEmail)
     }
-    try {
-      const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY)
-      if (savedDraft) {
-        const parsed = JSON.parse(savedDraft)
-        if (parsed?.data && typeof parsed.data === 'object') {
-          setDraft(parsed)
-        }
-      }
-    } catch (err) {}
   }, [])
 
   useEffect(() => {
@@ -210,7 +218,17 @@ export default function StudyManagerClient() {
     if (token || DEV_PREVIEW_MODE) {
       loadData()
     }
+    if (token) {
+      setDraft(null)
+      loadDraft()
+    } else {
+      setDraft(null)
+    }
   }, [token])
+
+  useEffect(() => {
+    draftSavingRef.current = draftSaving
+  }, [draftSaving])
 
   useEffect(() => {
     const pending = criteriaFocusRef.current
@@ -268,6 +286,29 @@ export default function StudyManagerClient() {
     }
   }
 
+  async function loadDraft() {
+    if (!token) return
+    setDraftLoading(true)
+    setDraftError('')
+    try {
+      const res = await fetch('/api/trials/drafts', {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        if (res.status === 401) {
+          handleSignOut()
+        }
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setDraft(data.draft || null)
+    } catch (err) {
+      setDraftError(err.message || 'Failed to load draft')
+    } finally {
+      setDraftLoading(false)
+    }
+  }
+
   async function sendPasscode(event) {
     event.preventDefault()
     setError('')
@@ -285,6 +326,9 @@ export default function StudyManagerClient() {
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
+        if (res.status === 401) {
+          handleSignOut()
+        }
         throw new Error(data?.error || `Request failed (${res.status})`)
       }
       setSuccess('Passcode sent. Check your email.')
@@ -312,6 +356,9 @@ export default function StudyManagerClient() {
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
+        if (res.status === 401) {
+          handleSignOut()
+        }
         throw new Error(data?.error || `Request failed (${res.status})`)
       }
       setToken(data.token || '')
@@ -327,8 +374,20 @@ export default function StudyManagerClient() {
   function handleSignOut() {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY)
     sessionStorage.removeItem(EMAIL_STORAGE_KEY)
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current)
+      autosaveTimeoutRef.current = null
+    }
+    autosavePendingRef.current = false
+    autosaveSuppressRef.current = false
+    lastSavedSnapshotRef.current = ''
     setToken('')
     setTrials([])
+    setDraft(null)
+    setDraftLoading(false)
+    setDraftSaving(false)
+    setDraftError('')
+    setDraftAction('')
     setSuccess('')
     setError('')
   }
@@ -336,12 +395,24 @@ export default function StudyManagerClient() {
   function handleSelectStudy(trial) {
     setError('')
     setSuccess('')
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current)
+      autosaveTimeoutRef.current = null
+    }
+    autosavePendingRef.current = false
+    autosaveSuppressRef.current = true
     setForm(mapTrialToForm(trial))
   }
 
   function handleNewStudy() {
     setError('')
     setSuccess('')
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current)
+      autosaveTimeoutRef.current = null
+    }
+    autosavePendingRef.current = false
+    autosaveSuppressRef.current = true
     setForm(EMPTY_FORM)
   }
 
@@ -492,9 +563,38 @@ export default function StudyManagerClient() {
     }
   }
 
-  function clearDraftStorage() {
-    localStorage.removeItem(DRAFT_STORAGE_KEY)
-    setDraft(null)
+  async function deleteDraft({ silent } = {}) {
+    if (!token) {
+      setDraft(null)
+      return
+    }
+    setDraftAction('delete')
+    setDraftSaving(true)
+    if (!silent) {
+      setDraftError('')
+    }
+    try {
+      const res = await fetch('/api/trials/drafts', {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        if (res.status === 401) {
+          handleSignOut()
+        }
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setDraft(null)
+      setDraftError('')
+    } catch (err) {
+      if (!silent) {
+        setDraftError(err.message || 'Failed to discard draft')
+      }
+    } finally {
+      setDraftSaving(false)
+      setDraftAction('')
+    }
   }
 
   async function handleSave(event) {
@@ -545,7 +645,7 @@ export default function StudyManagerClient() {
       }
       setSuccess(form.id ? 'Update submitted for approval.' : 'New study submitted for approval.')
       await loadData()
-      clearDraftStorage()
+      await deleteDraft({ silent: true })
     } catch (err) {
       setError(err.message || 'Submission failed')
     } finally {
@@ -553,31 +653,124 @@ export default function StudyManagerClient() {
     }
   }
 
-  function handleSaveDraft() {
-    setError('')
-    setSuccess('')
-    const savedAt = new Date().toISOString()
-    const payload = { savedAt, data: form }
-    localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(payload))
-    setDraft(payload)
-    setSuccess('Draft saved locally.')
+  async function saveDraft({ data, snapshot } = {}) {
+    if (!token) {
+      return
+    }
+    const draftData = data || form
+    const draftSnapshot = snapshot || serializeDraft(draftData)
+    setDraftAction('autosave')
+    setDraftSaving(true)
+    setDraftError('')
+    try {
+      const res = await fetch('/api/trials/drafts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ data: draftData }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        if (res.status === 401) {
+          handleSignOut()
+        }
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setDraft(data.draft || null)
+      autosavePendingRef.current = false
+      lastSavedSnapshotRef.current = draftSnapshot
+      const currentSnapshot = serializeDraft(form)
+      if (currentSnapshot !== draftSnapshot) {
+        autosavePendingRef.current = false
+        scheduleAutosave({ data: form, snapshot: currentSnapshot })
+      }
+    } catch (err) {
+      setDraftError(err.message || 'Autosave failed')
+    } finally {
+      setDraftSaving(false)
+      setDraftAction('')
+    }
+  }
+
+  function scheduleAutosave({ data, snapshot } = {}) {
+    if (!token) return
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current)
+    }
+    autosavePendingRef.current = false
+    const nextData = data || form
+    const nextSnapshot = snapshot || serializeDraft(nextData)
+    autosaveTimeoutRef.current = setTimeout(() => {
+      if (!token) return
+      if (draftSavingRef.current) {
+        autosavePendingRef.current = true
+        return
+      }
+      saveDraft({ data: nextData, snapshot: nextSnapshot })
+    }, AUTOSAVE_DEBOUNCE_MS)
   }
 
   function handleRestoreDraft() {
     if (!draft?.data) return
-    setError('')
-    setSuccess('Draft restored.')
-    setForm(mergeDraft(draft.data))
+    setDraftError('')
+    const restored = mergeDraft(draft.data)
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current)
+      autosaveTimeoutRef.current = null
+    }
+    autosavePendingRef.current = false
+    autosaveSuppressRef.current = true
+    lastSavedSnapshotRef.current = serializeDraft(restored)
+    setForm(restored)
     criteriaFocusRef.current = null
   }
 
   function handleClearDraft() {
-    clearDraftStorage()
-    setSuccess('Draft discarded.')
+    deleteDraft()
   }
+
+  useEffect(() => {
+    if (!canSubmit) return undefined
+    const snapshot = serializeDraft(form)
+    if (autosaveSuppressRef.current) {
+      autosaveSuppressRef.current = false
+      return undefined
+    }
+    if (snapshot === lastSavedSnapshotRef.current) {
+      return undefined
+    }
+    scheduleAutosave({ data: form, snapshot })
+    return () => {
+      if (autosaveTimeoutRef.current) {
+        clearTimeout(autosaveTimeoutRef.current)
+        autosaveTimeoutRef.current = null
+      }
+    }
+  }, [form, canSubmit])
+
+  useEffect(() => {
+    if (!draftSaving && autosavePendingRef.current) {
+      autosavePendingRef.current = false
+      const snapshot = serializeDraft(form)
+      if (snapshot !== lastSavedSnapshotRef.current) {
+        saveDraft({ data: form, snapshot })
+      }
+    }
+  }, [draftSaving, form])
 
   const inclusionItems = Array.isArray(form.inclusionCriteria) ? form.inclusionCriteria : []
   const exclusionItems = Array.isArray(form.exclusionCriteria) ? form.exclusionCriteria : []
+  const autosaveStatus = (() => {
+    if (!canSubmit) return ''
+    if (draftLoading) return 'Loading draft...'
+    if (draftSaving) return draftAction === 'delete' ? 'Discarding draft...' : 'Autosaving...'
+    if (draftError) return draftError
+    if (draft?.savedAt) return `Draft saved ${formatDraftTimestamp(draft.savedAt)}.`
+    return 'Autosave on.'
+  })()
+  const autosaveStatusClass = draftError ? 'text-xs text-red-600' : 'text-xs text-gray-500'
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-10 space-y-8">
@@ -726,41 +919,37 @@ export default function StudyManagerClient() {
             <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Study Details</h2>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleSaveDraft}
-                    disabled={saving}
-                    className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
-                  >
-                    Save draft
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving || !canSubmit}
-                    className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
-                  >
-                    {saving ? 'Submitting...' : form.id ? 'Submit changes' : 'Submit new study'}
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  disabled={saving || !canSubmit}
+                  className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
+                >
+                  {saving ? 'Submitting...' : form.id ? 'Submit changes' : 'Submit new study'}
+                </button>
               </div>
-              {draft?.savedAt && (
-                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                  <span>Draft saved {formatDraftTimestamp(draft.savedAt)}.</span>
-                  <button
-                    type="button"
-                    onClick={handleRestoreDraft}
-                    className="font-medium text-purple hover:text-purple/80"
-                  >
-                    Restore draft
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleClearDraft}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    Discard
-                  </button>
+              {canSubmit && (
+                <div className={`flex flex-wrap items-center gap-2 ${autosaveStatusClass}`}>
+                  <span>{autosaveStatus}</span>
+                  {draft?.savedAt && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleRestoreDraft}
+                        disabled={draftSaving || draftLoading}
+                        className="font-medium text-purple hover:text-purple/80 disabled:opacity-60"
+                      >
+                        Restore draft
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearDraft}
+                        disabled={draftSaving || draftLoading}
+                        className="text-gray-500 hover:text-gray-700 disabled:opacity-60"
+                      >
+                        Discard
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
 
