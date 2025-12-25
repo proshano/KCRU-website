@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 const STATUS_OPTIONS = [
   { value: 'recruiting', label: 'Recruiting' },
@@ -181,11 +181,33 @@ export default function StudyManagerClient() {
   const autosaveSuppressRef = useRef(false)
   const lastSavedSnapshotRef = useRef('')
   const draftSavingRef = useRef(false)
+  const saveDraftRef = useRef(null)
   const inclusionCriteriaRefs = useRef([])
   const exclusionCriteriaRefs = useRef([])
   const criteriaFocusRef = useRef(null)
   const canViewManager = Boolean(token) || DEV_PREVIEW_MODE
   const canSubmit = Boolean(token)
+
+  const handleSignOut = useCallback(() => {
+    sessionStorage.removeItem(TOKEN_STORAGE_KEY)
+    sessionStorage.removeItem(EMAIL_STORAGE_KEY)
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current)
+      autosaveTimeoutRef.current = null
+    }
+    autosavePendingRef.current = false
+    autosaveSuppressRef.current = false
+    lastSavedSnapshotRef.current = ''
+    setToken('')
+    setTrials([])
+    setDraft(null)
+    setDraftLoading(false)
+    setDraftSaving(false)
+    setDraftError('')
+    setDraftAction('')
+    setSuccess('')
+    setError('')
+  }, [])
 
   useEffect(() => {
     const stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
@@ -215,18 +237,6 @@ export default function StudyManagerClient() {
   }, [email])
 
   useEffect(() => {
-    if (token || DEV_PREVIEW_MODE) {
-      loadData()
-    }
-    if (token) {
-      setDraft(null)
-      loadDraft()
-    } else {
-      setDraft(null)
-    }
-  }, [token])
-
-  useEffect(() => {
     draftSavingRef.current = draftSaving
   }, [draftSaving])
 
@@ -253,7 +263,7 @@ export default function StudyManagerClient() {
     })
   }, [search, trials])
 
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setError('')
     setSuccess('')
     if (!token && !DEV_PREVIEW_MODE) {
@@ -284,9 +294,9 @@ export default function StudyManagerClient() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token, handleSignOut])
 
-  async function loadDraft() {
+  const loadDraft = useCallback(async () => {
     if (!token) return
     setDraftLoading(true)
     setDraftError('')
@@ -307,7 +317,19 @@ export default function StudyManagerClient() {
     } finally {
       setDraftLoading(false)
     }
-  }
+  }, [token, handleSignOut])
+
+  useEffect(() => {
+    if (token || DEV_PREVIEW_MODE) {
+      loadData()
+    }
+    if (token) {
+      setDraft(null)
+      loadDraft()
+    } else {
+      setDraft(null)
+    }
+  }, [token, loadData, loadDraft])
 
   async function sendPasscode(event) {
     event.preventDefault()
@@ -369,27 +391,6 @@ export default function StudyManagerClient() {
     } finally {
       setVerifyingCode(false)
     }
-  }
-
-  function handleSignOut() {
-    sessionStorage.removeItem(TOKEN_STORAGE_KEY)
-    sessionStorage.removeItem(EMAIL_STORAGE_KEY)
-    if (autosaveTimeoutRef.current) {
-      clearTimeout(autosaveTimeoutRef.current)
-      autosaveTimeoutRef.current = null
-    }
-    autosavePendingRef.current = false
-    autosaveSuppressRef.current = false
-    lastSavedSnapshotRef.current = ''
-    setToken('')
-    setTrials([])
-    setDraft(null)
-    setDraftLoading(false)
-    setDraftSaving(false)
-    setDraftError('')
-    setDraftAction('')
-    setSuccess('')
-    setError('')
   }
 
   function handleSelectStudy(trial) {
@@ -653,7 +654,27 @@ export default function StudyManagerClient() {
     }
   }
 
-  async function saveDraft({ data, snapshot } = {}) {
+  const scheduleAutosave = useCallback(({ data, snapshot } = {}) => {
+    if (!token) return
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current)
+    }
+    autosavePendingRef.current = false
+    const nextData = data || form
+    const nextSnapshot = snapshot || serializeDraft(nextData)
+    autosaveTimeoutRef.current = setTimeout(() => {
+      if (!token) return
+      if (draftSavingRef.current) {
+        autosavePendingRef.current = true
+        return
+      }
+      if (saveDraftRef.current) {
+        saveDraftRef.current({ data: nextData, snapshot: nextSnapshot })
+      }
+    }, AUTOSAVE_DEBOUNCE_MS)
+  }, [token, form])
+
+  const saveDraft = useCallback(async ({ data, snapshot } = {}) => {
     if (!token) {
       return
     }
@@ -692,25 +713,11 @@ export default function StudyManagerClient() {
       setDraftSaving(false)
       setDraftAction('')
     }
-  }
+  }, [token, form, handleSignOut, scheduleAutosave])
 
-  function scheduleAutosave({ data, snapshot } = {}) {
-    if (!token) return
-    if (autosaveTimeoutRef.current) {
-      clearTimeout(autosaveTimeoutRef.current)
-    }
-    autosavePendingRef.current = false
-    const nextData = data || form
-    const nextSnapshot = snapshot || serializeDraft(nextData)
-    autosaveTimeoutRef.current = setTimeout(() => {
-      if (!token) return
-      if (draftSavingRef.current) {
-        autosavePendingRef.current = true
-        return
-      }
-      saveDraft({ data: nextData, snapshot: nextSnapshot })
-    }, AUTOSAVE_DEBOUNCE_MS)
-  }
+  useEffect(() => {
+    saveDraftRef.current = saveDraft
+  }, [saveDraft])
 
   function handleRestoreDraft() {
     if (!draft?.data) return
@@ -748,7 +755,7 @@ export default function StudyManagerClient() {
         autosaveTimeoutRef.current = null
       }
     }
-  }, [form, canSubmit])
+  }, [form, canSubmit, scheduleAutosave])
 
   useEffect(() => {
     if (!draftSaving && autosavePendingRef.current) {
@@ -758,7 +765,7 @@ export default function StudyManagerClient() {
         saveDraft({ data: form, snapshot })
       }
     }
-  }, [draftSaving, form])
+  }, [draftSaving, form, saveDraft])
 
   const inclusionItems = Array.isArray(form.inclusionCriteria) ? form.inclusionCriteria : []
   const exclusionItems = Array.isArray(form.exclusionCriteria) ? form.exclusionCriteria : []
@@ -773,10 +780,15 @@ export default function StudyManagerClient() {
   const autosaveStatusClass = draftError ? 'text-xs text-red-600' : 'text-xs text-gray-500'
 
   return (
-    <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-10 space-y-8">
+    <section
+      className="max-w-[1400px] mx-auto px-6 md:px-12 py-10 space-y-8"
+      aria-labelledby="study-manager-title"
+    >
       <header className="space-y-3">
         <p className="text-sm font-semibold text-purple uppercase tracking-wide">Coordinator Portal</p>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Study Manager</h1>
+        <h1 id="study-manager-title" className="text-3xl md:text-4xl font-bold tracking-tight">
+          Study Manager
+        </h1>
         <p className="text-gray-600 max-w-2xl">
           Submit or edit studies. Submissions are sent to an approval admin before changes go live. For studies
           registered with ClinicalTrials.gov (i.e., those that have an NCT number), use the sync tool to pull details
@@ -819,14 +831,18 @@ export default function StudyManagerClient() {
         {!token && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <form className="space-y-2" onSubmit={sendPasscode}>
-              <label className="text-sm font-medium">Work email</label>
+              <label htmlFor="study-manager-email" className="text-sm font-medium">Work email</label>
               <input
+                id="study-manager-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@lhsc.on.ca"
                 className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
               />
+              <p className="text-xs text-gray-500">
+                Use your LHSC email. We will send a one-time 6-digit code.
+              </p>
               <button
                 type="submit"
                 disabled={sendingCode || !email}
@@ -836,14 +852,18 @@ export default function StudyManagerClient() {
               </button>
             </form>
             <form className="space-y-2" onSubmit={verifyPasscode}>
-              <label className="text-sm font-medium">Passcode</label>
+              <label htmlFor="study-manager-passcode" className="text-sm font-medium">Passcode</label>
               <input
+                id="study-manager-passcode"
                 type="text"
                 value={passcode}
                 onChange={(e) => setPasscode(e.target.value)}
                 placeholder="6-digit code"
                 className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono"
               />
+              <p className="text-xs text-gray-500">
+                Enter the 6-digit code from your email.
+              </p>
               <button
                 type="submit"
                 disabled={verifyingCode || !email || !passcode}
@@ -876,7 +896,11 @@ export default function StudyManagerClient() {
                 + New study
               </button>
             </div>
+            <label htmlFor="study-manager-search" className="sr-only">
+              Search studies
+            </label>
             <input
+              id="study-manager-search"
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -956,8 +980,9 @@ export default function StudyManagerClient() {
               <div className="space-y-1">
                 <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
                   <div className="space-y-1">
-                    <label className="text-sm font-medium">NCT ID (start here)</label>
+                    <label htmlFor="study-manager-nct-id" className="text-sm font-medium">NCT ID (start here)</label>
                     <input
+                      id="study-manager-nct-id"
                       type="text"
                       value={form.nctId}
                       onChange={(e) => updateFormField('nctId', e.target.value.toUpperCase())}
@@ -974,13 +999,16 @@ export default function StudyManagerClient() {
                     {syncLoading ? 'Syncing...' : 'Fetch from ClinicalTrials.gov'}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500">Enter the NCT ID to pull details from ClinicalTrials.gov.</p>
+                <p className="text-xs text-gray-500">
+                  Enter the NCT ID to pull details from ClinicalTrials.gov. If there is no NCT ID, leave this blank.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Display title</label>
+                  <label htmlFor="study-manager-title" className="text-sm font-medium">Display title</label>
                   <input
+                    id="study-manager-title"
                     type="text"
                     value={form.title}
                     onChange={(e) => {
@@ -994,23 +1022,31 @@ export default function StudyManagerClient() {
                     placeholder="Patient-friendly study title"
                     className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                   />
+                  <p className="text-xs text-gray-500">
+                    This is the public title shown on the website.
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">URL slug</label>
+                  <label htmlFor="study-manager-slug" className="text-sm font-medium">URL slug</label>
                   <input
+                    id="study-manager-slug"
                     type="text"
                     value={form.slug}
                     onChange={(e) => updateFormField('slug', e.target.value)}
                     placeholder="auto-generated"
                     className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono text-sm"
                   />
+                  <p className="text-xs text-gray-500">
+                    Used in the page URL (lowercase words with hyphens).
+                  </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Recruitment status</label>
+                  <label htmlFor="study-manager-status" className="text-sm font-medium">Recruitment status</label>
                   <select
+                    id="study-manager-status"
                     value={form.status}
                     onChange={(e) => updateFormField('status', e.target.value)}
                     className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
@@ -1021,10 +1057,14 @@ export default function StudyManagerClient() {
                       </option>
                     ))}
                   </select>
+                  <p className="text-xs text-gray-500">
+                    Shows current recruitment status on the public page.
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Study type</label>
+                  <label htmlFor="study-manager-type" className="text-sm font-medium">Study type</label>
                   <select
+                    id="study-manager-type"
                     value={form.studyType}
                     onChange={(e) => updateFormField('studyType', e.target.value)}
                     className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
@@ -1035,10 +1075,14 @@ export default function StudyManagerClient() {
                       </option>
                     ))}
                   </select>
+                  <p className="text-xs text-gray-500">
+                    Choose the study design (as listed on ClinicalTrials.gov).
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-medium">Phase</label>
+                  <label htmlFor="study-manager-phase" className="text-sm font-medium">Phase</label>
                   <select
+                    id="study-manager-phase"
                     value={form.phase}
                     onChange={(e) => updateFormField('phase', e.target.value)}
                     className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
@@ -1049,6 +1093,9 @@ export default function StudyManagerClient() {
                       </option>
                     ))}
                   </select>
+                  <p className="text-xs text-gray-500">
+                    Select N/A for observational studies.
+                  </p>
                 </div>
               </div>
 
@@ -1072,17 +1119,23 @@ export default function StudyManagerClient() {
                   Accepts referrals
                 </label>
               </div>
+              <p className="text-xs text-gray-500">
+                Featured studies appear on the homepage. The Accepts referrals toggle shows the referral option to visitors.
+              </p>
             </div>
 
           <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
             <div>
               <h3 className="text-lg font-semibold">Therapeutic Areas</h3>
-              <p className="text-sm text-gray-500">Select all that apply for filtering.</p>
+              <p className="text-sm text-gray-500">
+                These tags help visitors filter studies and determine who receives study updates and recruitment reminders
+                (for example, GN studies go to GN fellows, physicians, nurses, and pharmacists). Select all that apply.
+              </p>
             </div>
 
             <div className="space-y-2">
-                  <label className="text-sm font-medium">Therapeutic areas</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <label id="therapeutic-areas-label" className="text-sm font-medium">Therapeutic areas</label>
+                  <div role="group" aria-labelledby="therapeutic-areas-label" className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {(meta.areas || []).map((area) => (
                       <label key={area._id} className="inline-flex items-center gap-2 text-sm">
                         <input
@@ -1106,59 +1159,87 @@ export default function StudyManagerClient() {
           <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
             <div>
               <h3 className="text-lg font-semibold">Local Contact & PI</h3>
+              <p className="text-sm text-gray-500">
+                This is the main contact for participants. Only shown publicly if you enable it below.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-sm font-medium">Contact name</label>
+                <label htmlFor="study-manager-contact-name" className="text-sm font-medium">Contact name</label>
                 <input
+                  id="study-manager-contact-name"
                   type="text"
                   value={form.localContact.name}
                   onChange={(e) => updateContactField('name', e.target.value)}
+                  placeholder="Jane Doe"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
+                <p className="text-xs text-gray-500">
+                  Person who should receive participant questions.
+                </p>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Contact role</label>
+                <label htmlFor="study-manager-contact-role" className="text-sm font-medium">Contact role</label>
                 <input
+                  id="study-manager-contact-role"
                   type="text"
                   value={form.localContact.role}
                   onChange={(e) => updateContactField('role', e.target.value)}
+                  placeholder="Study coordinator"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
+                <p className="text-xs text-gray-500">
+                  Job title shown on the public page.
+                </p>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Contact email</label>
+                <label htmlFor="study-manager-contact-email" className="text-sm font-medium">Contact email</label>
                 <input
+                  id="study-manager-contact-email"
                   type="email"
                   value={form.localContact.email}
                   onChange={(e) => updateContactField('email', e.target.value)}
+                  placeholder="contact@lhsc.on.ca"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
+                <p className="text-xs text-gray-500">
+                  Email for participant inquiries.
+                </p>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Contact phone</label>
+                <label htmlFor="study-manager-contact-phone" className="text-sm font-medium">Contact phone</label>
                 <input
+                  id="study-manager-contact-phone"
                   type="text"
                   value={form.localContact.phone}
                   onChange={(e) => updateContactField('phone', e.target.value)}
+                  placeholder="555-555-5555"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
+                <p className="text-xs text-gray-500">
+                  Phone number for participant questions.
+                </p>
               </div>
-              <div className="flex items-center gap-3 text-sm text-gray-700 md:col-span-2">
+              <label className="flex items-center gap-3 text-sm text-gray-700 md:col-span-2">
                 <input
                   type="checkbox"
                   checked={form.localContact.displayPublicly}
                   onChange={(e) => updateContactField('displayPublicly', e.target.checked)}
                   className="h-4 w-4"
                 />
-                Display contact info publicly
-              </div>
+                <span>Display contact info publicly</span>
+              </label>
+              <p className="text-xs text-gray-500 md:col-span-2">
+                When checked, the contact name, role, email, and phone appear on the public study page. This is not
+                required to facilitate referrals; leaving it unchecked keeps the information hidden.
+              </p>
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium">Principal investigator</label>
+              <label htmlFor="study-manager-pi" className="text-sm font-medium">Principal investigator</label>
               <select
+                id="study-manager-pi"
                 value={form.principalInvestigatorId}
                 onChange={(e) => updateFormField('principalInvestigatorId', e.target.value)}
                 className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
@@ -1170,56 +1251,80 @@ export default function StudyManagerClient() {
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-gray-500">
+                Used for internal tracking.
+              </p>
             </div>
           </div>
 
           <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
             <div>
               <h3 className="text-lg font-semibold">Summaries & Details</h3>
-              <p className="text-sm text-gray-500">These appear on the public study page.</p>
+              <p className="text-sm text-gray-500">
+                These appear on the public study page. If populated from ClinicalTrials.gov, the summary and
+                eligibility overview are generated by AI and should be reviewed for accuracy.
+              </p>
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium">Plain language summary</label>
+              <label htmlFor="study-manager-lay-summary" className="text-sm font-medium">Plain language summary</label>
               <textarea
+                id="study-manager-lay-summary"
+                aria-describedby="study-manager-lay-summary-help"
                 value={form.laySummary}
                 onChange={(e) => updateFormField('laySummary', e.target.value)}
                 rows={4}
                 className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
               />
+              <p id="study-manager-lay-summary-help" className="text-xs text-gray-500">
+                2-4 sentences in everyday language. Explain what the study is about.
+              </p>
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium">Eligibility overview</label>
+              <label htmlFor="study-manager-eligibility-overview" className="text-sm font-medium">Eligibility overview</label>
               <textarea
+                id="study-manager-eligibility-overview"
+                aria-describedby="study-manager-eligibility-overview-help"
                 value={form.eligibilityOverview}
                 onChange={(e) => updateFormField('eligibilityOverview', e.target.value)}
                 rows={3}
                 className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
               />
+              <p id="study-manager-eligibility-overview-help" className="text-xs text-gray-500">
+                Short summary of who can join (1-2 sentences).
+              </p>
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium">Study website (if available)</label>
+              <label htmlFor="study-manager-sponsor-website" className="text-sm font-medium">Study website (if available)</label>
               <input
+                id="study-manager-sponsor-website"
+                aria-describedby="study-manager-sponsor-website-help"
                 type="url"
                 value={form.sponsorWebsite}
                 onChange={(e) => updateFormField('sponsorWebsite', e.target.value)}
                 placeholder="https://"
                 className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
               />
+              <p id="study-manager-sponsor-website-help" className="text-xs text-gray-500">
+                Public link to the sponsor or trial page. Leave blank if none.
+              </p>
             </div>
           </div>
 
           <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
             <div>
               <h3 className="text-lg font-semibold">Eligibility Criteria</h3>
-              <p className="text-sm text-gray-500">Add each criterion as its own item.</p>
+              <p className="text-sm text-gray-500">
+                Add one requirement per item. Press Enter to add another, or paste a list.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Inclusion criteria</label>
+                <label id="inclusion-criteria-label" className="text-sm font-medium">Inclusion criteria</label>
+                <p id="inclusion-criteria-help" className="text-xs text-gray-500">Who can join the study.</p>
                 <div className="space-y-2">
                   {inclusionItems.length ? (
                     inclusionItems.map((item, index) => (
@@ -1233,6 +1338,8 @@ export default function StudyManagerClient() {
                             inclusionCriteriaRefs.current[index] = el
                           }}
                           type="text"
+                          aria-label={`Inclusion criterion ${index + 1}`}
+                          aria-describedby="inclusion-criteria-help"
                           value={item}
                           onChange={(e) => updateCriteriaItem('inclusionCriteria', index, e.target.value)}
                           onBlur={(e) => {
@@ -1243,7 +1350,7 @@ export default function StudyManagerClient() {
                           }}
                           onKeyDown={(e) => handleCriteriaKeyDown(e, 'inclusionCriteria', index, item)}
                           onPaste={(e) => handleCriteriaPaste(e, 'inclusionCriteria', index)}
-                          placeholder="Add inclusion criterion"
+                          placeholder="Example: Age 18-65"
                           className="flex-1 bg-transparent text-sm focus:outline-none"
                         />
                         <button
@@ -1269,7 +1376,8 @@ export default function StudyManagerClient() {
                 </button>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Exclusion criteria</label>
+                <label id="exclusion-criteria-label" className="text-sm font-medium">Exclusion criteria</label>
+                <p id="exclusion-criteria-help" className="text-xs text-gray-500">Who cannot join the study.</p>
                 <div className="space-y-2">
                   {exclusionItems.length ? (
                     exclusionItems.map((item, index) => (
@@ -1283,6 +1391,8 @@ export default function StudyManagerClient() {
                             exclusionCriteriaRefs.current[index] = el
                           }}
                           type="text"
+                          aria-label={`Exclusion criterion ${index + 1}`}
+                          aria-describedby="exclusion-criteria-help"
                           value={item}
                           onChange={(e) => updateCriteriaItem('exclusionCriteria', index, e.target.value)}
                           onBlur={(e) => {
@@ -1293,7 +1403,7 @@ export default function StudyManagerClient() {
                           }}
                           onKeyDown={(e) => handleCriteriaKeyDown(e, 'exclusionCriteria', index, item)}
                           onPaste={(e) => handleCriteriaPaste(e, 'exclusionCriteria', index)}
-                          placeholder="Add exclusion criterion"
+                          placeholder="Example: Pregnant or breastfeeding"
                           className="flex-1 bg-transparent text-sm focus:outline-none"
                         />
                         <button
@@ -1335,6 +1445,6 @@ export default function StudyManagerClient() {
       ) : (
         <p className="text-sm text-gray-500">Sign in to view and manage studies.</p>
       )}
-    </main>
+    </section>
   )
 }
