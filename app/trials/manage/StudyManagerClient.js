@@ -67,16 +67,23 @@ function slugify(value) {
     .slice(0, 96)
 }
 
+function normalizeCriteriaText(value) {
+  return String(value || '')
+    .replace(/\\+([<>^\[\]])/g, '$1')
+    .replace(/&gt;/gi, '>')
+    .replace(/&lt;/gi, '<')
+}
+
 function splitList(value) {
   if (Array.isArray(value)) {
     return value
-      .map((item) => String(item || '').trim())
+      .map((item) => normalizeCriteriaText(item).trim())
       .filter(Boolean)
   }
   if (!value) return []
   return String(value)
     .split(/[\n,]+/)
-    .map((item) => item.trim())
+    .map((item) => normalizeCriteriaText(item).trim())
     .filter(Boolean)
 }
 
