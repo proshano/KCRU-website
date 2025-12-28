@@ -28,7 +28,8 @@ export default {
         list: [
           { title: 'Pending', value: 'pending' },
           { title: 'Approved', value: 'approved' },
-          { title: 'Rejected', value: 'rejected' }
+          { title: 'Rejected', value: 'rejected' },
+          { title: 'Superseded', value: 'superseded' }
         ],
         layout: 'radio'
       },
@@ -44,6 +45,7 @@ export default {
       title: 'Submitted By',
       type: 'object',
       fields: [
+        { name: 'email', title: 'Email', type: 'string' },
         { name: 'ip', title: 'IP', type: 'string' },
         { name: 'userAgent', title: 'User Agent', type: 'string' }
       ]
@@ -57,6 +59,17 @@ export default {
       name: 'reviewedBy',
       title: 'Reviewed By (email)',
       type: 'string'
+    },
+    {
+      name: 'supersededAt',
+      title: 'Superseded At',
+      type: 'datetime'
+    },
+    {
+      name: 'supersededBy',
+      title: 'Superseded By',
+      type: 'reference',
+      to: [{ type: 'studySubmission' }]
     },
     {
       name: 'studyRef',

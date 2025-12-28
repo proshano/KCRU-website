@@ -56,6 +56,7 @@ export async function GET(request) {
           submittedAt,
           submittedBy,
           payload,
+          "supersedesCount": count(*[_type == "studySubmission" && supersededBy._ref == ^._id]),
           "study": studyRef->{
             _id,
             title,
@@ -139,6 +140,7 @@ export async function PATCH(request) {
         _id,
         status,
         action,
+        submittedAt,
         payload,
         "studyId": studyRef._ref
       }`,
@@ -170,6 +172,19 @@ export async function PATCH(request) {
         .commit({ returnDocuments: false })
 
       return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })
+    }
+
+    if (submission.action === 'update' && submission.studyId) {
+      const latestPending = await sanityFetch(
+        `*[_type == "studySubmission" && status == "pending" && studyRef._ref == $studyId] | order(submittedAt desc)[0]{ _id }`,
+        { studyId: submission.studyId }
+      )
+      if (latestPending?._id && latestPending._id !== submissionId) {
+        return NextResponse.json(
+          { ok: false, error: 'A newer submission is pending for this study. Approve the most recent submission.' },
+          { status: 409, headers: CORS_HEADERS }
+        )
+      }
     }
 
     if (!['create', 'update'].includes(submission.action)) {

@@ -218,6 +218,15 @@ export default function ApprovalClient() {
                       <p className="text-sm text-gray-500">
                         Submitted {formatDate(submission.submittedAt)}
                       </p>
+                      <p className="text-sm text-gray-500">
+                        Submitted by {submission.submittedBy?.email || 'Unknown'}
+                      </p>
+                      {submission.supersedesCount > 0 && (
+                        <p className="text-sm text-amber-600">
+                          Supersedes {submission.supersedesCount} earlier pending submission
+                          {submission.supersedesCount === 1 ? '' : 's'}.
+                        </p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <button

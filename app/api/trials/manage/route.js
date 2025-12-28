@@ -28,6 +28,59 @@ function getClientIp(headers) {
   return headers.get('x-real-ip') || null
 }
 
+function formatDate(value) {
+  if (!value) return 'Unknown'
+  try {
+    return new Date(value).toLocaleString()
+  } catch (err) {
+    return String(value)
+  }
+}
+
+function formatBoolean(value) {
+  return value ? 'Yes' : 'No'
+}
+
+function formatList(items, limit = 4) {
+  const list = Array.isArray(items) ? items.filter(Boolean) : []
+  if (!list.length) return 'None'
+  if (list.length <= limit) return list.join(', ')
+  return `${list.slice(0, limit).join(', ')} (+${list.length - limit} more)`
+}
+
+function truncateText(value, limit = 360) {
+  const text = String(value || '').trim()
+  if (!text) return 'None'
+  if (text.length <= limit) return text
+  return `${text.slice(0, limit - 3).trim()}...`
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function formatParagraph(value, limit) {
+  const text = truncateText(value, limit)
+  if (text === 'None') return text
+  return escapeHtml(text).replace(/\n/g, '<br />')
+}
+
+function formatLocalContact(contact) {
+  if (!contact) return 'None'
+  const parts = []
+  if (contact.name) parts.push(contact.name)
+  if (contact.role) parts.push(contact.role)
+  if (contact.email) parts.push(contact.email)
+  if (contact.phone) parts.push(contact.phone)
+  parts.push(`Public: ${formatBoolean(contact.displayPublicly)}`)
+  return parts.length ? parts.join(' | ') : 'None'
+}
+
 async function getApprovalAdmins() {
   const settings = await sanityFetch(`
     *[_type == "siteSettings"][0]{
@@ -55,57 +108,173 @@ async function createApprovalSessionLink(email) {
   return `${APPROVAL_BASE_URL}?token=${token}`
 }
 
-async function notifyAdmins({ action, submissionId, payload, headers, recipients }) {
-  const targets = recipients?.length ? recipients : await getApprovalAdmins()
-  if (!targets.length) return
+function buildApprovalEmail({
+  action,
+  approvalLink,
+  payload,
+  submissionId,
+  submittedAt,
+  submittedByEmail,
+  supersededCount,
+}) {
+  const actionLabel = action === 'update' ? 'Update' : 'New study'
+  const submittedAtLabel = formatDate(submittedAt)
+  const inclusionCount = Array.isArray(payload.inclusionCriteria)
+    ? payload.inclusionCriteria.length
+    : 0
+  const exclusionCount = Array.isArray(payload.exclusionCriteria)
+    ? payload.exclusionCriteria.length
+    : 0
+  const inclusionLabel = inclusionCount
+    ? `${inclusionCount} item${inclusionCount === 1 ? '' : 's'}`
+    : 'None'
+  const exclusionLabel = exclusionCount
+    ? `${exclusionCount} item${exclusionCount === 1 ? '' : 's'}`
+    : 'None'
 
-  const submittedAt = new Date().toISOString()
-  const summary = {
-    action,
-    submittedAt,
-    submissionId,
-    title: payload.title || null,
-    slug: payload.slug || null,
-    nctId: payload.nctId || null,
-    status: payload.status || null,
-    studyType: payload.studyType || null,
-    phase: payload.phase || null,
-    therapeuticAreaIds: payload.therapeuticAreaIds || [],
-    principalInvestigatorId: payload.principalInvestigatorId || null,
-    acceptsReferrals: payload.acceptsReferrals,
-    featured: payload.featured,
-    sponsorWebsite: payload.sponsorWebsite || null,
-    laySummary: payload.laySummary || null,
-    eligibilityOverview: payload.eligibilityOverview || null,
-    inclusionCriteria: payload.inclusionCriteria || [],
-    exclusionCriteria: payload.exclusionCriteria || [],
-    localContact: payload.localContact || null,
-    meta: {
-      ip: getClientIp(headers),
-      userAgent: headers.get('user-agent') || null,
-    },
+  const detailRows = [
+    ['Study title', payload.title || 'Untitled'],
+    ['NCT ID', payload.nctId || 'None'],
+    ['Status', payload.status || 'None'],
+    ['Study type', payload.studyType || 'None'],
+    ['Phase', payload.phase || 'None'],
+    ['Slug', payload.slug || 'None'],
+    ['Featured', formatBoolean(payload.featured)],
+    ['Accepts referrals', formatBoolean(payload.acceptsReferrals)],
+    ['Therapeutic areas', formatList(payload.therapeuticAreaIds)],
+    ['Principal investigator', payload.principalInvestigatorId || 'None'],
+    ['Sponsor website', payload.sponsorWebsite || 'None'],
+    ['Local contact', formatLocalContact(payload.localContact)],
+    ['Inclusion criteria', inclusionLabel],
+    ['Exclusion criteria', exclusionLabel],
+  ]
+
+  const notes = []
+  if (supersededCount > 0) {
+    notes.push(
+      `Supersedes ${supersededCount} earlier pending submission${supersededCount === 1 ? '' : 's'}.`
+    )
   }
 
-  const subject = `Study submission pending approval (${action})`
+  const textLines = [
+    `Study submission pending approval (${actionLabel})`,
+    '',
+    `Submitted by: ${submittedByEmail || 'Unknown'}`,
+    `Submitted at: ${submittedAtLabel}`,
+    `Submission ID: ${submissionId || 'Unknown'}`,
+    notes.length ? `Notes: ${notes.join(' ')}` : null,
+    '',
+    `Open approvals (valid for ${APPROVAL_SESSION_TTL_HOURS} hours): ${approvalLink}`,
+    '',
+    'Study details:',
+    ...detailRows.map(([label, value]) => `- ${label}: ${value}`),
+    '',
+    'Summaries:',
+    `- Plain language summary: ${truncateText(payload.laySummary)}`,
+    `- Eligibility overview: ${truncateText(payload.eligibilityOverview)}`,
+  ].filter(Boolean)
+
+  const htmlRows = detailRows
+    .map(
+      ([label, value]) => `
+        <tr>
+          <td style="padding: 6px 8px; font-weight: 600; vertical-align: top;">${escapeHtml(label)}</td>
+          <td style="padding: 6px 8px;">${escapeHtml(value)}</td>
+        </tr>
+      `
+    )
+    .join('')
+
+  const notesHtml = notes.length
+    ? `<p style="margin: 12px 0; padding: 10px 12px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px;">
+         <strong>Notes:</strong> ${escapeHtml(notes.join(' '))}
+       </p>`
+    : ''
+
+  const html = `
+    <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.5;">
+      <h2 style="margin: 0 0 8px;">Study submission pending approval</h2>
+      <p style="margin: 0 0 12px; color: #444;">
+        <strong>Action:</strong> ${escapeHtml(actionLabel)}<br />
+        <strong>Submitted by:</strong> ${escapeHtml(submittedByEmail || 'Unknown')}<br />
+        <strong>Submitted at:</strong> ${escapeHtml(submittedAtLabel)}<br />
+        <strong>Submission ID:</strong> ${escapeHtml(submissionId || 'Unknown')}
+      </p>
+      ${notesHtml}
+      <p style="margin: 0 0 16px;">
+        <a href="${escapeHtml(approvalLink)}" style="display: inline-block; padding: 10px 16px; background: #4f46e5; color: #fff; text-decoration: none; border-radius: 6px;">
+          Open approvals
+        </a>
+        <span style="margin-left: 8px; color: #666;">Valid for ${APPROVAL_SESSION_TTL_HOURS} hours</span>
+      </p>
+      <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+        <tbody>
+          ${htmlRows}
+        </tbody>
+      </table>
+      <h3 style="margin: 16px 0 6px; font-size: 14px;">Summaries</h3>
+      <p style="margin: 0 0 8px;"><strong>Plain language summary:</strong><br />${formatParagraph(payload.laySummary)}</p>
+      <p style="margin: 0;"><strong>Eligibility overview:</strong><br />${formatParagraph(payload.eligibilityOverview)}</p>
+      <p style="margin: 16px 0 0; font-size: 12px; color: #666;">
+        View full details and criteria in the approvals portal.
+      </p>
+    </div>
+  `
+
+  return {
+    subject: `Study submission pending approval: ${actionLabel}`,
+    text: textLines.join('\n'),
+    html,
+  }
+}
+
+async function supersedePendingSubmissions({ submissionId, studyId }) {
+  if (!submissionId || !studyId) return 0
+  const pending = await sanityFetch(
+    `*[_type == "studySubmission" && status == "pending" && studyRef._ref == $studyId && _id != $submissionId] { _id }`,
+    { studyId, submissionId }
+  )
+  if (!Array.isArray(pending) || !pending.length) return 0
+  const supersededAt = new Date().toISOString()
+  await Promise.allSettled(
+    pending.map((item) =>
+      writeClient
+        .patch(item._id)
+        .set({
+          status: 'superseded',
+          supersededAt,
+          supersededBy: { _type: 'reference', _ref: submissionId },
+        })
+        .commit({ returnDocuments: false })
+    )
+  )
+  return pending.length
+}
+
+async function notifyAdmins({
+  action,
+  submissionId,
+  payload,
+  recipients,
+  submittedAt,
+  submittedBy,
+  supersededCount,
+}) {
+  const targets = recipients?.length ? recipients : await getApprovalAdmins()
+  if (!targets.length) return
+  const submittedByEmail = submittedBy?.email || ''
   const results = await Promise.allSettled(
     targets.map(async (to) => {
       const approvalLink = await createApprovalSessionLink(to)
-      const text = [
-        `A study submission requires approval (${action}).`,
-        '',
-        `Open approvals (valid for ${APPROVAL_SESSION_TTL_HOURS} hours): ${approvalLink}`,
-        '',
-        JSON.stringify(summary, null, 2),
-      ].join('\n')
-      const html = `
-        <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.5;">
-          <p style="margin: 0 0 12px;"><strong>Study submission pending approval (${action})</strong></p>
-          <p style="margin: 0 0 12px;">
-            Open approvals (valid for ${APPROVAL_SESSION_TTL_HOURS} hours): <a href="${approvalLink}">${approvalLink}</a>
-          </p>
-          <pre style="white-space: pre-wrap; background: #f7f7f7; border: 1px solid #eee; padding: 12px; border-radius: 8px;">${JSON.stringify(summary, null, 2)}</pre>
-        </div>
-      `
+      const { subject, text, html } = buildApprovalEmail({
+        action,
+        approvalLink,
+        payload,
+        submissionId,
+        submittedAt,
+        submittedByEmail,
+        supersededCount,
+      })
       return sendEmail({ to, subject, text, html })
     })
   )
@@ -208,6 +377,7 @@ export async function GET(request) {
 export async function POST(request) {
   const auth = await requireCoordinatorSession(request)
   if (auth) return auth
+  const session = await getCoordinatorSession(extractToken(request))
 
   if (!writeClient.config().token) {
     return NextResponse.json(
@@ -234,25 +404,30 @@ export async function POST(request) {
     }
 
     const submittedAt = new Date().toISOString()
+    const submittedBy = {
+      ip: getClientIp(request.headers),
+      userAgent: request.headers.get('user-agent') || '',
+      email: session?.email || '',
+    }
     const submission = await writeClient.create({
       _type: 'studySubmission',
       title: payload.title,
       action: 'create',
       status: 'pending',
       submittedAt,
-      submittedBy: {
-        ip: getClientIp(request.headers),
-        userAgent: request.headers.get('user-agent') || '',
-      },
+      submittedBy,
       payload,
     })
 
+    const supersededCount = 0
     await notifyAdmins({
       action: 'create',
       submissionId: submission?._id,
       payload,
-      headers: request.headers,
       recipients: admins,
+      submittedAt,
+      submittedBy,
+      supersededCount,
     })
 
     return NextResponse.json({ ok: true, submissionId: submission?._id }, { headers: CORS_HEADERS })
@@ -268,6 +443,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const auth = await requireCoordinatorSession(request)
   if (auth) return auth
+  const session = await getCoordinatorSession(extractToken(request))
 
   if (!writeClient.config().token) {
     return NextResponse.json(
@@ -303,6 +479,11 @@ export async function PATCH(request) {
     }
 
     const submittedAt = new Date().toISOString()
+    const submittedBy = {
+      ip: getClientIp(request.headers),
+      userAgent: request.headers.get('user-agent') || '',
+      email: session?.email || '',
+    }
     const submission = await writeClient.create({
       _type: 'studySubmission',
       title: payload.title,
@@ -310,19 +491,23 @@ export async function PATCH(request) {
       status: 'pending',
       submittedAt,
       studyRef: { _type: 'reference', _ref: id },
-      submittedBy: {
-        ip: getClientIp(request.headers),
-        userAgent: request.headers.get('user-agent') || '',
-      },
+      submittedBy,
       payload,
+    })
+
+    const supersededCount = await supersedePendingSubmissions({
+      submissionId: submission?._id,
+      studyId: id,
     })
 
     await notifyAdmins({
       action: 'update',
       submissionId: submission?._id,
       payload,
-      headers: request.headers,
       recipients: admins,
+      submittedAt,
+      submittedBy,
+      supersededCount,
     })
 
     return NextResponse.json({ ok: true, submissionId: submission?._id }, { headers: CORS_HEADERS })
