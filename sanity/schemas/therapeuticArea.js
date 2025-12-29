@@ -8,6 +8,8 @@
 import AutoSlugInput from '../components/AutoSlugInput'
 import { ROLE_OPTIONS, THERAPEUTIC_AREA_OPTIONS } from '../../lib/communicationOptions'
 
+const AREA_LABELS = new Map(THERAPEUTIC_AREA_OPTIONS.map((area) => [area.value, area.title]))
+
 export default {
   name: 'therapeuticArea',
   title: 'Therapeutic Areas',
@@ -15,13 +17,13 @@ export default {
   fields: [
     {
       name: 'name',
-      title: 'Name',
+      title: 'Therapeutic Area',
       type: 'string',
       options: {
         list: THERAPEUTIC_AREA_OPTIONS
       },
       validation: Rule => Rule.required(),
-      description: 'Select the therapeutic area used for study tagging.'
+      description: 'Canonical label used for study tags and filters.'
     },
     {
       name: 'slug',
@@ -89,8 +91,9 @@ export default {
       active: 'active'
     },
     prepare({ title, shortLabel, icon, active }) {
+      const label = AREA_LABELS.get(title) || title
       return {
-        title: `${icon || ''} ${title}`,
+        title: `${icon || ''} ${label}`,
         subtitle: `${shortLabel || ''} ${active === false ? '(inactive)' : ''}`
       }
     }
