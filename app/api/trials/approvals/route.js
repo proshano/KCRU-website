@@ -221,7 +221,6 @@ export async function PATCH(request) {
         studyType: normalized.studyType || undefined,
         phase: normalized.phase || undefined,
         laySummary: normalized.laySummary || null,
-        eligibilityOverview: normalized.eligibilityOverview || null,
         inclusionCriteria: normalized.inclusionCriteria || [],
         exclusionCriteria: normalized.exclusionCriteria || [],
         sponsorWebsite: normalized.sponsorWebsite || null,

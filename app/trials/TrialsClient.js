@@ -53,7 +53,6 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
         trial.nctId,
         trial.ctGovData?.sponsor,
         trial.laySummary,
-        trial.eligibilityOverview,
         trial.principalInvestigator?.name,
         ...(trial.therapeuticAreas?.map(a => a.name) || []),
         ...(trial.therapeuticAreas?.map(a => a.shortLabel) || []),

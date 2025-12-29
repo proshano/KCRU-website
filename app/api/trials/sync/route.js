@@ -31,8 +31,7 @@ export async function POST(request) {
     const body = await request.json()
     const { 
       nctId, 
-      generateSummary = true,
-      generateEligibilityOverview = true 
+      generateSummary = true
     } = body
 
     if (!nctId) {
@@ -55,8 +54,7 @@ export async function POST(request) {
 
     // Sync the trial data
     const trialData = await syncTrialData(normalizedNctId, {
-      generateSummary,
-      generateEligibilityOverview
+      generateSummary
     })
 
     console.log(`[trial-sync] Successfully synced: ${nctId}`)

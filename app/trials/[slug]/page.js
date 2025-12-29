@@ -15,7 +15,7 @@ export async function generateMetadata({ params }) {
   
   return {
     title: `${trial.title} | KCRU Clinical Studies`,
-    description: trial.laySummary || trial.eligibilityOverview || `Learn about the ${trial.title} study.`,
+    description: trial.laySummary || `Learn about the ${trial.title} study.`,
   }
 }
 
@@ -171,12 +171,6 @@ export default async function TrialDetailPage({ params }) {
       <section className="mb-10 p-6 bg-gray-50 rounded-xl border border-gray-200">
         <h2 className="text-xl font-bold mb-4">Who Can Participate?</h2>
         
-        {trial.eligibilityOverview && (
-          <p className="text-gray-700 mb-6 pb-6 border-b border-gray-200">
-            {trial.eligibilityOverview}
-          </p>
-        )}
-
         {/* Detailed criteria */}
         <div className="grid md:grid-cols-2 gap-6">
           {trial.inclusionCriteria?.length > 0 && (

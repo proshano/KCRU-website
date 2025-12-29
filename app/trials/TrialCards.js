@@ -73,7 +73,7 @@ function TrialItem({ trial }) {
   const slugValue = trial.slug?.current || trial.slug
   const hasDetailPage = !!slugValue
   const ctGovUrl = trial.nctId ? `https://clinicaltrials.gov/study/${trial.nctId}` : null
-  const summaryText = trial.laySummary || trial.eligibilityOverview || ''
+  const summaryText = trial.laySummary || ''
 
   return (
     <article className="p-6 space-y-3 hover:bg-[#fafafa] transition-colors">

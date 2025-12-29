@@ -170,8 +170,7 @@ function buildApprovalEmail({
     ...detailRows.map(([label, value]) => `- ${label}: ${value}`),
     '',
     'Summaries:',
-    `- Plain language summary: ${truncateText(payload.laySummary)}`,
-    `- Eligibility overview: ${truncateText(payload.eligibilityOverview)}`,
+    `- Clinical summary: ${truncateText(payload.laySummary)}`,
   ].filter(Boolean)
 
   const htmlRows = detailRows
@@ -213,8 +212,7 @@ function buildApprovalEmail({
         </tbody>
       </table>
       <h3 style="margin: 16px 0 6px; font-size: 14px;">Summaries</h3>
-      <p style="margin: 0 0 8px;"><strong>Plain language summary:</strong><br />${formatParagraph(payload.laySummary)}</p>
-      <p style="margin: 0;"><strong>Eligibility overview:</strong><br />${formatParagraph(payload.eligibilityOverview)}</p>
+      <p style="margin: 0 0 8px;"><strong>Clinical summary:</strong><br />${formatParagraph(payload.laySummary)}</p>
       <p style="margin: 16px 0 0; font-size: 12px; color: #666;">
         View full details and criteria in the approvals portal.
       </p>
@@ -327,7 +325,6 @@ export async function GET(request) {
           studyType,
           phase,
           laySummary,
-          eligibilityOverview,
           inclusionCriteria,
           exclusionCriteria,
           featured,

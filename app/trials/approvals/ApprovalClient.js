@@ -284,11 +284,7 @@ export default function ApprovalClient() {
                     <summary className="cursor-pointer font-medium text-gray-900">Descriptions</summary>
                     <div className="mt-3 space-y-2">
                       <p>
-                        <span className="font-medium">Plain language summary:</span> {payload.laySummary || 'None'}
-                      </p>
-                      <p>
-                        <span className="font-medium">Eligibility overview:</span>{' '}
-                        {payload.eligibilityOverview || 'None'}
+                        <span className="font-medium">Clinical summary:</span> {payload.laySummary || 'None'}
                       </p>
                     </div>
                   </details>
