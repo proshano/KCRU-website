@@ -13,7 +13,6 @@ const CORS_HEADERS = {
 const FALLBACK_NOTIFY_EMAIL = (process.env.STUDY_EDITOR_NOTIFY_EMAIL || '').trim()
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
 const APPROVAL_BASE_URL = `${SITE_BASE_URL}/trials/approvals`
-const APPROVAL_QUICK_BASE_URL = `${SITE_BASE_URL}/api/trials/approvals/quick`
 const APPROVAL_SESSION_TTL_HOURS = 8
 const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
 
@@ -119,17 +118,12 @@ async function createApprovalSessionLink(email) {
     expiresAt,
     revoked: false,
   })
-  return {
-    token,
-    approvalLink: `${APPROVAL_BASE_URL}?token=${token}`,
-  }
+  return `${APPROVAL_BASE_URL}?token=${token}`
 }
 
 function buildApprovalEmail({
   action,
   approvalLink,
-  approveLink,
-  rejectLink,
   payload,
   submissionId,
   submittedAt,
@@ -242,14 +236,6 @@ function buildApprovalEmail({
         </a>
         <span style="margin-left: 8px; color: #666;">Valid for ${APPROVAL_SESSION_TTL_HOURS} hours</span>
       </p>
-      <p style="margin: 0 0 16px;">
-        <a href="${escapeHtml(approveLink)}" style="display: inline-block; padding: 10px 16px; background: #059669; color: #fff; text-decoration: none; border-radius: 6px;">
-          Approve submission
-        </a>
-        <a href="${escapeHtml(rejectLink)}" style="display: inline-block; margin-left: 8px; padding: 10px 16px; border: 1px solid #dc2626; color: #dc2626; text-decoration: none; border-radius: 6px;">
-          Reject submission
-        </a>
-      </p>
       <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
         <tbody>
           ${htmlRows}
@@ -350,16 +336,10 @@ async function notifyAdmins({
   const resolved = await resolvePayloadReferences(payload)
   const results = await Promise.allSettled(
     targets.map(async (to) => {
-      const { token, approvalLink } = await createApprovalSessionLink(to)
-      const encodedSubmissionId = encodeURIComponent(submissionId || '')
-      const encodedToken = encodeURIComponent(token)
-      const approveLink = `${APPROVAL_QUICK_BASE_URL}?token=${encodedToken}&submissionId=${encodedSubmissionId}&decision=approve`
-      const rejectLink = `${APPROVAL_QUICK_BASE_URL}?token=${encodedToken}&submissionId=${encodedSubmissionId}&decision=reject`
+      const approvalLink = await createApprovalSessionLink(to)
       const { subject, text, html } = buildApprovalEmail({
         action,
         approvalLink,
-        approveLink,
-        rejectLink,
         payload,
         submissionId,
         submittedAt,

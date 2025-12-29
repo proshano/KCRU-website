@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
-import { reviewSubmission } from '@/lib/studyApprovals'
+import { handleRejectedSubmission, reviewSubmission } from '@/lib/studyApprovals'
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
 const APPROVAL_BASE_URL = `${SITE_BASE_URL}/trials/approvals`
@@ -68,6 +68,14 @@ export async function GET(request) {
       return NextResponse.redirect(
         `${APPROVAL_BASE_URL}?token=${encodeURIComponent(token)}&error=${encodeURIComponent(result.error || 'Failed to review submission.')}`
       )
+    }
+
+    if (decision === 'reject') {
+      try {
+        await handleRejectedSubmission({ submission: result.submission, sanityFetch, writeClient })
+      } catch (error) {
+        console.error('[approvals-quick] rejection email failed', error)
+      }
     }
 
     return NextResponse.redirect(
