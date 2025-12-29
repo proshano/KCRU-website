@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
-import { sanitizeString } from '@/lib/studySubmissions'
-import { reviewSubmission } from '@/lib/studyApprovals'
+import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -38,27 +37,29 @@ export async function GET(request) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
+  const url = new URL(request.url)
+  const submissionId = sanitizeString(url.searchParams.get('submissionId'))
+  if (!submissionId) {
+    return NextResponse.json(
+      { ok: false, error: 'Submission id is required.' },
+      { status: 400, headers: CORS_HEADERS }
+    )
+  }
+
   try {
-    const [submissionsRaw, areasRaw, researchersRaw] = await Promise.all([
-      sanityFetch(`
-        *[_type == "studySubmission" && status == "pending"] | order(submittedAt desc) {
+    const [submission, areasRaw, researchersRaw] = await Promise.all([
+      sanityFetch(
+        `*[_type == "studySubmission" && _id == $id][0]{
           _id,
           title,
           action,
           status,
           submittedAt,
           submittedBy,
-          payload,
-          "supersedesCount": count(*[_type == "studySubmission" && supersededBy._ref == ^._id]),
-          "study": studyRef->{
-            _id,
-            title,
-            "slug": slug.current,
-            status,
-            nctId
-          }
-        }
-      `),
+          payload
+        }`,
+        { id: submissionId }
+      ),
       sanityFetch(`
         *[_type == "therapeuticArea" && active == true] | order(order asc, name asc) {
           _id,
@@ -75,11 +76,25 @@ export async function GET(request) {
       `),
     ])
 
+    if (!submission?._id) {
+      return NextResponse.json(
+        { ok: false, error: 'Submission not found.' },
+        { status: 404, headers: CORS_HEADERS }
+      )
+    }
+
+    if (submission.status !== 'pending') {
+      return NextResponse.json(
+        { ok: false, error: 'Submission already reviewed.' },
+        { status: 400, headers: CORS_HEADERS }
+      )
+    }
+
     return NextResponse.json(
       {
         ok: true,
         adminEmail: session.email,
-        submissions: submissionsRaw || [],
+        submission,
         meta: {
           areas: areasRaw || [],
           researchers: researchersRaw || [],
@@ -88,9 +103,9 @@ export async function GET(request) {
       { headers: CORS_HEADERS }
     )
   } catch (error) {
-    console.error('[approvals] GET failed', error)
+    console.error('[approvals-submission] GET failed', error)
     return NextResponse.json(
-      { ok: false, error: error?.message || 'Failed to load submissions.' },
+      { ok: false, error: error?.message || 'Failed to load submission.' },
       { status: 500, headers: CORS_HEADERS }
     )
   }
@@ -105,7 +120,7 @@ export async function PATCH(request) {
 
   if (!writeClient.config().token) {
     return NextResponse.json(
-      { ok: false, error: 'SANITY_API_TOKEN missing; cannot approve submissions.' },
+      { ok: false, error: 'SANITY_API_TOKEN missing; cannot edit submissions.' },
       { status: 500, headers: CORS_HEADERS }
     )
   }
@@ -113,41 +128,55 @@ export async function PATCH(request) {
   try {
     const body = await request.json()
     const submissionId = sanitizeString(body?.submissionId)
-    const decision = sanitizeString(body?.decision)
-    if (!submissionId || !decision) {
+    if (!submissionId) {
       return NextResponse.json(
-        { ok: false, error: 'Submission id and decision are required.' },
+        { ok: false, error: 'Submission id is required.' },
         { status: 400, headers: CORS_HEADERS }
       )
     }
 
-    if (!['approve', 'reject'].includes(decision)) {
+    const payload = normalizeStudyPayload(body?.payload || body)
+    if (!payload.title) {
       return NextResponse.json(
-        { ok: false, error: 'Decision must be approve or reject.' },
+        { ok: false, error: 'Title is required.' },
         { status: 400, headers: CORS_HEADERS }
       )
     }
 
-    const result = await reviewSubmission({
-      submissionId,
-      decision,
-      sessionEmail: session.email,
-      sanityFetch,
-      writeClient,
-    })
+    const submission = await sanityFetch(
+      `*[_type == "studySubmission" && _id == $id][0]{ _id, status }`,
+      { id: submissionId }
+    )
 
-    if (!result.ok) {
+    if (!submission?._id) {
       return NextResponse.json(
-        { ok: false, error: result.error },
-        { status: result.status || 400, headers: CORS_HEADERS }
+        { ok: false, error: 'Submission not found.' },
+        { status: 404, headers: CORS_HEADERS }
       )
     }
+
+    if (submission.status !== 'pending') {
+      return NextResponse.json(
+        { ok: false, error: 'Submission already reviewed.' },
+        { status: 400, headers: CORS_HEADERS }
+      )
+    }
+
+    await writeClient
+      .patch(submissionId)
+      .set({
+        title: payload.title,
+        payload,
+        editedAt: new Date().toISOString(),
+        editedBy: session.email,
+      })
+      .commit({ returnDocuments: false })
 
     return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })
   } catch (error) {
-    console.error('[approvals] PATCH failed', error)
+    console.error('[approvals-submission] PATCH failed', error)
     return NextResponse.json(
-      { ok: false, error: error?.message || 'Failed to review submission.' },
+      { ok: false, error: error?.message || 'Failed to update submission.' },
       { status: 500, headers: CORS_HEADERS }
     )
   }
