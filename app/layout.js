@@ -13,6 +13,7 @@ const navLinks = [
   { href: '/trials', label: 'Studies' },
   { href: '/team', label: 'Team' },
   { href: '/publications', label: 'Publications' },
+  { href: '/updates', label: 'Subscribe' },
   { href: '/contact', label: 'Contact' },
 ]
 
