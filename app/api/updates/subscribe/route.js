@@ -56,11 +56,11 @@ async function sendSubscriptionEmail({ name, email, manageToken }) {
 
   const manageUrl = `${SITE_BASE_URL}/updates/manage?token=${encodeURIComponent(manageToken)}`
   const greeting = name ? `Hi ${name},` : 'Hello,'
-  const subject = 'You are subscribed to KCRU updates'
+  const subject = 'You are subscribed to London Clinical Kidney Research Updates'
   const text = [
     greeting,
     '',
-    'Thanks for subscribing to London Kidney Clinical Research updates.',
+    'Thanks for subscribing to London Clinical Kidney Research Updates.',
     'You can manage your preferences or unsubscribe at any time using this link:',
     manageUrl,
     '',
@@ -73,7 +73,7 @@ async function sendSubscriptionEmail({ name, email, manageToken }) {
   const html = `
     <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.6;">
       <p style="margin: 0 0 12px;">${greeting}</p>
-      <p style="margin: 0 0 12px;">Thanks for subscribing to London Kidney Clinical Research updates.</p>
+      <p style="margin: 0 0 12px;">Thanks for subscribing to London Clinical Kidney Research Updates.</p>
       <p style="margin: 0 0 16px;">
         Manage your preferences or unsubscribe at any time using this link:<br/>
         <a href="${manageUrl}" style="color: #6b21a8; font-weight: 600;">Manage preferences</a>
