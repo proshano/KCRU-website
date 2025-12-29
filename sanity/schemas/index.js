@@ -14,6 +14,7 @@ import pageContent from './pageContent'
 import contactRouting from './contactRouting'
 import contactLocation from './contactLocation'
 import contactSubmission from './contactSubmission'
+import updateSubscriber from './updateSubscriber'
 import studyReferral from './studyReferral'
 import studySubmission from './studySubmission'
 import studyApprovalSession from './studyApprovalSession'
@@ -40,6 +41,7 @@ export const schemaTypes = [
   alumnus,
   site,
   contactSubmission,
+  updateSubscriber,
   studyReferral,
   studySubmission,
   studyApprovalSession,

@@ -26,8 +26,9 @@ export default async function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-[#1a1a1a]">What we collect</h2>
         <ul className="list-disc list-inside space-y-2 text-[#555]">
-          <li>Details you choose to provide in referral forms or emails (e.g., contact information and clinical context needed to coordinate a study referral).</li>
+          <li>Details you choose to provide in subscription forms, referral forms, or emails (for example, contact information, role).</li>
           <li>Technical information automatically sent by your browser (IP address, device type, and basic usage logs) that helps us keep the site secure and reliable.</li>
+          <li>Anti-abuse signals from reCAPTCHA used to protect our public forms.</li>
           <li>Minimal, essential cookies and similar technologies required to deliver the site and protect against fraud or abuse.</li>
         </ul>
       </section>
@@ -36,6 +37,7 @@ export default async function PrivacyPage() {
         <h2 className="text-xl font-semibold text-[#1a1a1a]">How we use and share information</h2>
         <ul className="list-disc list-inside space-y-2 text-[#555]">
           <li>To respond to inquiries and coordinate study referrals or collaborations.</li>
+          <li>To send study and publication updates to subscribers and manage their preferences.</li>
           <li>To maintain site security, measure availability, and improve usability.</li>
           <li>To meet legal or regulatory requirements when we are required to do so.</li>
         </ul>
@@ -61,6 +63,7 @@ export default async function PrivacyPage() {
         <ul className="list-disc list-inside space-y-2 text-[#555]">
           <li>You may decline optional cookies through your browser settings; essential cookies are necessary for basic site functionality.</li>
           <li>You can ask us to update or correct contact details you have provided.</li>
+          <li>You can unsubscribe from updates or change your preferences at any time.</li>
           <li>You may withdraw consent for non-essential uses, subject to legal or clinical research obligations.</li>
         </ul>
       </section>

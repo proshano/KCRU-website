@@ -6,6 +6,7 @@
  */
 
 import AutoSlugInput from '../components/AutoSlugInput'
+import { ROLE_OPTIONS } from '../../lib/communicationOptions'
 
 export default {
   name: 'therapeuticArea',
@@ -55,34 +56,13 @@ export default {
     },
     {
       name: 'targetRoles',
-      title: 'Target Clinician Roles',
+      title: 'Target Roles',
       type: 'array',
       of: [{ type: 'string' }],
       options: {
-        list: [
-          // General Nephrology
-          { title: 'Nephrologist', value: 'nephrologist' },
-          { title: 'Nephrology Fellow', value: 'fellow_nephrology' },
-          { title: 'Nurse Practitioner', value: 'nurse_practitioner' },
-          // Transplant
-          { title: 'Transplant Nephrologist', value: 'transplant_nephrologist' },
-          { title: 'Transplant Fellow', value: 'fellow_transplant' },
-          { title: 'Transplant Clinic Nurse', value: 'nurse_transplant' },
-          // GN Clinic
-          { title: 'GN Clinic Nephrologist', value: 'nephrologist_gn' },
-          { title: 'GN Fellow', value: 'fellow_gn' },
-          { title: 'GN Clinic Nurse', value: 'nurse_gn' },
-          { title: 'GN Clinic Pharmacist', value: 'pharmacist_gn' },
-          // Dialysis
-          { title: 'Dialysis Nurse', value: 'nurse_dialysis' },
-          // Other
-          { title: 'Pharmacist', value: 'pharmacist' },
-          { title: 'Dietitian', value: 'dietitian' },
-          { title: 'Social Worker', value: 'social_worker' },
-          { title: 'Surgeon', value: 'surgeon' }
-        ]
+        list: ROLE_OPTIONS
       },
-      description: 'Which clinician roles should receive emails about trials in this area?'
+      description: 'Which roles should receive emails about trials in this area?'
     },
     {
       name: 'order',
