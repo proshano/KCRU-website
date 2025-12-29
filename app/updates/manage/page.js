@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { sanityFetch, queries } from '@/lib/sanity'
 import { ROLE_OPTIONS } from '@/lib/communicationOptions'
 import ManagePreferencesClient from './ManagePreferencesClient'
@@ -10,7 +11,9 @@ export default async function ManageUpdatesPage() {
 
   return (
     <main className="max-w-[1000px] mx-auto px-6 md:px-12 py-12">
-      <ManagePreferencesClient roleOptions={ROLE_OPTIONS} therapeuticAreas={therapeuticAreas} />
+      <Suspense fallback={<div className="bg-white border border-black/[0.06] p-6 shadow-sm animate-pulse h-64" />}>
+        <ManagePreferencesClient roleOptions={ROLE_OPTIONS} therapeuticAreas={therapeuticAreas} />
+      </Suspense>
     </main>
   )
 }
