@@ -13,7 +13,8 @@
     "refresh:pubmed": "node scripts/refresh-pubmed-cache.js",
     "upload:pubmed": "node scripts/upload-cache-to-sanity.js",
     "migrate:trial-fields": "node scripts/migrate-trial-fields.js",
-    "sync:therapeutic-areas": "node scripts/sync-therapeutic-areas.js"
+    "sync:therapeutic-areas": "node scripts/sync-therapeutic-areas.js",
+    "migrate:therapeutic-area-ckd": "node scripts/replace-therapeutic-area.js"
   },
   "keywords": [],
   "author": "",
