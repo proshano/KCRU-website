@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { sanityFetch, queries } from '@/lib/sanity'
 import TrialsClient from './TrialsClient'
 
-// Revalidate every 12 hours
-export const revalidate = 43200
+// Revalidate every 30 minutes
+export const revalidate = 1800
 
 export const metadata = {
   title: 'Clinical Studies | KCRU',

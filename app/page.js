@@ -4,7 +4,7 @@ import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
 import FeaturedStudy from './components/FeaturedStudy'
 
-export const revalidate = 3600
+export const revalidate = 600
 
 export default async function HomePage() {
   const [settingsRaw, trialsRaw = [], researchersRaw = [], newsRaw = []] = await Promise.all([
