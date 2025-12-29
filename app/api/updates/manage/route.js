@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { writeClient } from '@/lib/sanity'
-import { ROLE_VALUES, TOPIC_VALUES } from '@/lib/communicationOptions'
+import { ROLE_VALUES, SPECIALTY_VALUES, INTEREST_AREA_VALUES } from '@/lib/communicationOptions'
 
 function sanitizeString(value = '') {
   if (!value) return ''
@@ -13,16 +13,22 @@ function normalizeList(values) {
   return Array.from(new Set(cleaned))
 }
 
+function normalizeInterestAreas(values) {
+  const normalized = normalizeList(values).filter((item) => INTEREST_AREA_VALUES.has(item))
+  if (normalized.includes('all')) return ['all']
+  return normalized
+}
+
 async function getSubscriberByToken(token) {
   return writeClient.fetch(
     `*[_type == "updateSubscriber" && manageToken == $token][0]{
       _id,
       name,
       email,
-      roles,
-      topics,
-      status,
-      "therapeuticAreaIds": therapeuticAreas[]._ref
+      role,
+      specialty,
+      interestAreas,
+      status
     }`,
     { token }
   )
@@ -53,7 +59,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
   }
 
-  const { token, action, roles, therapeuticAreaIds, topics, name } = body || {}
+  const { token, action, role, specialty, interestAreas, name } = body || {}
   const trimmedToken = sanitizeString(token)
 
   if (!trimmedToken) {
@@ -80,31 +86,29 @@ export async function POST(request) {
     return NextResponse.json({ ok: true, status: 'unsubscribed' })
   }
 
-  const normalizedRoles = normalizeList(roles).filter((role) => ROLE_VALUES.has(role))
-  if (!normalizedRoles.length) {
-    return NextResponse.json({ error: 'Please select at least one role.' }, { status: 400 })
+  const normalizedRole = sanitizeString(role)
+  if (!normalizedRole || !ROLE_VALUES.has(normalizedRole)) {
+    return NextResponse.json({ error: 'Please select a valid role.' }, { status: 400 })
   }
 
-  const normalizedTopics = normalizeList(topics).filter((topic) => TOPIC_VALUES.has(topic))
-  if (!normalizedTopics.length) {
-    return NextResponse.json({ error: 'Please select at least one update type.' }, { status: 400 })
+  const normalizedSpecialty = sanitizeString(specialty)
+  if (normalizedSpecialty && !SPECIALTY_VALUES.has(normalizedSpecialty)) {
+    return NextResponse.json({ error: 'Please select a valid specialty.' }, { status: 400 })
   }
 
-  const normalizedAreas = normalizeList(therapeuticAreaIds)
-  if (!normalizedAreas.length) {
-    return NextResponse.json({ error: 'Please select at least one therapeutic area.' }, { status: 400 })
+  const normalizedInterestAreas = normalizeInterestAreas(interestAreas)
+  if (!normalizedInterestAreas.length) {
+    return NextResponse.json({ error: 'Please select at least one interest area.' }, { status: 400 })
   }
-
-  const areaRefs = normalizedAreas.map((id) => ({ _type: 'reference', _ref: id }))
   const trimmedName = sanitizeString(name)
 
   await writeClient
     .patch(subscriber._id)
     .set({
       name: trimmedName,
-      roles: normalizedRoles,
-      topics: normalizedTopics,
-      therapeuticAreas: areaRefs,
+      role: normalizedRole,
+      specialty: normalizedSpecialty || null,
+      interestAreas: normalizedInterestAreas,
       status: 'active',
       updatedAt: now,
       unsubscribedAt: null

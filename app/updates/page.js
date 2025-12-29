@@ -1,12 +1,9 @@
-import { sanityFetch, queries } from '@/lib/sanity'
-import { ROLE_OPTIONS } from '@/lib/communicationOptions'
+import { ROLE_OPTIONS, SPECIALTY_OPTIONS, INTEREST_AREA_OPTIONS } from '@/lib/communicationOptions'
 import UpdatesSignupForm from './UpdatesSignupForm'
 
 export const revalidate = 3600
 
 export default async function UpdatesPage() {
-  const areasRaw = await sanityFetch(queries.therapeuticAreas)
-  const therapeuticAreas = JSON.parse(JSON.stringify(areasRaw || []))
   const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''
 
   return (
@@ -16,13 +13,14 @@ export default async function UpdatesPage() {
           <div className="space-y-3">
             <h1 className="text-4xl font-bold tracking-tight">Subscribe for updates</h1>
             <p className="text-[#666]">
-              Choose the roles and therapeutic areas that match your work, and we will share updates about active
-              studies and new publications. You can unsubscribe or change your preferences at any time.
+              Share your role, specialty, and interest areas so we can send updates about active studies. You can
+              unsubscribe or change your preferences at any time.
             </p>
           </div>
           <UpdatesSignupForm
             roleOptions={ROLE_OPTIONS}
-            therapeuticAreas={therapeuticAreas}
+            specialtyOptions={SPECIALTY_OPTIONS}
+            interestAreaOptions={INTEREST_AREA_OPTIONS}
             recaptchaSiteKey={recaptchaSiteKey}
           />
         </div>
@@ -31,7 +29,7 @@ export default async function UpdatesPage() {
           <div className="p-6 bg-white border border-black/[0.06] space-y-3">
             <h2 className="text-xl font-semibold">What you can expect</h2>
             <ul className="space-y-2 text-sm text-[#555]">
-              <li>Study updates for the therapeutic areas and roles you select.</li>
+              <li>Study updates aligned to your role, specialty, and interest areas.</li>
               <li>Publication summaries when new research is published.</li>
               <li>Occasional reminders about trials that are actively recruiting.</li>
             </ul>

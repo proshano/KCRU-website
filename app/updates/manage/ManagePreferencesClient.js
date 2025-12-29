@@ -3,7 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 
-export default function ManagePreferencesClient({ roleOptions = [], therapeuticAreas = [] }) {
+export default function ManagePreferencesClient({
+  roleOptions = [],
+  specialtyOptions = [],
+  interestAreaOptions = []
+}) {
   const searchParams = useSearchParams()
   const token = searchParams.get('token') || ''
 
@@ -34,9 +38,9 @@ export default function ManagePreferencesClient({ roleOptions = [], therapeuticA
         setForm({
           name: data.subscriber?.name || '',
           email: data.subscriber?.email || '',
-          roles: data.subscriber?.roles || [],
-          topics: data.subscriber?.topics || [],
-          therapeuticAreaIds: data.subscriber?.therapeuticAreaIds || [],
+          role: data.subscriber?.role || '',
+          specialty: data.subscriber?.specialty || '',
+          interestAreas: data.subscriber?.interestAreas || [],
           status: data.subscriber?.status || 'active'
         })
       } catch (error) {
@@ -54,16 +58,25 @@ export default function ManagePreferencesClient({ roleOptions = [], therapeuticA
     }
   }, [token])
 
-  const toggleMultiSelect = (field, value) => {
+  const toggleInterestArea = (value) => {
     setForm((prev) => {
       if (!prev) return prev
-      const set = new Set(prev[field])
+      const set = new Set(prev.interestAreas)
       if (set.has(value)) {
         set.delete(value)
       } else {
         set.add(value)
       }
-      return { ...prev, [field]: Array.from(set) }
+
+      if (set.has('all') && value !== 'all') {
+        set.delete('all')
+      }
+
+      if (value === 'all' && set.has('all')) {
+        return { ...prev, interestAreas: ['all'] }
+      }
+
+      return { ...prev, interestAreas: Array.from(set) }
     })
   }
 
@@ -73,18 +86,13 @@ export default function ManagePreferencesClient({ roleOptions = [], therapeuticA
 
     setStatus({ type: 'idle', message: '' })
 
-    if (!form.roles.length) {
-      setStatus({ type: 'error', message: 'Please select at least one role.' })
+    if (!form.role) {
+      setStatus({ type: 'error', message: 'Please select a role.' })
       return
     }
 
-    if (!form.topics.length) {
-      setStatus({ type: 'error', message: 'Please select at least one update type.' })
-      return
-    }
-
-    if (!form.therapeuticAreaIds.length) {
-      setStatus({ type: 'error', message: 'Please select at least one therapeutic area.' })
+    if (!form.interestAreas.length) {
+      setStatus({ type: 'error', message: 'Please select at least one interest area.' })
       return
     }
 
@@ -98,9 +106,9 @@ export default function ManagePreferencesClient({ roleOptions = [], therapeuticA
           token,
           action: 'update',
           name: form.name,
-          roles: form.roles,
-          topics: form.topics,
-          therapeuticAreaIds: form.therapeuticAreaIds
+          role: form.role,
+          specialty: form.specialty,
+          interestAreas: form.interestAreas
         })
       })
 
@@ -187,61 +195,54 @@ export default function ManagePreferencesClient({ roleOptions = [], therapeuticA
         </div>
 
         <div className="space-y-2">
-          <label className="block text-base font-semibold text-[#333]">Update types</label>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={form.topics.includes('study_updates')}
-                onChange={() => toggleMultiSelect('topics', 'study_updates')}
-              />
-              Study updates
-            </label>
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4"
-                checked={form.topics.includes('publication_updates')}
-                onChange={() => toggleMultiSelect('topics', 'publication_updates')}
-              />
-              Publication updates
-            </label>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="block text-base font-semibold text-[#333]">Roles</label>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <label className="block text-base font-semibold text-[#333]">Role</label>
+          <select
+            className="w-full rounded-md border border-black/10 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-purple/50 bg-white"
+            value={form.role}
+            onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}
+            required
+          >
+            <option value="" disabled>
+              Select a role
+            </option>
             {roleOptions.map((role) => (
-              <label key={role.value} className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={form.roles.includes(role.value)}
-                  onChange={() => toggleMultiSelect('roles', role.value)}
-                />
+              <option key={role.value} value={role.value}>
                 {role.title}
-              </label>
+              </option>
             ))}
-          </div>
+          </select>
         </div>
 
         <div className="space-y-2">
-          <label className="block text-base font-semibold text-[#333]">Therapeutic areas</label>
+          <label className="block text-base font-semibold text-[#333]">Specialty</label>
+          <select
+            className="w-full rounded-md border border-black/10 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-purple/50 bg-white"
+            value={form.specialty}
+            onChange={(event) => setForm((prev) => ({ ...prev, specialty: event.target.value }))}
+          >
+            <option value="">Select a specialty (optional)</option>
+            {specialtyOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-base font-semibold text-[#333]">
+            Therapeutic/Interest areas<span className="text-purple">*</span>
+          </label>
           <div className="grid gap-2 sm:grid-cols-2">
-            {therapeuticAreas.map((area) => (
-              <label key={area._id} className="inline-flex items-center gap-2 text-sm">
+            {interestAreaOptions.map((area) => (
+              <label key={area.value} className="inline-flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
                   className="h-4 w-4"
-                  checked={form.therapeuticAreaIds.includes(area._id)}
-                  onChange={() => toggleMultiSelect('therapeuticAreaIds', area._id)}
+                  checked={form.interestAreas.includes(area.value)}
+                  onChange={() => toggleInterestArea(area.value)}
                 />
-                <span>
-                  {area.shortLabel ? `${area.shortLabel} - ` : ''}
-                  {area.name}
-                </span>
+                {area.title}
               </label>
             ))}
           </div>

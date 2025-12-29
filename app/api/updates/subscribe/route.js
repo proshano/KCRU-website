@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { writeClient } from '@/lib/sanity'
-import { ROLE_VALUES, TOPIC_VALUES } from '@/lib/communicationOptions'
+import { ROLE_VALUES, SPECIALTY_VALUES, INTEREST_AREA_VALUES } from '@/lib/communicationOptions'
 import { sendEmail } from '@/lib/email'
 
 const MIN_FORM_TIME_MS = 800
@@ -20,6 +20,12 @@ function normalizeList(values) {
   if (!Array.isArray(values)) return []
   const cleaned = values.map((value) => sanitizeString(value)).filter(Boolean)
   return Array.from(new Set(cleaned))
+}
+
+function normalizeInterestAreas(values) {
+  const normalized = normalizeList(values).filter((item) => INTEREST_AREA_VALUES.has(item))
+  if (normalized.includes('all')) return ['all']
+  return normalized
 }
 
 function getClientIp(headers) {
@@ -92,9 +98,9 @@ async function sendSubscriptionEmail({ name, email, manageToken }) {
 async function upsertSubscriber({
   name,
   email,
-  roles,
-  therapeuticAreaIds,
-  topics,
+  role,
+  specialty,
+  interestAreas,
   headers,
   recaptchaData
 }) {
@@ -109,8 +115,6 @@ async function upsertSubscriber({
   )
 
   const now = new Date().toISOString()
-  const areaRefs = therapeuticAreaIds.map((id) => ({ _type: 'reference', _ref: id }))
-
   if (existing?._id) {
     const manageToken = existing.manageToken || randomUUID()
     let patch = writeClient
@@ -118,9 +122,9 @@ async function upsertSubscriber({
       .set({
         name,
         email,
-        roles,
-        therapeuticAreas: areaRefs,
-        topics,
+        role,
+        specialty: specialty || null,
+        interestAreas,
         status: 'active',
         updatedAt: now,
         ...(existing.manageToken ? {} : { manageToken })
@@ -139,9 +143,9 @@ async function upsertSubscriber({
     _type: 'updateSubscriber',
     name,
     email,
-    roles,
-    therapeuticAreas: areaRefs,
-    topics,
+    role,
+    specialty: specialty || null,
+    interestAreas,
     status: 'active',
     source: 'self',
     manageToken,
@@ -172,9 +176,9 @@ export async function POST(request) {
   const {
     name,
     email,
-    roles,
-    therapeuticAreaIds,
-    topics,
+    role,
+    specialty,
+    interestAreas,
     recaptchaToken,
     honeypot,
     startedAt
@@ -200,19 +204,19 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Please wait a moment before submitting.' }, { status: 400 })
   }
 
-  const normalizedRoles = normalizeList(roles).filter((role) => ROLE_VALUES.has(role))
-  if (!normalizedRoles.length) {
-    return NextResponse.json({ error: 'Please select at least one role.' }, { status: 400 })
+  const normalizedRole = sanitizeString(role)
+  if (!normalizedRole || !ROLE_VALUES.has(normalizedRole)) {
+    return NextResponse.json({ error: 'Please select a valid role.' }, { status: 400 })
   }
 
-  const normalizedTopics = normalizeList(topics).filter((topic) => TOPIC_VALUES.has(topic))
-  if (!normalizedTopics.length) {
-    return NextResponse.json({ error: 'Please select at least one update type.' }, { status: 400 })
+  const normalizedSpecialty = sanitizeString(specialty)
+  if (normalizedSpecialty && !SPECIALTY_VALUES.has(normalizedSpecialty)) {
+    return NextResponse.json({ error: 'Please select a valid specialty.' }, { status: 400 })
   }
 
-  const normalizedAreas = normalizeList(therapeuticAreaIds)
-  if (!normalizedAreas.length) {
-    return NextResponse.json({ error: 'Please select at least one therapeutic area.' }, { status: 400 })
+  const normalizedInterestAreas = normalizeInterestAreas(interestAreas)
+  if (!normalizedInterestAreas.length) {
+    return NextResponse.json({ error: 'Please select at least one interest area.' }, { status: 400 })
   }
 
   const recaptchaResult = await verifyRecaptcha(recaptchaToken)
@@ -224,9 +228,9 @@ export async function POST(request) {
     const result = await upsertSubscriber({
       name: trimmedName,
       email: trimmedEmail,
-      roles: normalizedRoles,
-      therapeuticAreaIds: normalizedAreas,
-      topics: normalizedTopics,
+      role: normalizedRole,
+      specialty: normalizedSpecialty,
+      interestAreas: normalizedInterestAreas,
       headers,
       recaptchaData: recaptchaResult.data
     })
