@@ -17,7 +17,7 @@ export default {
               name: 'key',
               title: 'Key',
               type: 'string',
-              description: 'Stable key used in the app (e.g., referral, industry, training, donation).',
+              description: 'Stable key used in the app (e.g., referral, industry, training, donation, website-feedback). Use website-feedback for Privacy/Accessibility links.',
               validation: (Rule) => Rule.required().regex(/^[a-z0-9-]+$/, {
                 name: 'slug',
                 invert: false,
@@ -90,7 +90,6 @@ export default {
     }
   }
 }
-
 
 
 

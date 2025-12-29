@@ -237,7 +237,8 @@ export default {
     {
       name: 'contactEmail',
       title: 'Contact Email',
-      type: 'string'
+      type: 'string',
+      description: 'Optional fallback used when a contact reason does not provide a target email.'
     },
     {
       name: 'phone',

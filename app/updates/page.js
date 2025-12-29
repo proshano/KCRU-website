@@ -1,4 +1,4 @@
-import { ROLE_OPTIONS, SPECIALTY_OPTIONS, INTEREST_AREA_OPTIONS } from '@/lib/communicationOptions'
+import { ROLE_OPTIONS, SPECIALTY_OPTIONS, INTEREST_AREA_OPTIONS, CORRESPONDENCE_OPTIONS } from '@/lib/communicationOptions'
 import UpdatesSignupForm from './UpdatesSignupForm'
 
 export const revalidate = 3600
@@ -21,6 +21,7 @@ export default async function UpdatesPage() {
             roleOptions={ROLE_OPTIONS}
             specialtyOptions={SPECIALTY_OPTIONS}
             interestAreaOptions={INTEREST_AREA_OPTIONS}
+            correspondenceOptions={CORRESPONDENCE_OPTIONS}
             recaptchaSiteKey={recaptchaSiteKey}
           />
         </div>

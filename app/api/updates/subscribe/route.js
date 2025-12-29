@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { writeClient } from '@/lib/sanity'
-import { ROLE_VALUES, SPECIALTY_VALUES, INTEREST_AREA_VALUES } from '@/lib/communicationOptions'
+import { ROLE_VALUES, SPECIALTY_VALUES, INTEREST_AREA_VALUES, CORRESPONDENCE_VALUES } from '@/lib/communicationOptions'
 import { sendEmail } from '@/lib/email'
 
 const MIN_FORM_TIME_MS = 800
@@ -26,6 +26,10 @@ function normalizeInterestAreas(values) {
   const normalized = normalizeList(values).filter((item) => INTEREST_AREA_VALUES.has(item))
   if (normalized.includes('all')) return ['all']
   return normalized
+}
+
+function normalizeCorrespondence(values) {
+  return normalizeList(values).filter((item) => CORRESPONDENCE_VALUES.has(item))
 }
 
 function getClientIp(headers) {
@@ -101,6 +105,7 @@ async function upsertSubscriber({
   role,
   specialty,
   interestAreas,
+  correspondencePreferences,
   headers,
   recaptchaData
 }) {
@@ -125,6 +130,7 @@ async function upsertSubscriber({
         role,
         specialty: specialty || null,
         interestAreas,
+        correspondencePreferences,
         status: 'active',
         updatedAt: now,
         ...(existing.manageToken ? {} : { manageToken })
@@ -146,6 +152,7 @@ async function upsertSubscriber({
     role,
     specialty: specialty || null,
     interestAreas,
+    correspondencePreferences,
     status: 'active',
     source: 'self',
     manageToken,
@@ -179,6 +186,7 @@ export async function POST(request) {
     role,
     specialty,
     interestAreas,
+    correspondencePreferences,
     recaptchaToken,
     honeypot,
     startedAt
@@ -219,6 +227,11 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Please select at least one interest area.' }, { status: 400 })
   }
 
+  const normalizedCorrespondence = normalizeCorrespondence(correspondencePreferences)
+  if (!normalizedCorrespondence.length) {
+    return NextResponse.json({ error: 'Please select at least one correspondence option.' }, { status: 400 })
+  }
+
   const recaptchaResult = await verifyRecaptcha(recaptchaToken)
   if (!recaptchaResult.success) {
     return NextResponse.json({ error: 'reCAPTCHA validation failed.' }, { status: 400 })
@@ -231,6 +244,7 @@ export async function POST(request) {
       role: normalizedRole,
       specialty: normalizedSpecialty,
       interestAreas: normalizedInterestAreas,
+      correspondencePreferences: normalizedCorrespondence,
       headers,
       recaptchaData: recaptchaResult.data
     })

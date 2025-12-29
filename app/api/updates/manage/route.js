@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { writeClient } from '@/lib/sanity'
-import { ROLE_VALUES, SPECIALTY_VALUES, INTEREST_AREA_VALUES } from '@/lib/communicationOptions'
+import { ROLE_VALUES, SPECIALTY_VALUES, INTEREST_AREA_VALUES, CORRESPONDENCE_VALUES } from '@/lib/communicationOptions'
 
 function sanitizeString(value = '') {
   if (!value) return ''
@@ -19,6 +19,10 @@ function normalizeInterestAreas(values) {
   return normalized
 }
 
+function normalizeCorrespondence(values) {
+  return normalizeList(values).filter((item) => CORRESPONDENCE_VALUES.has(item))
+}
+
 async function getSubscriberByToken(token) {
   return writeClient.fetch(
     `*[_type == "updateSubscriber" && manageToken == $token][0]{
@@ -28,6 +32,7 @@ async function getSubscriberByToken(token) {
       role,
       specialty,
       interestAreas,
+      correspondencePreferences,
       status
     }`,
     { token }
@@ -59,7 +64,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
   }
 
-  const { token, action, role, specialty, interestAreas, name } = body || {}
+  const { token, action, role, specialty, interestAreas, correspondencePreferences, name } = body || {}
   const trimmedToken = sanitizeString(token)
 
   if (!trimmedToken) {
@@ -100,6 +105,11 @@ export async function POST(request) {
   if (!normalizedInterestAreas.length) {
     return NextResponse.json({ error: 'Please select at least one interest area.' }, { status: 400 })
   }
+
+  const normalizedCorrespondence = normalizeCorrespondence(correspondencePreferences)
+  if (!normalizedCorrespondence.length) {
+    return NextResponse.json({ error: 'Please select at least one correspondence option.' }, { status: 400 })
+  }
   const trimmedName = sanitizeString(name)
 
   await writeClient
@@ -109,6 +119,7 @@ export async function POST(request) {
       role: normalizedRole,
       specialty: normalizedSpecialty || null,
       interestAreas: normalizedInterestAreas,
+      correspondencePreferences: normalizedCorrespondence,
       status: 'active',
       updatedAt: now,
       unsubscribedAt: null

@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { ROLE_OPTIONS, SPECIALTY_OPTIONS, INTEREST_AREA_OPTIONS } from '@/lib/communicationOptions'
+import { ROLE_OPTIONS, SPECIALTY_OPTIONS, INTEREST_AREA_OPTIONS, CORRESPONDENCE_OPTIONS } from '@/lib/communicationOptions'
 import ManagePreferencesClient from './ManagePreferencesClient'
 
 export const revalidate = 3600
@@ -12,6 +12,7 @@ export default async function ManageUpdatesPage() {
           roleOptions={ROLE_OPTIONS}
           specialtyOptions={SPECIALTY_OPTIONS}
           interestAreaOptions={INTEREST_AREA_OPTIONS}
+          correspondenceOptions={CORRESPONDENCE_OPTIONS}
         />
       </Suspense>
     </main>
