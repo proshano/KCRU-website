@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 const TOKEN_STORAGE_KEY = 'kcru-approval-token'
@@ -30,13 +31,35 @@ export default function ApprovalClient() {
   const [submissions, setSubmissions] = useState([])
   const [meta, setMeta] = useState({ areas: [], researchers: [] })
   const [reviewingId, setReviewingId] = useState('')
+  const [reviewingAction, setReviewingAction] = useState('')
 
   useEffect(() => {
     const queryToken = searchParams.get('token')
+    const status = searchParams.get('status')
+    const errorMessage = searchParams.get('error')
+    const nextParams = new URLSearchParams(searchParams.toString())
+    let shouldReplace = false
     if (queryToken) {
       sessionStorage.setItem(TOKEN_STORAGE_KEY, queryToken)
       setToken(queryToken)
-      router.replace('/trials/approvals')
+      nextParams.delete('token')
+      shouldReplace = true
+    }
+    if (status) {
+      setError('')
+      setSuccess(`Submission ${status === 'approve' ? 'approved' : 'rejected'}.`)
+      nextParams.delete('status')
+      shouldReplace = true
+    }
+    if (errorMessage) {
+      setSuccess('')
+      setError(errorMessage)
+      nextParams.delete('error')
+      shouldReplace = true
+    }
+    if (shouldReplace) {
+      const nextQuery = nextParams.toString()
+      router.replace(nextQuery ? `/trials/approvals?${nextQuery}` : '/trials/approvals')
       return
     }
     const stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
@@ -103,6 +126,7 @@ export default function ApprovalClient() {
     setError('')
     setSuccess('')
     setReviewingId(submissionId)
+    setReviewingAction(decision)
     try {
       const res = await fetch('/api/trials/approvals', {
         method: 'PATCH',
@@ -117,11 +141,15 @@ export default function ApprovalClient() {
         throw new Error(data?.error || `Request failed (${res.status})`)
       }
       setSuccess(`Submission ${decision === 'approve' ? 'approved' : 'rejected'}.`)
-      await loadSubmissions(token)
+      setSubmissions((prev) => prev.filter((item) => item._id !== submissionId))
+      setTimeout(() => {
+        loadSubmissions(token)
+      }, 800)
     } catch (err) {
       setError(err.message || 'Failed to review submission.')
     } finally {
       setReviewingId('')
+      setReviewingAction('')
     }
   }
 
@@ -204,6 +232,7 @@ export default function ApprovalClient() {
               const piName = payload.principalInvestigatorId
                 ? researcherMap.get(payload.principalInvestigatorId) || payload.principalInvestigatorId
                 : 'None'
+              const isReviewing = reviewingId === submission._id
               return (
                 <article
                   key={submission._id}
@@ -232,19 +261,25 @@ export default function ApprovalClient() {
                       <button
                         type="button"
                         onClick={() => handleDecision(submission._id, 'approve')}
-                        disabled={reviewingId === submission._id}
+                        disabled={isReviewing}
                         className="inline-flex items-center justify-center bg-emerald-600 text-white px-4 py-2 rounded shadow hover:bg-emerald-700 disabled:opacity-60"
                       >
-                        Approve
+                        {isReviewing && reviewingAction === 'approve' ? 'Approving...' : 'Approve'}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDecision(submission._id, 'reject')}
-                        disabled={reviewingId === submission._id}
+                        disabled={isReviewing}
                         className="inline-flex items-center justify-center border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 disabled:opacity-60"
                       >
-                        Reject
+                        {isReviewing && reviewingAction === 'reject' ? 'Rejecting...' : 'Reject'}
                       </button>
+                      <Link
+                        href={`/trials/approvals/edit?submissionId=${submission._id}${token ? `&token=${token}` : ''}`}
+                        className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10"
+                      >
+                        Edit
+                      </Link>
                     </div>
                   </div>
 

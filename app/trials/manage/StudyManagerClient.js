@@ -175,6 +175,7 @@ export default function StudyManagerClient() {
   const [trials, setTrials] = useState([])
   const [meta, setMeta] = useState({ areas: [], researchers: [] })
   const [form, setForm] = useState(EMPTY_FORM)
+  const [baselineSnapshot, setBaselineSnapshot] = useState(() => serializeDraft(EMPTY_FORM))
   const [search, setSearch] = useState('')
   const [draft, setDraft] = useState(null)
   const [draftLoading, setDraftLoading] = useState(false)
@@ -192,6 +193,8 @@ export default function StudyManagerClient() {
   const criteriaFocusRef = useRef(null)
   const canViewManager = Boolean(token) || DEV_PREVIEW_MODE
   const canSubmit = Boolean(token)
+  const formSnapshot = useMemo(() => serializeDraft(form), [form])
+  const hasChanges = formSnapshot !== baselineSnapshot
 
   const handleSignOut = useCallback(() => {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY)
@@ -407,7 +410,9 @@ export default function StudyManagerClient() {
     }
     autosavePendingRef.current = false
     autosaveSuppressRef.current = true
-    setForm(mapTrialToForm(trial))
+    const nextForm = mapTrialToForm(trial)
+    setBaselineSnapshot(serializeDraft(nextForm))
+    setForm(nextForm)
   }
 
   function handleNewStudy() {
@@ -419,6 +424,7 @@ export default function StudyManagerClient() {
     }
     autosavePendingRef.current = false
     autosaveSuppressRef.current = true
+    setBaselineSnapshot(serializeDraft(EMPTY_FORM))
     setForm(EMPTY_FORM)
   }
 
@@ -609,6 +615,9 @@ export default function StudyManagerClient() {
       setError('Sign in to submit studies.')
       return
     }
+    if (!hasChanges) {
+      return
+    }
     setSaving(true)
     try {
       const payload = {
@@ -647,6 +656,7 @@ export default function StudyManagerClient() {
         throw new Error(saveResult?.error || `Submission failed (${res.status})`)
       }
       setSuccess(form.id ? 'Update submitted for approval.' : 'New study submitted for approval.')
+      setBaselineSnapshot(formSnapshot)
       await loadData()
       await deleteDraft({ silent: true })
     } catch (err) {
@@ -947,7 +957,7 @@ export default function StudyManagerClient() {
                 <h2 className="text-lg font-semibold">Study Details</h2>
                 <button
                   type="submit"
-                  disabled={saving || !canSubmit}
+                  disabled={saving || !canSubmit || !hasChanges}
                   className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
                 >
                   {saving ? 'Submitting...' : form.id ? 'Submit changes' : 'Submit new study'}
@@ -1421,7 +1431,7 @@ export default function StudyManagerClient() {
           <div className="flex items-center justify-end gap-3">
             <button
               type="submit"
-              disabled={saving || !canSubmit}
+              disabled={saving || !canSubmit || !hasChanges}
               className="inline-flex items-center justify-center bg-purple text-white px-5 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
             >
               {saving ? 'Submitting...' : form.id ? 'Submit changes' : 'Submit new study'}

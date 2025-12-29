@@ -11,7 +11,9 @@ const CORS_HEADERS = {
 }
 
 const FALLBACK_NOTIFY_EMAIL = (process.env.STUDY_EDITOR_NOTIFY_EMAIL || '').trim()
-const APPROVAL_BASE_URL = `${(process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')}/trials/approvals`
+const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+const APPROVAL_BASE_URL = `${SITE_BASE_URL}/trials/approvals`
+const APPROVAL_QUICK_BASE_URL = `${SITE_BASE_URL}/api/trials/approvals/quick`
 const APPROVAL_SESSION_TTL_HOURS = 8
 const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
 
@@ -41,16 +43,10 @@ function formatBoolean(value) {
   return value ? 'Yes' : 'No'
 }
 
-function formatList(items, limit = 4) {
-  const list = Array.isArray(items) ? items.filter(Boolean) : []
-  if (!list.length) return 'None'
-  if (list.length <= limit) return list.join(', ')
-  return `${list.slice(0, limit).join(', ')} (+${list.length - limit} more)`
-}
-
 function truncateText(value, limit = 360) {
   const text = String(value || '').trim()
   if (!text) return 'None'
+  if (limit === null || limit === undefined) return text
   if (text.length <= limit) return text
   return `${text.slice(0, limit - 3).trim()}...`
 }
@@ -68,6 +64,24 @@ function formatParagraph(value, limit) {
   const text = truncateText(value, limit)
   if (text === 'None') return text
   return escapeHtml(text).replace(/\n/g, '<br />')
+}
+
+function formatListText(items) {
+  const list = Array.isArray(items) ? items.filter(Boolean) : []
+  if (!list.length) return ['- None']
+  return list.map((item) => `- ${item}`)
+}
+
+function formatListHtml(items) {
+  const list = Array.isArray(items) ? items.filter(Boolean) : []
+  if (!list.length) {
+    return '<p style="margin: 6px 0 0;">None</p>'
+  }
+  return `
+    <ul style="margin: 6px 0 0; padding-left: 18px;">
+      ${list.map((item) => `<li style="margin: 2px 0;">${escapeHtml(item)}</li>`).join('')}
+    </ul>
+  `
 }
 
 function formatLocalContact(contact) {
@@ -105,17 +119,24 @@ async function createApprovalSessionLink(email) {
     expiresAt,
     revoked: false,
   })
-  return `${APPROVAL_BASE_URL}?token=${token}`
+  return {
+    token,
+    approvalLink: `${APPROVAL_BASE_URL}?token=${token}`,
+  }
 }
 
 function buildApprovalEmail({
   action,
   approvalLink,
+  approveLink,
+  rejectLink,
   payload,
   submissionId,
   submittedAt,
   submittedByEmail,
   supersededCount,
+  therapeuticAreaNames,
+  principalInvestigatorName,
 }) {
   const actionLabel = action === 'update' ? 'Update' : 'New study'
   const submittedAtLabel = formatDate(submittedAt)
@@ -131,7 +152,16 @@ function buildApprovalEmail({
   const exclusionLabel = exclusionCount
     ? `${exclusionCount} item${exclusionCount === 1 ? '' : 's'}`
     : 'None'
+  const inclusionItems = Array.isArray(payload.inclusionCriteria) ? payload.inclusionCriteria.filter(Boolean) : []
+  const exclusionItems = Array.isArray(payload.exclusionCriteria) ? payload.exclusionCriteria.filter(Boolean) : []
 
+  const resolvedAreas =
+    Array.isArray(therapeuticAreaNames) && therapeuticAreaNames.length
+      ? therapeuticAreaNames
+      : payload.therapeuticAreaIds
+  const therapeuticAreaLabel = Array.isArray(resolvedAreas) && resolvedAreas.length
+    ? resolvedAreas.join(', ')
+    : 'None'
   const detailRows = [
     ['Study title', payload.title || 'Untitled'],
     ['NCT ID', payload.nctId || 'None'],
@@ -141,8 +171,8 @@ function buildApprovalEmail({
     ['Slug', payload.slug || 'None'],
     ['Featured', formatBoolean(payload.featured)],
     ['Accepts referrals', formatBoolean(payload.acceptsReferrals)],
-    ['Therapeutic areas', formatList(payload.therapeuticAreaIds)],
-    ['Principal investigator', payload.principalInvestigatorId || 'None'],
+    ['Therapeutic areas', therapeuticAreaLabel],
+    ['Principal investigator', principalInvestigatorName || payload.principalInvestigatorId || 'None'],
     ['Sponsor website', payload.sponsorWebsite || 'None'],
     ['Local contact', formatLocalContact(payload.localContact)],
     ['Inclusion criteria', inclusionLabel],
@@ -170,7 +200,13 @@ function buildApprovalEmail({
     ...detailRows.map(([label, value]) => `- ${label}: ${value}`),
     '',
     'Summaries:',
-    `- Clinical summary: ${truncateText(payload.laySummary)}`,
+    `- Clinical summary: ${truncateText(payload.laySummary, null)}`,
+    '',
+    'Eligibility criteria:',
+    'Inclusion criteria:',
+    ...formatListText(inclusionItems),
+    'Exclusion criteria:',
+    ...formatListText(exclusionItems),
   ].filter(Boolean)
 
   const htmlRows = detailRows
@@ -206,13 +242,26 @@ function buildApprovalEmail({
         </a>
         <span style="margin-left: 8px; color: #666;">Valid for ${APPROVAL_SESSION_TTL_HOURS} hours</span>
       </p>
+      <p style="margin: 0 0 16px;">
+        <a href="${escapeHtml(approveLink)}" style="display: inline-block; padding: 10px 16px; background: #059669; color: #fff; text-decoration: none; border-radius: 6px;">
+          Approve submission
+        </a>
+        <a href="${escapeHtml(rejectLink)}" style="display: inline-block; margin-left: 8px; padding: 10px 16px; border: 1px solid #dc2626; color: #dc2626; text-decoration: none; border-radius: 6px;">
+          Reject submission
+        </a>
+      </p>
       <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
         <tbody>
           ${htmlRows}
         </tbody>
       </table>
       <h3 style="margin: 16px 0 6px; font-size: 14px;">Summaries</h3>
-      <p style="margin: 0 0 8px;"><strong>Clinical summary:</strong><br />${formatParagraph(payload.laySummary)}</p>
+      <p style="margin: 0 0 8px;"><strong>Clinical summary:</strong><br />${formatParagraph(payload.laySummary, null)}</p>
+      <h3 style="margin: 16px 0 6px; font-size: 14px;">Eligibility criteria</h3>
+      <p style="margin: 0;"><strong>Inclusion criteria:</strong></p>
+      ${formatListHtml(inclusionItems)}
+      <p style="margin: 12px 0 0;"><strong>Exclusion criteria:</strong></p>
+      ${formatListHtml(exclusionItems)}
       <p style="margin: 16px 0 0; font-size: 12px; color: #666;">
         View full details and criteria in the approvals portal.
       </p>
@@ -227,14 +276,18 @@ function buildApprovalEmail({
 }
 
 async function supersedePendingSubmissions({ submissionId, studyId }) {
-  if (!submissionId || !studyId) return 0
+  if (!submissionId || !studyId) {
+    return { count: 0, promise: Promise.resolve() }
+  }
   const pending = await sanityFetch(
     `*[_type == "studySubmission" && status == "pending" && studyRef._ref == $studyId && _id != $submissionId] { _id }`,
     { studyId, submissionId }
   )
-  if (!Array.isArray(pending) || !pending.length) return 0
+  if (!Array.isArray(pending) || !pending.length) {
+    return { count: 0, promise: Promise.resolve() }
+  }
   const supersededAt = new Date().toISOString()
-  await Promise.allSettled(
+  const promise = Promise.allSettled(
     pending.map((item) =>
       writeClient
         .patch(item._id)
@@ -246,7 +299,40 @@ async function supersedePendingSubmissions({ submissionId, studyId }) {
         .commit({ returnDocuments: false })
     )
   )
-  return pending.length
+  return { count: pending.length, promise }
+}
+
+async function resolvePayloadReferences(payload) {
+  const areaIds = Array.isArray(payload?.therapeuticAreaIds)
+    ? payload.therapeuticAreaIds.filter(Boolean)
+    : []
+  const principalInvestigatorId = payload?.principalInvestigatorId || ''
+  const [areas, pi] = await Promise.all([
+    areaIds.length
+      ? sanityFetch(
+          `*[_type == "therapeuticArea" && _id in $ids]{ _id, name, shortLabel }`,
+          { ids: areaIds }
+        )
+      : Promise.resolve([]),
+    principalInvestigatorId
+      ? sanityFetch(
+          `*[_type == "researcher" && _id == $id][0]{ _id, name }`,
+          { id: principalInvestigatorId }
+        )
+      : Promise.resolve(null),
+  ])
+
+  const areaMap = new Map(
+    (areas || []).map((area) => [
+      area._id,
+      area.shortLabel ? `${area.shortLabel} - ${area.name}` : area.name,
+    ])
+  )
+
+  return {
+    therapeuticAreaNames: areaIds.map((id) => areaMap.get(id) || id),
+    principalInvestigatorName: pi?.name || '',
+  }
 }
 
 async function notifyAdmins({
@@ -261,17 +347,26 @@ async function notifyAdmins({
   const targets = recipients?.length ? recipients : await getApprovalAdmins()
   if (!targets.length) return
   const submittedByEmail = submittedBy?.email || ''
+  const resolved = await resolvePayloadReferences(payload)
   const results = await Promise.allSettled(
     targets.map(async (to) => {
-      const approvalLink = await createApprovalSessionLink(to)
+      const { token, approvalLink } = await createApprovalSessionLink(to)
+      const encodedSubmissionId = encodeURIComponent(submissionId || '')
+      const encodedToken = encodeURIComponent(token)
+      const approveLink = `${APPROVAL_QUICK_BASE_URL}?token=${encodedToken}&submissionId=${encodedSubmissionId}&decision=approve`
+      const rejectLink = `${APPROVAL_QUICK_BASE_URL}?token=${encodedToken}&submissionId=${encodedSubmissionId}&decision=reject`
       const { subject, text, html } = buildApprovalEmail({
         action,
         approvalLink,
+        approveLink,
+        rejectLink,
         payload,
         submissionId,
         submittedAt,
         submittedByEmail,
         supersededCount,
+        therapeuticAreaNames: resolved.therapeuticAreaNames,
+        principalInvestigatorName: resolved.principalInvestigatorName,
       })
       return sendEmail({ to, subject, text, html })
     })
@@ -492,7 +587,7 @@ export async function PATCH(request) {
       payload,
     })
 
-    const supersededCount = await supersedePendingSubmissions({
+    const { count: supersededCount, promise: supersedePromise } = await supersedePendingSubmissions({
       submissionId: submission?._id,
       studyId: id,
     })
@@ -506,6 +601,7 @@ export async function PATCH(request) {
       submittedBy,
       supersededCount,
     })
+    await supersedePromise
 
     return NextResponse.json({ ok: true, submissionId: submission?._id }, { headers: CORS_HEADERS })
   } catch (error) {
