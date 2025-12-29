@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
-import { reviewSubmission } from '@/lib/studyApprovals'
+import { handleRejectedSubmission, reviewSubmission } from '@/lib/studyApprovals'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -152,6 +152,14 @@ export async function PATCH(request) {
         { ok: false, error: result.error },
         { status: result.status || 400, headers: CORS_HEADERS }
       )
+    }
+
+    if (decision === 'reject') {
+      try {
+        await handleRejectedSubmission({ submission: result.submission, sanityFetch, writeClient })
+      } catch (error) {
+        console.error('[approvals] rejection email failed', error)
+      }
     }
 
     return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })
