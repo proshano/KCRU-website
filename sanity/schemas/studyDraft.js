@@ -69,6 +69,7 @@ export default {
           fields: [
             { name: 'briefTitle', title: 'Brief Title', type: 'string' },
             { name: 'officialTitle', title: 'Official Title', type: 'string' },
+            { name: 'acronym', title: 'Acronym', type: 'string' },
             { name: 'briefSummary', title: 'Brief Summary', type: 'text' },
             { name: 'detailedDescription', title: 'Detailed Description', type: 'text' },
             { name: 'overallStatus', title: 'Overall Status', type: 'string' },

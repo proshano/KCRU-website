@@ -58,8 +58,11 @@ function TrialSyncAction(props) {
       }
 
       const syncedData = data.data
-      // Use briefTitle (short display title from CT.gov) instead of officialTitle (long scientific title)
-      const trialTitle = syncedData.ctGovData?.briefTitle || syncedData.ctGovData?.officialTitle
+      // Prefer a display title that preserves any CT.gov acronym
+      const trialTitle =
+        syncedData.displayTitle ||
+        syncedData.ctGovData?.briefTitle ||
+        syncedData.ctGovData?.officialTitle
 
       console.log('[TrialSync] Got data for document:', id, 'isNew:', isNewDocument)
 
