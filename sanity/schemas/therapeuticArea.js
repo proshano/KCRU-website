@@ -6,7 +6,7 @@
  */
 
 import AutoSlugInput from '../components/AutoSlugInput'
-import { ROLE_OPTIONS } from '../../lib/communicationOptions'
+import { ROLE_OPTIONS, THERAPEUTIC_AREA_OPTIONS } from '../../lib/communicationOptions'
 
 export default {
   name: 'therapeuticArea',
@@ -17,8 +17,11 @@ export default {
       name: 'name',
       title: 'Name',
       type: 'string',
+      options: {
+        list: THERAPEUTIC_AREA_OPTIONS
+      },
       validation: Rule => Rule.required(),
-      description: 'Full name (e.g., "Glomerulonephritis")'
+      description: 'Select the therapeutic area used for study tagging.'
     },
     {
       name: 'slug',

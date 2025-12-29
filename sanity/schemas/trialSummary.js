@@ -136,6 +136,9 @@ export default {
       type: 'array',
       group: 'basic',
       of: [{ type: 'reference', to: [{ type: 'therapeuticArea' }] }],
+      options: {
+        filter: 'active == true'
+      },
       description: 'Used for filtering and sending targeted emails to relevant clinicians. Select all that apply.'
     },
     {

@@ -1,4 +1,4 @@
-import { ROLE_OPTIONS, TOPIC_OPTIONS } from '../../lib/communicationOptions'
+import { ROLE_OPTIONS, SPECIALTY_OPTIONS, INTEREST_AREA_OPTIONS } from '../../lib/communicationOptions'
 
 const STATUS_OPTIONS = [
   { title: 'Active', value: 'active' },
@@ -10,7 +10,7 @@ const SOURCE_OPTIONS = [
   { title: 'Admin entry', value: 'admin' }
 ]
 
-const TOPIC_LABELS = new Map(TOPIC_OPTIONS.map((topic) => [topic.value, topic.title]))
+const INTEREST_LABELS = new Map(INTEREST_AREA_OPTIONS.map((item) => [item.value, item.title]))
 
 function createToken() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
@@ -19,7 +19,7 @@ function createToken() {
 
 function formatList(values = []) {
   if (!Array.isArray(values) || values.length === 0) return 'No preferences'
-  return values.map((value) => TOPIC_LABELS.get(value) || value).join(', ')
+  return values.map((value) => INTEREST_LABELS.get(value) || value).join(', ')
 }
 
 export default {
@@ -39,26 +39,24 @@ export default {
       validation: (Rule) => Rule.required().email()
     },
     {
-      name: 'roles',
-      title: 'Roles',
-      type: 'array',
-      of: [{ type: 'string' }],
+      name: 'role',
+      title: 'Role',
+      type: 'string',
       options: { list: ROLE_OPTIONS },
-      validation: (Rule) => Rule.required().min(1)
+      validation: (Rule) => Rule.required()
     },
     {
-      name: 'therapeuticAreas',
-      title: 'Therapeutic Areas',
-      type: 'array',
-      of: [{ type: 'reference', to: [{ type: 'therapeuticArea' }] }],
-      validation: (Rule) => Rule.required().min(1)
+      name: 'specialty',
+      title: 'Specialty',
+      type: 'string',
+      options: { list: SPECIALTY_OPTIONS }
     },
     {
-      name: 'topics',
-      title: 'Updates',
+      name: 'interestAreas',
+      title: 'Therapeutic/Interest Areas',
       type: 'array',
       of: [{ type: 'string' }],
-      options: { list: TOPIC_OPTIONS },
+      options: { list: INTEREST_AREA_OPTIONS },
       validation: (Rule) => Rule.required().min(1)
     },
     {
@@ -126,15 +124,15 @@ export default {
       name: 'name',
       email: 'email',
       status: 'status',
-      topics: 'topics',
+      interestAreas: 'interestAreas',
       updatedAt: 'updatedAt'
     },
-    prepare({ name, email, status, topics, updatedAt }) {
+    prepare({ name, email, status, interestAreas, updatedAt }) {
       const title = name || email || 'Unnamed subscriber'
       const date = updatedAt ? new Date(updatedAt).toLocaleDateString() : 'never updated'
       return {
         title,
-        subtitle: `${email || 'no email'} • ${status || 'unknown'} • ${formatList(topics)} • ${date}`
+        subtitle: `${email || 'no email'} • ${status || 'unknown'} • ${formatList(interestAreas)} • ${date}`
       }
     }
   },
