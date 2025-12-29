@@ -41,7 +41,7 @@ export async function GET(request) {
   try {
     const [submissionsRaw, areasRaw, researchersRaw] = await Promise.all([
       sanityFetch(`
-        *[_type == "studySubmission" && status == "pending"] | order(submittedAt desc) {
+        *[_type == "studySubmission"] | order(submittedAt desc) {
           _id,
           title,
           action,
@@ -49,6 +49,7 @@ export async function GET(request) {
           submittedAt,
           submittedBy,
           payload,
+          "studyId": studyRef._ref,
           "supersedesCount": count(*[_type == "studySubmission" && supersededBy._ref == ^._id]),
           "study": studyRef->{
             _id,
@@ -75,11 +76,21 @@ export async function GET(request) {
       `),
     ])
 
+    const seenStudyIds = new Set()
+    const latestSubmissions = []
+    for (const submission of submissionsRaw || []) {
+      if (submission.action === 'update' && submission.studyId) {
+        if (seenStudyIds.has(submission.studyId)) continue
+        seenStudyIds.add(submission.studyId)
+      }
+      latestSubmissions.push(submission)
+    }
+
     return NextResponse.json(
       {
         ok: true,
         adminEmail: session.email,
-        submissions: submissionsRaw || [],
+        submissions: latestSubmissions,
         meta: {
           areas: areasRaw || [],
           researchers: researchersRaw || [],

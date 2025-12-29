@@ -20,6 +20,19 @@ function formatDate(value) {
   }
 }
 
+function statusBadge(status) {
+  if (status === 'pending') return 'bg-amber-100 text-amber-800'
+  if (status === 'approved') return 'bg-emerald-100 text-emerald-800'
+  if (status === 'rejected') return 'bg-red-100 text-red-700'
+  if (status === 'superseded') return 'bg-gray-100 text-gray-600'
+  return 'bg-gray-100 text-gray-600'
+}
+
+function statusLabel(status) {
+  if (!status) return 'Unknown'
+  return `${status.charAt(0).toUpperCase()}${status.slice(1)}`
+}
+
 export default function ApprovalClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -87,6 +100,11 @@ export default function ApprovalClient() {
     return new Map((meta.researchers || []).map((r) => [r._id, r.name]))
   }, [meta.researchers])
 
+  const pendingCount = useMemo(
+    () => submissions.filter((submission) => submission.status === 'pending').length,
+    [submissions]
+  )
+
   async function loadSubmissions(activeToken = token) {
     if (!activeToken) return
     setLoading(true)
@@ -141,7 +159,10 @@ export default function ApprovalClient() {
         throw new Error(data?.error || `Request failed (${res.status})`)
       }
       setSuccess(`Submission ${decision === 'approve' ? 'approved' : 'rejected'}.`)
-      setSubmissions((prev) => prev.filter((item) => item._id !== submissionId))
+      const nextStatus = decision === 'approve' ? 'approved' : 'rejected'
+      setSubmissions((prev) =>
+        prev.map((item) => (item._id === submissionId ? { ...item, status: nextStatus } : item))
+      )
       setTimeout(() => {
         loadSubmissions(token)
       }, 800)
@@ -193,9 +214,9 @@ export default function ApprovalClient() {
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold">Pending submissions</h2>
+              <h2 className="text-lg font-semibold">Latest submissions</h2>
               <p className="text-sm text-gray-500">
-                {submissions.length} submissions awaiting review.
+                {pendingCount} pending approvals · {submissions.length} latest submissions
               </p>
               {adminEmail && <p className="text-sm text-gray-500">Signed in as {adminEmail}.</p>}
             </div>
@@ -233,6 +254,7 @@ export default function ApprovalClient() {
                 ? researcherMap.get(payload.principalInvestigatorId) || payload.principalInvestigatorId
                 : 'None'
               const isReviewing = reviewingId === submission._id
+              const isPending = submission.status === 'pending'
               return (
                 <article
                   key={submission._id}
@@ -243,7 +265,12 @@ export default function ApprovalClient() {
                       <p className="text-xs uppercase tracking-wide text-purple font-semibold">
                         {submission.action === 'update' ? 'Update submission' : 'New study submission'}
                       </p>
-                      <h3 className="text-xl font-semibold">{submission.title || 'Untitled study'}</h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-xl font-semibold">{submission.title || 'Untitled study'}</h3>
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusBadge(submission.status)}`}>
+                          {statusLabel(submission.status)}
+                        </span>
+                      </div>
                       <p className="text-sm text-gray-500">
                         Submitted {formatDate(submission.submittedAt)}
                       </p>
@@ -257,30 +284,36 @@ export default function ApprovalClient() {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleDecision(submission._id, 'approve')}
-                        disabled={isReviewing}
-                        className="inline-flex items-center justify-center bg-emerald-600 text-white px-4 py-2 rounded shadow hover:bg-emerald-700 disabled:opacity-60"
-                      >
-                        {isReviewing && reviewingAction === 'approve' ? 'Approving...' : 'Approve'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDecision(submission._id, 'reject')}
-                        disabled={isReviewing}
-                        className="inline-flex items-center justify-center border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 disabled:opacity-60"
-                      >
-                        {isReviewing && reviewingAction === 'reject' ? 'Rejecting...' : 'Reject'}
-                      </button>
-                      <Link
-                        href={`/trials/approvals/edit?submissionId=${submission._id}${token ? `&token=${token}` : ''}`}
-                        className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10"
-                      >
-                        Edit
-                      </Link>
-                    </div>
+                    {isPending ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDecision(submission._id, 'approve')}
+                          disabled={isReviewing}
+                          className="inline-flex items-center justify-center bg-emerald-600 text-white px-4 py-2 rounded shadow hover:bg-emerald-700 disabled:opacity-60"
+                        >
+                          {isReviewing && reviewingAction === 'approve' ? 'Approving...' : 'Approve'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDecision(submission._id, 'reject')}
+                          disabled={isReviewing}
+                          className="inline-flex items-center justify-center border border-red-600 text-red-600 px-4 py-2 rounded hover:bg-red-50 disabled:opacity-60"
+                        >
+                          {isReviewing && reviewingAction === 'reject' ? 'Rejecting...' : 'Reject'}
+                        </button>
+                        <Link
+                          href={`/trials/approvals/edit?submissionId=${submission._id}${token ? `&token=${token}` : ''}`}
+                          className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10"
+                        >
+                          Edit
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-500">
+                        This submission is already {submission.status}.
+                      </div>
+                    )}
                   </div>
 
                   {submission.study && (
@@ -366,7 +399,7 @@ export default function ApprovalClient() {
 
             {!submissions.length && (
               <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm text-sm text-gray-600">
-                No pending submissions right now.
+                No submissions found yet.
               </div>
             )}
           </div>
