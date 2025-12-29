@@ -47,8 +47,7 @@ function TrialSyncAction(props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nctId: nctId.toUpperCase(),
-          generateSummary: true,
-          generateEligibilityOverview: true
+          generateSummary: true
         }),
       })
 
@@ -75,7 +74,6 @@ function TrialSyncAction(props) {
         phase: syncedData.phase,
         ageRange: syncedData.ageRange,
         laySummary: syncedData.laySummary,
-        eligibilityOverview: syncedData.eligibilityOverview,
       }
 
       const draftId = `drafts.${id}`

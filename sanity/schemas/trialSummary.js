@@ -6,8 +6,8 @@
  * 2. Non-registered studies: Fully manual entry
  * 
  * Key features:
- * - Auto-synced eligibility criteria for quick patient screening
- * - LLM-generated plain language summary
+ * - Auto-synced eligibility criteria
+ * - LLM-generated clinical summary
  * - Local contact info (always manual)
  * - Site references for filtering
  */
@@ -140,11 +140,11 @@ export default {
     },
     {
       name: 'laySummary',
-      title: 'Plain Language Summary',
+      title: 'Clinical Summary',
       type: 'text',
       group: 'basic',
       rows: 4,
-      description: 'AI-generated or manually written summary for general audience. 2-3 sentences.'
+      description: 'AI-generated or manually written summary for clinicians. 3-5 sentences.'
     },
     {
       name: 'featured',
@@ -231,14 +231,6 @@ export default {
     // ============================================
     // ELIGIBILITY (Synced + Manual Override)
     // ============================================
-    {
-      name: 'eligibilityOverview',
-      title: 'Eligibility Overview',
-      type: 'text',
-      group: 'eligibility',
-      rows: 3,
-      description: 'Brief plain-language summary of who can join (shown prominently)'
-    },
     {
       name: 'inclusionCriteria',
       title: 'Inclusion Criteria',
