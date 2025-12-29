@@ -1,4 +1,4 @@
-import { ROLE_OPTIONS, SPECIALTY_OPTIONS, INTEREST_AREA_OPTIONS } from '../../lib/communicationOptions'
+import { ROLE_OPTIONS, SPECIALTY_OPTIONS, INTEREST_AREA_OPTIONS, CORRESPONDENCE_OPTIONS } from '../../lib/communicationOptions'
 
 const STATUS_OPTIONS = [
   { title: 'Active', value: 'active' },
@@ -57,6 +57,14 @@ export default {
       type: 'array',
       of: [{ type: 'string' }],
       options: { list: INTEREST_AREA_OPTIONS },
+      validation: (Rule) => Rule.required().min(1)
+    },
+    {
+      name: 'correspondencePreferences',
+      title: 'Correspondence Preferences',
+      type: 'array',
+      of: [{ type: 'string' }],
+      options: { list: CORRESPONDENCE_OPTIONS },
       validation: (Rule) => Rule.required().min(1)
     },
     {

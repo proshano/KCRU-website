@@ -12,7 +12,8 @@ const DEFAULT_OPTIONS = [
   { key: 'referral', label: 'Healthcare provider making a research or clinical referral', showOceanLink: true },
   { key: 'industry', label: 'Industry interested in partnering on research', showOceanLink: false },
   { key: 'training', label: 'Interested in research training opportunities', showOceanLink: false },
-  { key: 'donation', label: 'Interested in donating to support research', showOceanLink: false }
+  { key: 'donation', label: 'Interested in donating to support research', showOceanLink: false },
+  { key: 'website-feedback', label: 'Website feedback', showOceanLink: false }
 ]
 
 function sanitizeString(value = '') {
@@ -266,7 +267,6 @@ export async function POST(request) {
 }
 
 export const dynamic = 'force-dynamic'
-
 
 
 

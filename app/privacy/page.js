@@ -1,23 +1,15 @@
-import { sanityFetch, queries } from '@/lib/sanity'
+import Link from 'next/link'
 
 export const revalidate = 3600
 
-export default async function PrivacyPage() {
-  const settingsRaw = (await sanityFetch(queries.siteSettings)) || {}
-  const settings = JSON.parse(JSON.stringify(settingsRaw))
-
-  const orgName = settings?.unitName || 'London Kidney Clinical Research'
-  const contactEmail = settings?.contactEmail
-  const phone = settings?.phone
-
+export default function PrivacyPage() {
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-10">
       <header className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#888]">Privacy</p>
         <h1 className="text-4xl font-bold tracking-tight">How we protect your information</h1>
         <p className="text-[#555] max-w-3xl">
-          We are committed to protecting personal health information in line with Ontario&apos;s
-          Personal Health Information Protection Act (PHIPA) and applicable federal privacy
+          We are committed to protecting personal information in line with applicable privacy
           requirements. This statement explains what we collect on this website, why we collect it,
           and how you can reach us with questions.
         </p>
@@ -71,20 +63,15 @@ export default async function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-[#1a1a1a]">Contact us</h2>
         <p className="text-[#555]">
-          If you have questions about this statement, need to request an accommodation, or want to
-          exercise a privacy right under PHIPA or applicable law, please reach out:
+          If you have questions about this statement or want to share website feedback, please use
+          our contact form:
         </p>
-        {contactEmail && (
-          <a
-            className="inline-flex w-fit items-center justify-center rounded-full bg-purple px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple"
-            href={`mailto:${contactEmail}`}
-          >
-            Email us
-          </a>
-        )}
-        {!contactEmail && (
-          <p className="text-[#777]">Contact email coming soon.</p>
-        )}
+        <Link
+          className="inline-flex w-fit items-center justify-center rounded-full bg-purple px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple"
+          href="/contact?reason=website-feedback"
+        >
+          Submit website feedback
+        </Link>
       </section>
     </main>
   )

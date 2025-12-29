@@ -28,6 +28,12 @@ const DEFAULT_OPTIONS = [
     label: 'Interested in donating to support research',
     description: 'Philanthropy or community support.',
     showOceanLink: false
+  },
+  {
+    key: 'website-feedback',
+    label: 'Website feedback',
+    description: 'Accessibility issues or general feedback about the website.',
+    showOceanLink: false
   }
 ]
 

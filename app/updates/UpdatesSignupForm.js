@@ -11,6 +11,7 @@ export default function UpdatesSignupForm({
   roleOptions = [],
   specialtyOptions = [],
   interestAreaOptions = [],
+  correspondenceOptions = [],
   recaptchaSiteKey
 }) {
   const [form, setForm] = useState({
@@ -18,7 +19,8 @@ export default function UpdatesSignupForm({
     email: '',
     role: '',
     specialty: '',
-    interestAreas: []
+    interestAreas: [],
+    correspondencePreferences: ['study_updates']
   })
   const [honeypot, setHoneypot] = useState('')
   const [loading, setLoading] = useState(false)
@@ -44,6 +46,18 @@ export default function UpdatesSignupForm({
       }
 
       return { ...prev, interestAreas: Array.from(set) }
+    })
+  }
+
+  const toggleCorrespondence = (value) => {
+    setForm((prev) => {
+      const set = new Set(prev.correspondencePreferences || [])
+      if (set.has(value)) {
+        set.delete(value)
+      } else {
+        set.add(value)
+      }
+      return { ...prev, correspondencePreferences: Array.from(set) }
     })
   }
 
@@ -92,6 +106,11 @@ export default function UpdatesSignupForm({
       return
     }
 
+    if (!form.correspondencePreferences.length) {
+      setStatus({ type: 'error', message: 'Please select at least one correspondence option.' })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -106,6 +125,7 @@ export default function UpdatesSignupForm({
           role: form.role,
           specialty: form.specialty,
           interestAreas: form.interestAreas,
+          correspondencePreferences: form.correspondencePreferences,
           recaptchaToken,
           honeypot,
           startedAt: startTimeRef.current
@@ -209,6 +229,25 @@ export default function UpdatesSignupForm({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-base font-semibold text-[#333]">
+            Correspondence preferences<span className="text-purple">*</span>
+          </label>
+          <div className="space-y-2 text-sm">
+            {correspondenceOptions.map((option) => (
+              <label key={option.value} className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={form.correspondencePreferences.includes(option.value)}
+                  onChange={() => toggleCorrespondence(option.value)}
+                />
+                {option.title}
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-2">

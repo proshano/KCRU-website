@@ -1,15 +1,8 @@
-import { sanityFetch, queries } from '@/lib/sanity'
+import Link from 'next/link'
 
 export const revalidate = 3600
 
-export default async function AccessibilityPage() {
-  const settingsRaw = (await sanityFetch(queries.siteSettings)) || {}
-  const settings = JSON.parse(JSON.stringify(settingsRaw))
-
-  const orgName = settings?.unitName || 'London Kidney Clinical Research'
-  const contactEmail = settings?.contactEmail
-  const phone = settings?.phone
-
+export default function AccessibilityPage() {
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-12 space-y-10">
       <header className="space-y-3">
@@ -40,26 +33,12 @@ export default async function AccessibilityPage() {
           Please include any helpful details, such as the page you were visiting and the assistive
           technology you use.
         </p>
-        {contactEmail && (
-          <a
-            className="inline-flex w-fit items-center justify-center rounded-full bg-purple px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple"
-            href={`mailto:${contactEmail}`}
-          >
-            Email us
-          </a>
-        )}
-        {!contactEmail && (
-          <p className="text-[#777]">Contact email coming soon.</p>
-        )}
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold text-[#1a1a1a]">Feedback and improvements</h2>
-        <p className="text-[#555]">
-          We review accessibility feedback promptly and use it to prioritize improvements. If a
-          barrier cannot be removed immediately, we will propose an alternative way to access the
-          information or service.
-        </p>
+        <Link
+          className="inline-flex w-fit items-center justify-center rounded-full bg-purple px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-purple/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple"
+          href="/contact?reason=website-feedback"
+        >
+          Submit accessibility feedback
+        </Link>
       </section>
     </main>
   )

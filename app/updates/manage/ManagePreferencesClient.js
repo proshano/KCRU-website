@@ -6,7 +6,8 @@ import { useSearchParams } from 'next/navigation'
 export default function ManagePreferencesClient({
   roleOptions = [],
   specialtyOptions = [],
-  interestAreaOptions = []
+  interestAreaOptions = [],
+  correspondenceOptions = []
 }) {
   const searchParams = useSearchParams()
   const token = searchParams.get('token') || ''
@@ -41,6 +42,7 @@ export default function ManagePreferencesClient({
           role: data.subscriber?.role || '',
           specialty: data.subscriber?.specialty || '',
           interestAreas: data.subscriber?.interestAreas || [],
+          correspondencePreferences: data.subscriber?.correspondencePreferences || ['study_updates'],
           status: data.subscriber?.status || 'active'
         })
       } catch (error) {
@@ -80,6 +82,19 @@ export default function ManagePreferencesClient({
     })
   }
 
+  const toggleCorrespondence = (value) => {
+    setForm((prev) => {
+      if (!prev) return prev
+      const set = new Set(prev.correspondencePreferences || [])
+      if (set.has(value)) {
+        set.delete(value)
+      } else {
+        set.add(value)
+      }
+      return { ...prev, correspondencePreferences: Array.from(set) }
+    })
+  }
+
   async function handleSave(event) {
     event.preventDefault()
     if (!form) return
@@ -96,6 +111,11 @@ export default function ManagePreferencesClient({
       return
     }
 
+    if (!form.correspondencePreferences.length) {
+      setStatus({ type: 'error', message: 'Please select at least one correspondence option.' })
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -108,7 +128,8 @@ export default function ManagePreferencesClient({
           name: form.name,
           role: form.role,
           specialty: form.specialty,
-          interestAreas: form.interestAreas
+          interestAreas: form.interestAreas,
+          correspondencePreferences: form.correspondencePreferences
         })
       })
 
@@ -227,6 +248,25 @@ export default function ManagePreferencesClient({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-base font-semibold text-[#333]">
+            Correspondence preferences<span className="text-purple">*</span>
+          </label>
+          <div className="space-y-2 text-sm">
+            {correspondenceOptions.map((option) => (
+              <label key={option.value} className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={form.correspondencePreferences.includes(option.value)}
+                  onChange={() => toggleCorrespondence(option.value)}
+                />
+                {option.title}
+              </label>
+            ))}
+          </div>
         </div>
 
         <div className="space-y-2">
