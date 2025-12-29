@@ -39,8 +39,11 @@ export async function GET(request) {
   }
 
   try {
+    const freshFetch = writeClient.config().token
+      ? (query, params) => writeClient.fetch(query, params)
+      : sanityFetch
     const [submissionsRaw, areasRaw, researchersRaw] = await Promise.all([
-      sanityFetch(`
+      freshFetch(`
         *[_type == "studySubmission"] | order(submittedAt desc) {
           _id,
           title,
@@ -60,14 +63,14 @@ export async function GET(request) {
           }
         }
       `),
-      sanityFetch(`
+      freshFetch(`
         *[_type == "therapeuticArea" && active == true] | order(order asc, name asc) {
           _id,
           name,
           shortLabel
         }
       `),
-      sanityFetch(`
+      freshFetch(`
         *[_type == "researcher"] | order(name asc) {
           _id,
           name,
