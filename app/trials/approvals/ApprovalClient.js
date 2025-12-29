@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 const TOKEN_STORAGE_KEY = 'kcru-approval-token'
+const EMAIL_STORAGE_KEY = 'kcru-approval-email'
 
 function formatList(items) {
   if (!items || !items.length) return 'None'
@@ -37,6 +38,10 @@ export default function ApprovalClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [token, setToken] = useState('')
+  const [email, setEmail] = useState('')
+  const [passcode, setPasscode] = useState('')
+  const [sendingCode, setSendingCode] = useState(false)
+  const [verifyingCode, setVerifyingCode] = useState(false)
   const [adminEmail, setAdminEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -77,6 +82,8 @@ export default function ApprovalClient() {
     }
     const stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
     if (stored) setToken(stored)
+    const storedEmail = sessionStorage.getItem(EMAIL_STORAGE_KEY)
+    if (storedEmail) setEmail(storedEmail)
   }, [router, searchParams])
 
   useEffect(() => {
@@ -86,6 +93,14 @@ export default function ApprovalClient() {
       sessionStorage.removeItem(TOKEN_STORAGE_KEY)
     }
   }, [token])
+
+  useEffect(() => {
+    if (email) {
+      sessionStorage.setItem(EMAIL_STORAGE_KEY, email)
+    } else {
+      sessionStorage.removeItem(EMAIL_STORAGE_KEY)
+    }
+  }, [email])
 
   const areaMap = useMemo(() => {
     return new Map(
@@ -174,9 +189,68 @@ export default function ApprovalClient() {
     }
   }
 
+  async function sendPasscode(event) {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+    if (!email) {
+      setError('Enter your email.')
+      return
+    }
+    setSendingCode(true)
+    try {
+      const res = await fetch('/api/trials/approvals/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setSuccess('Passcode sent. Check your email.')
+    } catch (err) {
+      setError(err.message || 'Failed to send passcode.')
+    } finally {
+      setSendingCode(false)
+    }
+  }
+
+  async function verifyPasscode(event) {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+    if (!email || !passcode) {
+      setError('Enter your email and passcode.')
+      return
+    }
+    setVerifyingCode(true)
+    try {
+      const res = await fetch('/api/trials/approvals/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: passcode }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setToken(data.token || '')
+      setSuccess('Signed in. Loading submissions...')
+      setPasscode('')
+    } catch (err) {
+      setError(err.message || 'Failed to verify passcode.')
+    } finally {
+      setVerifyingCode(false)
+    }
+  }
+
   function handleLogout() {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY)
+    sessionStorage.removeItem(EMAIL_STORAGE_KEY)
     setToken('')
+    setEmail('')
+    setPasscode('')
     setSubmissions([])
     setSuccess('')
     setError('')
@@ -198,8 +272,52 @@ export default function ApprovalClient() {
           <div>
             <h2 className="text-lg font-semibold">Approval access</h2>
             <p className="text-sm text-gray-500">
-              Use the secure approval link sent to admin emails when a study is submitted.
+              Use the secure approval link or request a passcode to sign in.
             </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form className="space-y-2" onSubmit={sendPasscode}>
+              <label htmlFor="approval-email" className="text-sm font-medium">Work email</label>
+              <input
+                id="approval-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@lhsc.on.ca"
+                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
+              />
+              <p className="text-xs text-gray-500">
+                We will send a one-time 6-digit code.
+              </p>
+              <button
+                type="submit"
+                disabled={sendingCode || !email}
+                className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
+              >
+                {sendingCode ? 'Sending...' : 'Send passcode'}
+              </button>
+            </form>
+            <form className="space-y-2" onSubmit={verifyPasscode}>
+              <label htmlFor="approval-passcode" className="text-sm font-medium">Passcode</label>
+              <input
+                id="approval-passcode"
+                type="text"
+                value={passcode}
+                onChange={(e) => setPasscode(e.target.value)}
+                placeholder="6-digit code"
+                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono"
+              />
+              <p className="text-xs text-gray-500">
+                Enter the 6-digit code from your email.
+              </p>
+              <button
+                type="submit"
+                disabled={verifyingCode || !email || !passcode}
+                className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
+              >
+                {verifyingCode ? 'Verifying...' : 'Verify passcode'}
+              </button>
+            </form>
           </div>
           {(error || success) && (
             <div className="text-sm">
