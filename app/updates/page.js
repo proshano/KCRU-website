@@ -14,7 +14,7 @@ export default async function UpdatesPage() {
       <div className="grid gap-10 lg:grid-cols-[1.4fr_0.9fr]">
         <div className="space-y-6">
           <div className="space-y-3">
-            <h1 className="text-4xl font-bold tracking-tight">Get study and publication updates</h1>
+            <h1 className="text-4xl font-bold tracking-tight">Subscribe for updates</h1>
             <p className="text-[#666]">
               Choose the roles and therapeutic areas that match your work, and we will share updates about active
               studies and new publications. You can unsubscribe or change your preferences at any time.
