@@ -2,6 +2,8 @@ import { DEFAULT_CLASSIFICATION_PROMPT } from '../../lib/classificationPrompt.js
 import { DEFAULT_SYSTEM_PROMPT } from '../../lib/summaries.js'
 import { ClassificationPromptInput } from '../components/ClassificationPromptInput.jsx'
 import { SystemPromptInput } from '../components/SystemPromptInput.jsx'
+import { TrialSummaryPromptInput } from '../components/TrialSummaryPromptInput.jsx'
+import { TRIAL_SUMMARY_SYSTEM_PROMPT } from '../../lib/summaries.js'
 
 export default {
   name: 'siteSettings',
@@ -122,6 +124,45 @@ export default {
       initialValue: DEFAULT_SYSTEM_PROMPT,
       components: {
         input: SystemPromptInput
+      }
+    },
+    {
+      name: 'trialSummaryLlmProvider',
+      title: 'LLM Provider (trial summaries)',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'OpenRouter', value: 'openrouter' },
+          { title: 'OpenAI', value: 'openai' },
+          { title: 'Together', value: 'together' },
+          { title: 'Groq', value: 'groq' },
+          { title: 'Ollama', value: 'ollama' },
+          { title: 'Anthropic', value: 'anthropic' }
+        ]
+      },
+      description: 'Leave blank to use environment defaults.'
+    },
+    {
+      name: 'trialSummaryLlmModel',
+      title: 'LLM Model (trial summaries)',
+      type: 'string',
+      description: 'e.g., google/gemma-2-9b-it or openrouter/gpt-4o-mini'
+    },
+    {
+      name: 'trialSummaryLlmApiKey',
+      title: 'LLM API Key (trial summaries; server-only)',
+      type: 'string',
+      description: 'Optional override. Leave blank to use server env vars.'
+    },
+    {
+      name: 'trialSummarySystemPrompt',
+      title: 'LLM System Prompt (trial summaries)',
+      type: 'text',
+      rows: 6,
+      description: 'Optional custom instructions for trial summaries.',
+      initialValue: TRIAL_SUMMARY_SYSTEM_PROMPT,
+      components: {
+        input: TrialSummaryPromptInput
       }
     },
     {

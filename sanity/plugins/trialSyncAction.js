@@ -72,7 +72,6 @@ function TrialSyncAction(props) {
         exclusionCriteria: syncedData.exclusionCriteria || [],
         studyType: syncedData.studyType,
         phase: syncedData.phase,
-        ageRange: syncedData.ageRange,
         laySummary: syncedData.laySummary,
       }
 
@@ -102,6 +101,7 @@ function TrialSyncAction(props) {
         await client
           .patch(draftId)
           .set(fieldsToSet)
+          .unset(['ageRange', 'conditions', 'eligibilityOverview'])
           .commit({ returnDocuments: false })
           .catch(async (err) => {
             // If draft doesn't exist, create it first then patch
@@ -112,7 +112,11 @@ function TrialSyncAction(props) {
                 _id: draftId,
                 _type: 'trialSummary',
               })
-              await client.patch(draftId).set(fieldsToSet).commit({ returnDocuments: false })
+              await client
+                .patch(draftId)
+                .set(fieldsToSet)
+                .unset(['ageRange', 'conditions', 'eligibilityOverview'])
+                .commit({ returnDocuments: false })
             } else {
               throw err
             }

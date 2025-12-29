@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { syncTrialData, fetchTrialFromCTGov } from '@/lib/trialSync'
+import { sanityFetch, queries } from '@/lib/sanity'
 
 // CORS headers for Sanity Studio
 const corsHeaders = {
@@ -53,8 +54,17 @@ export async function POST(request) {
     console.log(`[trial-sync] Syncing trial: ${normalizedNctId}`)
 
     // Sync the trial data
+    const settings = (await sanityFetch(queries.siteSettings)) || {}
+    const summaryOptions = {
+      provider: settings.trialSummaryLlmProvider || settings.llmProvider,
+      model: settings.trialSummaryLlmModel || settings.llmModel,
+      apiKey: settings.trialSummaryLlmApiKey || settings.llmApiKey,
+      systemPrompt: settings.trialSummarySystemPrompt || undefined,
+    }
+
     const trialData = await syncTrialData(normalizedNctId, {
-      generateSummary
+      generateSummary,
+      summaryOptions
     })
 
     console.log(`[trial-sync] Successfully synced: ${nctId}`)
