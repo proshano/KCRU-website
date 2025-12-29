@@ -3,6 +3,7 @@ import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
 import crypto from 'crypto'
 import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
+import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -288,6 +289,20 @@ async function supersedePendingSubmissions({ submissionId, studyId }) {
   return { count: pending.length, promise }
 }
 
+async function findDuplicateNctId({ nctId, excludeId }) {
+  if (!nctId) return null
+  const duplicate = await sanityFetch(
+    `*[_type == "trialSummary" && nctId == $nctId && _id != $excludeId && !(_id in path("drafts.**"))][0]{
+      _id,
+      title,
+      nctId,
+      "slug": slug.current
+    }`,
+    { nctId, excludeId: excludeId || '' }
+  )
+  return duplicate || null
+}
+
 async function resolvePayloadReferences(payload) {
   const areaIds = Array.isArray(payload?.therapeuticAreaIds)
     ? payload.therapeuticAreaIds.filter(Boolean)
@@ -311,7 +326,9 @@ async function resolvePayloadReferences(payload) {
   const areaMap = new Map(
     (areas || []).map((area) => [
       area._id,
-      area.shortLabel ? `${area.shortLabel} - ${area.name}` : area.name,
+      area.shortLabel
+        ? `${area.shortLabel} - ${getTherapeuticAreaLabel(area.name)}`
+        : getTherapeuticAreaLabel(area.name),
     ])
   )
 
@@ -467,6 +484,14 @@ export async function POST(request) {
       )
     }
 
+    const duplicate = await findDuplicateNctId({ nctId: payload.nctId })
+    if (duplicate) {
+      return NextResponse.json(
+        { ok: false, error: 'A study with this NCT ID already exists.', duplicate },
+        { status: 409, headers: CORS_HEADERS }
+      )
+    }
+
     const admins = await getApprovalAdmins()
     if (!admins.length) {
       return NextResponse.json(
@@ -539,6 +564,14 @@ export async function PATCH(request) {
       return NextResponse.json(
         { ok: false, error: 'Title is required.' },
         { status: 400, headers: CORS_HEADERS }
+      )
+    }
+
+    const duplicate = await findDuplicateNctId({ nctId: payload.nctId, excludeId: id })
+    if (duplicate) {
+      return NextResponse.json(
+        { ok: false, error: 'A study with this NCT ID already exists.', duplicate },
+        { status: 409, headers: CORS_HEADERS }
       )
     }
 

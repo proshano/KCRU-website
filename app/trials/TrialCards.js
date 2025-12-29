@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { urlFor } from '@/lib/sanity'
+import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 const statusConfig = {
   recruiting: { 
@@ -74,6 +75,8 @@ function TrialItem({ trial }) {
   const hasDetailPage = !!slugValue
   const ctGovUrl = trial.nctId ? `https://clinicaltrials.gov/study/${trial.nctId}` : null
   const summaryText = trial.laySummary || ''
+  const therapeuticLabels =
+    trial.therapeuticAreas?.map((area) => getTherapeuticAreaLabel(area?.name)).filter(Boolean) || []
 
   return (
     <article className="p-6 space-y-3 hover:bg-[#fafafa] transition-colors">
@@ -95,10 +98,10 @@ function TrialItem({ trial }) {
           </h3>
 
           {/* Therapeutic areas + Sponsor */}
-          {(trial.therapeuticAreas?.length > 0 || trial.ctGovData?.sponsor) && (
+          {(therapeuticLabels.length > 0 || trial.ctGovData?.sponsor) && (
             <p className="text-sm text-[#666]">
-              {trial.therapeuticAreas?.length > 0 && trial.therapeuticAreas.map(a => a.name).join(', ')}
-              {trial.therapeuticAreas?.length > 0 && trial.ctGovData?.sponsor && ' · '}
+              {therapeuticLabels.length > 0 && therapeuticLabels.join(', ')}
+              {therapeuticLabels.length > 0 && trial.ctGovData?.sponsor && ' · '}
               {trial.ctGovData?.sponsor}
             </p>
           )}

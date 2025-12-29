@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 const TOKEN_STORAGE_KEY = 'kcru-approval-token'
 
@@ -304,7 +305,8 @@ export default function ApprovalEditClient() {
         throw new Error(data?.error || `Sync failed (${res.status})`)
       }
       const synced = data?.data || {}
-      const suggestedTitle = synced?.ctGovData?.briefTitle || synced?.ctGovData?.officialTitle
+      const suggestedTitle =
+        synced?.displayTitle || synced?.ctGovData?.briefTitle || synced?.ctGovData?.officialTitle
       const hasSyncedInclusion =
         Array.isArray(synced.inclusionCriteria) ||
         (typeof synced.inclusionCriteria === 'string' && synced.inclusionCriteria.trim())
@@ -605,7 +607,7 @@ export default function ApprovalEditClient() {
                     />
                     <span>
                       {area.shortLabel ? `${area.shortLabel} - ` : ''}
-                      {area.name}
+                      {getTherapeuticAreaLabel(area.name)}
                     </span>
                   </label>
                 ))}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 const TOKEN_STORAGE_KEY = 'kcru-approval-token'
 const EMAIL_STORAGE_KEY = 'kcru-approval-email'
@@ -106,7 +107,9 @@ export default function ApprovalClient() {
     return new Map(
       (meta.areas || []).map((area) => [
         area._id,
-        area.shortLabel ? `${area.shortLabel} - ${area.name}` : area.name,
+        area.shortLabel
+          ? `${area.shortLabel} - ${getTherapeuticAreaLabel(area.name)}`
+          : getTherapeuticAreaLabel(area.name),
       ])
     )
   }, [meta.areas])

@@ -72,7 +72,7 @@ export default {
       title: 'Display Title',
       type: 'string',
       group: 'basic',
-      description: 'Patient-friendly title shown on website. Can override the official title.',
+      description: 'Study title shown on website. Can override the official title.',
       validation: Rule => Rule.required()
     },
     {
@@ -264,6 +264,7 @@ export default {
       fields: [
         { name: 'briefTitle', title: 'Brief Title', type: 'string', readOnly: true },
         { name: 'officialTitle', title: 'Official Title', type: 'string', readOnly: true },
+        { name: 'acronym', title: 'Acronym', type: 'string', readOnly: true },
         { name: 'briefSummary', title: 'Brief Summary', type: 'text', readOnly: true },
         { name: 'detailedDescription', title: 'Detailed Description', type: 'text', readOnly: true },
         { name: 'overallStatus', title: 'Overall Status', type: 'string', readOnly: true },

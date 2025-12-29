@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 const STATUS_OPTIONS = [
   { value: 'recruiting', label: 'Recruiting' },
@@ -91,6 +92,10 @@ function joinList(items) {
   return items.filter(Boolean).join('\n')
 }
 
+function normalizeNctId(value) {
+  return String(value || '').trim().toUpperCase()
+}
+
 function mapTrialToForm(trial) {
   return {
     id: trial?._id || '',
@@ -172,6 +177,7 @@ export default function StudyManagerClient() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [duplicateMatch, setDuplicateMatch] = useState(null)
   const [trials, setTrials] = useState([])
   const [meta, setMeta] = useState({ areas: [], researchers: [] })
   const [form, setForm] = useState(EMPTY_FORM)
@@ -215,6 +221,7 @@ export default function StudyManagerClient() {
     setDraftAction('')
     setSuccess('')
     setError('')
+    setDuplicateMatch(null)
   }, [])
 
   useEffect(() => {
@@ -270,6 +277,26 @@ export default function StudyManagerClient() {
       return title.includes(query) || nct.includes(query)
     })
   }, [search, trials])
+
+  function findDuplicateByNctId(nctId, excludeId) {
+    const normalized = normalizeNctId(nctId)
+    if (!normalized) return null
+    return (
+      trials.find(
+        (trial) => normalizeNctId(trial?.nctId) === normalized && trial?._id !== excludeId
+      ) || null
+    )
+  }
+
+  function showDuplicate(match) {
+    if (!match) return
+    setDuplicateMatch(match)
+    setError('A study with this NCT ID already exists. Use the existing record instead.')
+    setSuccess('')
+    if (match.nctId) {
+      setSearch(match.nctId)
+    }
+  }
 
   const loadData = useCallback(async () => {
     setError('')
@@ -404,6 +431,7 @@ export default function StudyManagerClient() {
   function handleSelectStudy(trial) {
     setError('')
     setSuccess('')
+    setDuplicateMatch(null)
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current)
       autosaveTimeoutRef.current = null
@@ -418,6 +446,7 @@ export default function StudyManagerClient() {
   function handleNewStudy() {
     setError('')
     setSuccess('')
+    setDuplicateMatch(null)
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current)
       autosaveTimeoutRef.current = null
@@ -428,7 +457,35 @@ export default function StudyManagerClient() {
     setForm(EMPTY_FORM)
   }
 
+  async function handleDuplicateSelect() {
+    if (!duplicateMatch) return
+    const matchId = duplicateMatch._id
+    const matchNctId = normalizeNctId(duplicateMatch.nctId)
+    const existing = trials.find(
+      (trial) =>
+        trial?._id === matchId ||
+        (matchNctId && normalizeNctId(trial?.nctId) === matchNctId)
+    )
+    if (existing) {
+      handleSelectStudy(existing)
+      return
+    }
+    const data = await loadData()
+    const refreshed = data?.trials?.find(
+      (trial) =>
+        trial?._id === matchId ||
+        (matchNctId && normalizeNctId(trial?.nctId) === matchNctId)
+    )
+    if (refreshed) {
+      handleSelectStudy(refreshed)
+    }
+  }
+
   function updateFormField(key, value) {
+    if (key === 'nctId' && duplicateMatch) {
+      setDuplicateMatch(null)
+      setError('')
+    }
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -524,6 +581,7 @@ export default function StudyManagerClient() {
   async function handleSync() {
     setError('')
     setSuccess('')
+    setDuplicateMatch(null)
     if (!form.nctId) {
       setError('Enter an NCT ID before syncing.')
       return
@@ -543,7 +601,8 @@ export default function StudyManagerClient() {
         throw new Error(data?.error || `Sync failed (${res.status})`)
       }
       const synced = data?.data || {}
-      const suggestedTitle = synced?.ctGovData?.briefTitle || synced?.ctGovData?.officialTitle
+      const suggestedTitle =
+        synced?.displayTitle || synced?.ctGovData?.briefTitle || synced?.ctGovData?.officialTitle
       const hasSyncedInclusion =
         Array.isArray(synced.inclusionCriteria) ||
         (typeof synced.inclusionCriteria === 'string' && synced.inclusionCriteria.trim())
@@ -611,11 +670,17 @@ export default function StudyManagerClient() {
     event.preventDefault()
     setError('')
     setSuccess('')
+    setDuplicateMatch(null)
     if (!token) {
       setError('Sign in to submit studies.')
       return
     }
     if (!hasChanges) {
+      return
+    }
+    const localDuplicate = findDuplicateByNctId(form.nctId, form.id)
+    if (localDuplicate) {
+      showDuplicate(localDuplicate)
       return
     }
     setSaving(true)
@@ -650,12 +715,21 @@ export default function StudyManagerClient() {
       })
       const saveResult = await res.json()
       if (!res.ok || !saveResult?.ok) {
+        if (saveResult?.duplicate) {
+          const duplicate =
+            trials.find((trial) => trial?._id === saveResult.duplicate?._id) ||
+            findDuplicateByNctId(saveResult.duplicate?.nctId, form.id) ||
+            saveResult.duplicate
+          showDuplicate(duplicate)
+          return
+        }
         if (res.status === 401) {
           handleSignOut()
         }
         throw new Error(saveResult?.error || `Submission failed (${res.status})`)
       }
       setSuccess(form.id ? 'Update submitted for approval.' : 'New study submitted for approval.')
+      setDuplicateMatch(null)
       setBaselineSnapshot(formSnapshot)
       await loadData()
       await deleteDraft({ silent: true })
@@ -887,10 +961,28 @@ export default function StudyManagerClient() {
           </div>
         )}
 
-        {(error || success) && (
+        {(error || success || duplicateMatch) && (
           <div className="text-sm">
             {error && <p className="text-red-600">{error}</p>}
             {success && <p className="text-emerald-700">{success}</p>}
+            {duplicateMatch && (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+                <p className="text-sm font-medium">Matching study found</p>
+                <p className="text-sm">{duplicateMatch.title || 'Untitled study'}</p>
+                <p className="text-xs text-amber-900/80">
+                  {duplicateMatch.nctId || 'No NCT ID'} - {duplicateMatch.slug || 'no-slug'}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDuplicateSelect}
+                    className="inline-flex items-center justify-center border border-amber-300 text-amber-900 px-3 py-1.5 rounded hover:bg-amber-100"
+                  >
+                    Open existing study
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>
@@ -1151,14 +1243,14 @@ export default function StudyManagerClient() {
                     {(meta.areas || []).map((area) => (
                       <label key={area._id} className="inline-flex items-center gap-2 text-sm">
                         <input
-                      type="checkbox"
-                      checked={form.therapeuticAreaIds.includes(area._id)}
-                      onChange={() => toggleMultiSelect('therapeuticAreaIds', area._id)}
+                          type="checkbox"
+                          checked={form.therapeuticAreaIds.includes(area._id)}
+                          onChange={() => toggleMultiSelect('therapeuticAreaIds', area._id)}
                         className="h-4 w-4"
                       />
                       <span>
                       {area.shortLabel ? `${area.shortLabel} - ` : ''}
-                      {area.name}
+                      {getTherapeuticAreaLabel(area.name)}
                     </span>
                   </label>
                 ))}

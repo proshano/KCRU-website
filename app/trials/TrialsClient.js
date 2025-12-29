@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { TrialSection } from './TrialCards'
+import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 /**
  * Normalize text for search - lowercase, remove special chars, collapse spaces
@@ -47,6 +48,9 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
     if (searchWords.length === 0) return areaFilteredTrials
     
     return areaFilteredTrials.filter(trial => {
+      const therapeuticLabels =
+        trial.therapeuticAreas?.map((area) => getTherapeuticAreaLabel(area?.name)).filter(Boolean) || []
+      const therapeuticRaw = trial.therapeuticAreas?.map((area) => area?.name).filter(Boolean) || []
       // Build a combined searchable text for the trial
       const searchableFields = [
         trial.title,
@@ -54,7 +58,8 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
         trial.ctGovData?.sponsor,
         trial.laySummary,
         trial.principalInvestigator?.name,
-        ...(trial.therapeuticAreas?.map(a => a.name) || []),
+        ...therapeuticLabels,
+        ...therapeuticRaw,
         ...(trial.therapeuticAreas?.map(a => a.shortLabel) || []),
       ].filter(Boolean)
       
@@ -166,6 +171,7 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
             </Link>
             {areas.filter(a => a.trialCount > 0).map((area) => {
               const isActive = selectedArea === area.slug
+              const label = getTherapeuticAreaLabel(area?.name)
               return (
                 <Link
                   key={area._id}
@@ -177,7 +183,7 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
                   }`}
                 >
                   {area.icon && <span>{area.icon}</span>}
-                  {area.name}
+                  {label}
                   <span className={`text-xs ${isActive ? 'text-white/70' : 'text-gray-500'}`}>
                     ({area.trialCount})
                   </span>
@@ -195,7 +201,7 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
             Showing {trials.length} {trials.length === 1 ? 'study' : 'studies'}
             {selectedArea && (
               <> in <span className="font-medium text-gray-900">
-                {areas.find(a => a.slug === selectedArea)?.name || selectedArea}
+                {getTherapeuticAreaLabel(areas.find(a => a.slug === selectedArea)?.name) || selectedArea}
               </span></>
             )}
             {searchQuery && (
