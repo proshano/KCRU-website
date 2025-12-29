@@ -9,7 +9,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
 
-const SESSION_TTL_HOURS = 8
+const SESSION_TTL_HOURS = 72
 
 async function getApprovalAdmins() {
   const settings = await sanityFetch(`

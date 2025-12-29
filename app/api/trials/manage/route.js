@@ -13,7 +13,7 @@ const CORS_HEADERS = {
 const FALLBACK_NOTIFY_EMAIL = (process.env.STUDY_EDITOR_NOTIFY_EMAIL || '').trim()
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
 const APPROVAL_BASE_URL = `${SITE_BASE_URL}/trials/approvals`
-const APPROVAL_SESSION_TTL_HOURS = 8
+const APPROVAL_SESSION_TTL_HOURS = 72
 const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
 
 function extractToken(request) {
