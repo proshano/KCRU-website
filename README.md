@@ -1,4 +1,4 @@
-# Research Unit Website Starter
+# Research Unit Website
 
 ## Project Structure
 
