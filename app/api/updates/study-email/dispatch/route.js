@@ -72,9 +72,11 @@ function getZonedParts(date, timeZone) {
 function shouldRunNow() {
   const now = new Date()
   const parts = getZonedParts(now, CRON_TIMEZONE)
+  const fallbackHour = (CRON_TARGET_HOUR + 23) % 24
+  const hourMatches = parts.hour === CRON_TARGET_HOUR || parts.hour === fallbackHour
   return (
     parts.day === 1 &&
-    parts.hour === CRON_TARGET_HOUR &&
+    hourMatches &&
     parts.minute >= 0 &&
     parts.minute < CRON_ALLOWED_MINUTES
   )
