@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
+import { getAdminSession } from '@/lib/adminSessions'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -16,14 +17,7 @@ function extractToken(request) {
 }
 
 async function getSession(token) {
-  if (!token) return null
-  const session = await sanityFetch(
-    `*[_type == "studyApprovalSession" && token == $token][0]{ _id, email, expiresAt, revoked }`,
-    { token }
-  )
-  if (!session || session.revoked) return null
-  if (session.expiresAt && Date.parse(session.expiresAt) < Date.now()) return null
-  return session
+  return getAdminSession(token)
 }
 
 export async function OPTIONS() {

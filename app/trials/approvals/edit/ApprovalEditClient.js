@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
-const TOKEN_STORAGE_KEY = 'kcru-approval-token'
+const TOKEN_STORAGE_KEY = 'kcru-admin-token'
+const LEGACY_TOKEN_KEYS = ['kcru-approval-token', 'kcru-updates-admin-token']
 
 const STATUS_OPTIONS = [
   { value: 'recruiting', label: 'Recruiting' },
@@ -146,7 +147,13 @@ export default function ApprovalEditClient() {
       router.replace(nextQuery ? `/trials/approvals/edit?${nextQuery}` : '/trials/approvals/edit')
       return
     }
-    const stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+    let stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+    if (!stored) {
+      stored = LEGACY_TOKEN_KEYS.map((key) => sessionStorage.getItem(key)).find(Boolean) || ''
+      if (stored) {
+        sessionStorage.setItem(TOKEN_STORAGE_KEY, stored)
+      }
+    }
     if (stored) setToken(stored)
   }, [router, searchParams])
 
@@ -479,6 +486,17 @@ export default function ApprovalEditClient() {
         <p className="text-gray-600 max-w-2xl">
           Edit pending study submissions before approving them. Save changes here, then approve in the approvals list.
         </p>
+        {token && (
+          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+            <span className="text-xs uppercase tracking-wide text-gray-400">Admin links</span>
+            <Link href="/trials/approvals" className="text-purple font-medium">
+              Study approvals
+            </Link>
+            <Link href="/updates/admin" className="hover:text-gray-700">
+              Study update emails
+            </Link>
+          </div>
+        )}
         <Link href="/trials/approvals" className="text-sm text-purple hover:text-purple/80">
           Back to approvals
         </Link>

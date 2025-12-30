@@ -1,9 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
-const TOKEN_STORAGE_KEY = 'kcru-updates-admin-token'
-const EMAIL_STORAGE_KEY = 'kcru-updates-admin-email'
+const TOKEN_STORAGE_KEY = 'kcru-admin-token'
+const EMAIL_STORAGE_KEY = 'kcru-admin-email'
+const LEGACY_TOKEN_KEYS = ['kcru-updates-admin-token', 'kcru-approval-token']
+const LEGACY_EMAIL_KEYS = ['kcru-updates-admin-email', 'kcru-approval-email']
 
 const DEFAULT_SETTINGS = {
   subjectTemplate: '',
@@ -51,9 +54,21 @@ export default function UpdatesAdminClient() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
 
   useEffect(() => {
-    const storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+    let storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+    if (!storedToken) {
+      storedToken = LEGACY_TOKEN_KEYS.map((key) => sessionStorage.getItem(key)).find(Boolean) || ''
+      if (storedToken) {
+        sessionStorage.setItem(TOKEN_STORAGE_KEY, storedToken)
+      }
+    }
     if (storedToken) setToken(storedToken)
-    const storedEmail = sessionStorage.getItem(EMAIL_STORAGE_KEY)
+    let storedEmail = sessionStorage.getItem(EMAIL_STORAGE_KEY)
+    if (!storedEmail) {
+      storedEmail = LEGACY_EMAIL_KEYS.map((key) => sessionStorage.getItem(key)).find(Boolean) || ''
+      if (storedEmail) {
+        sessionStorage.setItem(EMAIL_STORAGE_KEY, storedEmail)
+      }
+    }
     if (storedEmail) setEmail(storedEmail)
   }, [])
 
@@ -114,6 +129,8 @@ export default function UpdatesAdminClient() {
   function handleLogout() {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY)
     sessionStorage.removeItem(EMAIL_STORAGE_KEY)
+    LEGACY_TOKEN_KEYS.forEach((key) => sessionStorage.removeItem(key))
+    LEGACY_EMAIL_KEYS.forEach((key) => sessionStorage.removeItem(key))
     setToken('')
     setEmail('')
     setPasscode('')
@@ -134,7 +151,7 @@ export default function UpdatesAdminClient() {
     }
     setSendingCode(true)
     try {
-      const res = await fetch('/api/updates/admin/login', {
+      const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -161,7 +178,7 @@ export default function UpdatesAdminClient() {
     }
     setVerifyingCode(true)
     try {
-      const res = await fetch('/api/updates/admin/verify', {
+      const res = await fetch('/api/admin/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: passcode }),
@@ -276,6 +293,17 @@ export default function UpdatesAdminClient() {
         <p className="text-gray-600 max-w-2xl">
           Manage monthly study update emails, review subscriber counts, and send updates on demand.
         </p>
+        {token && (
+          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+            <span className="text-xs uppercase tracking-wide text-gray-400">Admin links</span>
+            <Link href="/trials/approvals" className="hover:text-gray-700">
+              Study approvals
+            </Link>
+            <Link href="/updates/admin" className="text-purple font-medium">
+              Study update emails
+            </Link>
+          </div>
+        )}
       </header>
 
       {!token && (

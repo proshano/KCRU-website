@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import crypto from 'crypto'
-import { sanityFetch, writeClient } from '@/lib/sanity'
+import { writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
+import { getAdminEmails, verifyAdminPasscode } from '@/lib/adminSessions'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -10,15 +10,6 @@ const CORS_HEADERS = {
 }
 
 const SESSION_TTL_HOURS = 72
-
-async function getUpdateAdmins() {
-  const settings = await sanityFetch(`
-    *[_type == "siteSettings"][0]{
-      "admins": studyUpdates.admins
-    }
-  `)
-  return (settings?.admins || []).map((email) => String(email).trim().toLowerCase()).filter(Boolean)
-}
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
@@ -43,73 +34,23 @@ export async function POST(request) {
       )
     }
 
-    const admins = await getUpdateAdmins()
+    const admins = await getAdminEmails()
     if (!admins.length) {
       return NextResponse.json(
-        { ok: false, error: 'No study update admins configured in Sanity.' },
+        { ok: false, error: 'No admin emails configured in Sanity.' },
         { status: 400, headers: CORS_HEADERS }
       )
     }
 
     if (!admins.includes(email)) {
       return NextResponse.json(
-        { ok: false, error: 'Email not authorized for study updates.' },
+        { ok: false, error: 'Email not authorized for admin access.' },
         { status: 403, headers: CORS_HEADERS }
       )
     }
 
-    const session = await sanityFetch(
-      `*[_type == "studyUpdateAdminSession" && email == $email && revoked != true] | order(createdAt desc)[0]{
-        _id,
-        codeHash,
-        codeExpiresAt,
-        codeUsedAt
-      }`,
-      { email }
-    )
-
-    if (!session?._id || !session.codeHash) {
-      return NextResponse.json(
-        { ok: false, error: 'Passcode not found. Request a new code.' },
-        { status: 400, headers: CORS_HEADERS }
-      )
-    }
-
-    if (session.codeUsedAt) {
-      return NextResponse.json(
-        { ok: false, error: 'Passcode already used. Request a new code.' },
-        { status: 400, headers: CORS_HEADERS }
-      )
-    }
-
-    if (session.codeExpiresAt && Date.parse(session.codeExpiresAt) < Date.now()) {
-      return NextResponse.json(
-        { ok: false, error: 'Passcode expired. Request a new code.' },
-        { status: 400, headers: CORS_HEADERS }
-      )
-    }
-
-    const codeHash = crypto.createHash('sha256').update(code).digest('hex')
-    if (codeHash !== session.codeHash) {
-      return NextResponse.json(
-        { ok: false, error: 'Invalid passcode.' },
-        { status: 401, headers: CORS_HEADERS }
-      )
-    }
-
-    const token = crypto.randomBytes(32).toString('hex')
-    const expiresAt = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000).toISOString()
-
-    await writeClient
-      .patch(session._id)
-      .set({
-        token,
-        expiresAt,
-        codeUsedAt: new Date().toISOString(),
-      })
-      .commit({ returnDocuments: false })
-
-    return NextResponse.json({ ok: true, token, email }, { headers: CORS_HEADERS })
+    const result = await verifyAdminPasscode({ email, code, sessionTtlHours: SESSION_TTL_HOURS })
+    return NextResponse.json({ ok: true, token: result.token, email: result.email }, { headers: CORS_HEADERS })
   } catch (error) {
     console.error('[updates-admin-verify] failed', error)
     return NextResponse.json(
