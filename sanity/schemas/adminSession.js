@@ -1,4 +1,4 @@
-export default {
+const adminSession = {
   name: 'adminSession',
   title: 'Admin Sessions',
   type: 'document',
@@ -67,3 +67,5 @@ export default {
     }
   ]
 }
+
+export default adminSession

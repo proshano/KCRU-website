@@ -1,4 +1,4 @@
-export default {
+const site = {
   name: 'site',
   title: 'Research Site',
   type: 'document',
@@ -96,3 +96,4 @@ export default {
   }
 }
 
+export default site

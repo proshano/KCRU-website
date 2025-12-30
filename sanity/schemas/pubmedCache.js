@@ -1,4 +1,4 @@
-export default {
+const pubmedCache = {
   name: 'pubmedCache',
   title: 'PubMed Cache',
   type: 'document',
@@ -97,3 +97,5 @@ export default {
     },
   },
 }
+
+export default pubmedCache

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
@@ -137,7 +137,21 @@ export default function ApprovalClient() {
     [submissions]
   )
 
-  async function loadSubmissions(activeToken = token) {
+  const handleLogout = useCallback(() => {
+    sessionStorage.removeItem(TOKEN_STORAGE_KEY)
+    sessionStorage.removeItem(EMAIL_STORAGE_KEY)
+    LEGACY_TOKEN_KEYS.forEach((key) => sessionStorage.removeItem(key))
+    LEGACY_EMAIL_KEYS.forEach((key) => sessionStorage.removeItem(key))
+    setToken('')
+    setEmail('')
+    setPasscode('')
+    setSubmissions([])
+    setSuccess('')
+    setError('')
+    setAdminEmail('')
+  }, [])
+
+  const loadSubmissions = useCallback(async (activeToken = token) => {
     if (!activeToken) return
     setLoading(true)
     setError('')
@@ -165,11 +179,11 @@ export default function ApprovalClient() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token, handleLogout])
 
   useEffect(() => {
     if (token) loadSubmissions(token)
-  }, [token])
+  }, [token, loadSubmissions])
 
   async function handleDecision(submissionId, decision) {
     if (!token) return
@@ -260,20 +274,6 @@ export default function ApprovalClient() {
     } finally {
       setVerifyingCode(false)
     }
-  }
-
-  function handleLogout() {
-    sessionStorage.removeItem(TOKEN_STORAGE_KEY)
-    sessionStorage.removeItem(EMAIL_STORAGE_KEY)
-    LEGACY_TOKEN_KEYS.forEach((key) => sessionStorage.removeItem(key))
-    LEGACY_EMAIL_KEYS.forEach((key) => sessionStorage.removeItem(key))
-    setToken('')
-    setEmail('')
-    setPasscode('')
-    setSubmissions([])
-    setSuccess('')
-    setError('')
-    setAdminEmail('')
   }
 
   return (

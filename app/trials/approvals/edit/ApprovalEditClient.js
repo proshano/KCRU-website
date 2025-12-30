@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
@@ -170,7 +170,7 @@ export default function ApprovalEditClient() {
     criteriaFocusRef.current = null
   }, [form.inclusionCriteria, form.exclusionCriteria])
 
-  async function loadSubmission(activeToken = token) {
+  const loadSubmission = useCallback(async (activeToken = token) => {
     if (!activeToken || !submissionId) return
     setLoading(true)
     setError('')
@@ -198,11 +198,11 @@ export default function ApprovalEditClient() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [submissionId, token])
 
   useEffect(() => {
     if (token && submissionId) loadSubmission(token)
-  }, [token, submissionId])
+  }, [token, submissionId, loadSubmission])
 
   function updateFormField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -900,7 +900,7 @@ export default function ApprovalEditClient() {
                 className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
               />
               <p className="text-xs text-gray-500">
-                One-line clinical headline for fast scanning. Example: "SGLT2 inhibitor in CKD trial".
+                One-line clinical headline for fast scanning. Example: &quot;SGLT2 inhibitor in CKD trial&quot;.
               </p>
             </div>
 
@@ -916,8 +916,8 @@ export default function ApprovalEditClient() {
                 className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
               />
               <p className="text-xs text-gray-500">
-                1-2 sentences with major inclusion criteria only. Example: "Adults with CKD stage 3-4 and albuminuria;
-                stable on ACEi/ARB." The coordinator will confirm full eligibility.
+                1-2 sentences with major inclusion criteria only. Example: &quot;Adults with CKD stage 3-4 and albuminuria;
+                stable on ACEi/ARB.&quot; The coordinator will confirm full eligibility.
               </p>
             </div>
           </section>

@@ -4,6 +4,7 @@ import { sendEmail } from '@/lib/email'
 import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
 import { createAdminTokenSession } from '@/lib/adminSessions'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
+import { escapeHtml } from '@/lib/escapeHtml'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -49,15 +50,6 @@ function truncateText(value, limit = 360) {
   if (limit === null || limit === undefined) return text
   if (text.length <= limit) return text
   return `${text.slice(0, limit - 3).trim()}...`
-}
-
-function escapeHtml(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 }
 
 function formatParagraph(value, limit) {

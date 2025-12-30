@@ -11,7 +11,7 @@ import { TrialSummaryPromptInput } from '../components/TrialSummaryPromptInput.j
 import { TrialCommunicationTitlePromptInput } from '../components/TrialCommunicationTitlePromptInput.jsx'
 import { TrialCommunicationEligibilityPromptInput } from '../components/TrialCommunicationEligibilityPromptInput.jsx'
 
-export default {
+const siteSettings = {
   name: 'siteSettings',
   title: 'Site Settings',
   type: 'document',
@@ -436,3 +436,5 @@ export default {
     }
   ]
 }
+
+export default siteSettings

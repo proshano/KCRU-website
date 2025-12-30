@@ -1,4 +1,4 @@
-export default {
+const alumnus = {
   name: 'alumnus',
   title: 'Trainee Alumni',
   type: 'document',
@@ -107,3 +107,4 @@ export default {
   }
 }
 
+export default alumnus

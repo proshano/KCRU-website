@@ -205,7 +205,7 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
               </span></>
             )}
             {searchQuery && (
-              <> matching "<span className="font-medium text-gray-900">{searchQuery}</span>"</>
+              <> matching &quot;<span className="font-medium text-gray-900">{searchQuery}</span>&quot;</>
             )}
           </span>
           {(selectedArea || searchQuery) && (

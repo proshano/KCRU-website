@@ -1,4 +1,4 @@
-export default {
+const contactRouting = {
   name: 'contactRouting',
   title: 'Contact Routing & Emails',
   type: 'document',
@@ -91,8 +91,4 @@ export default {
   }
 }
 
-
-
-
-
-
+export default contactRouting

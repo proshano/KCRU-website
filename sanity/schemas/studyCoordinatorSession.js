@@ -1,4 +1,4 @@
-export default {
+const studyCoordinatorSession = {
   name: 'studyCoordinatorSession',
   title: 'Study Coordinator Sessions',
   type: 'document',
@@ -67,3 +67,5 @@ export default {
     }
   ]
 }
+
+export default studyCoordinatorSession

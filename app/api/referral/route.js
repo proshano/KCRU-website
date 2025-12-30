@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, queries, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml } from '@/lib/escapeHtml'
 
 const MIN_FORM_TIME_MS = 800
 const RECAPTCHA_ENDPOINT = 'https://www.google.com/recaptcha/api/siteverify'
@@ -86,9 +87,9 @@ async function sendReferralNotification({ providerEmail, study, coordinatorEmail
         A healthcare provider has requested to discuss a potential patient referral for this study.
       </p>
       <p style="margin: 0 0 16px;">
-        <strong>Study:</strong> ${study.title}<br/>
-        <strong>From:</strong> ${providerEmail}<br/>
-        <strong>Submitted:</strong> ${submittedAt}
+        <strong>Study:</strong> ${escapeHtml(study.title)}<br/>
+        <strong>From:</strong> ${escapeHtml(providerEmail)}<br/>
+        <strong>Submitted:</strong> ${escapeHtml(submittedAt)}
       </p>
       <p style="margin: 0 0 16px; padding: 12px; background: #f5f5f5; border-radius: 6px;">
         Reply directly to this email to begin the conversation.

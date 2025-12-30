@@ -1,6 +1,6 @@
 import AutoSlugInput from '../components/AutoSlugInput'
 
-export default {
+const researcher = {
   name: 'researcher',
   title: 'Researcher',
   type: 'document',
@@ -101,3 +101,5 @@ export default {
     }
   ]
 }
+
+export default researcher

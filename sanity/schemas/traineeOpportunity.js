@@ -1,6 +1,6 @@
 import AutoSlugInput from '../components/AutoSlugInput'
 
-export default {
+const traineeOpportunity = {
   name: 'traineeOpportunity',
   title: 'Trainee Opportunity',
   type: 'document',
@@ -118,3 +118,4 @@ export default {
   }
 }
 
+export default traineeOpportunity
