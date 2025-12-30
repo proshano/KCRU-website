@@ -1,4 +1,10 @@
 {
+  "rewrites": [
+    {
+      "source": "/:path*.md",
+      "destination": "/markdown/:path*"
+    }
+  ],
   "crons": [
     {
       "path": "/api/pubmed/refresh",
