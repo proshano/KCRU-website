@@ -34,6 +34,14 @@ export async function POST(request) {
   }
 
   try {
+    let forceUpload = false
+    try {
+      const body = await request.json()
+      forceUpload = body?.force === true || body?.force === 'true'
+    } catch {
+      forceUpload = false
+    }
+
     // Read local cache file
     let localCache
     try {
@@ -44,6 +52,34 @@ export async function POST(request) {
         ok: false, 
         error: 'No local cache found. Run "Refresh Cache" first to generate it.' 
       }, { status: 404, headers: CORS_HEADERS })
+    }
+
+    const localGeneratedAt = localCache.generatedAt || localCache.meta?.generatedAt || null
+    let sanityLastRefreshedAt = null
+    try {
+      const sanityStatus = await writeClient.fetch(
+        `*[_type == $type && _id == $id][0]{ lastRefreshedAt }`,
+        { type: CACHE_DOC_TYPE, id: CACHE_DOC_ID }
+      )
+      sanityLastRefreshedAt = sanityStatus?.lastRefreshedAt || null
+    } catch (err) {
+      console.warn('[pubmed] upload precheck failed (sanity status)', err)
+    }
+
+    if (!forceUpload && localGeneratedAt && sanityLastRefreshedAt) {
+      const localTs = Date.parse(localGeneratedAt)
+      const sanityTs = Date.parse(sanityLastRefreshedAt)
+      if (Number.isFinite(localTs) && Number.isFinite(sanityTs) && localTs < sanityTs) {
+        return NextResponse.json({
+          ok: false,
+          error: 'Local cache is older than Sanity. Re-upload aborted.',
+          code: 'LOCAL_CACHE_OLDER',
+          details: {
+            localGeneratedAt,
+            sanityLastRefreshedAt,
+          },
+        }, { status: 409, headers: CORS_HEADERS })
+      }
     }
 
     // Convert to Sanity format

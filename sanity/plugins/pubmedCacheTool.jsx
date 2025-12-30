@@ -221,24 +221,47 @@ function PubmedCacheTool({ tool }) {
   }
 
   const handleUpload = async () => {
-    setUploading(true)
-    setMessage(null)
-    try {
+    const attemptUpload = async (force = false) => {
       const res = await fetch(UPLOAD_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
         },
-        body: JSON.stringify({ trigger: 'sanity-tool' }),
+        body: JSON.stringify({ trigger: 'sanity-tool', force }),
       })
       const data = await res.json().catch(() => ({}))
+      return { res, data }
+    }
+
+    setUploading(true)
+    setMessage(null)
+    try {
+      let { res, data } = await attemptUpload(false)
       if (res.ok) {
         setMessage({ tone: 'positive', text: `Uploaded! ${data.stats?.publications || 0} publications, ${data.stats?.withSummary || 0} with summaries` })
         fetchStatus()
-      } else {
-        setMessage({ tone: 'critical', text: data.error || 'Upload failed' })
+        return
       }
+
+      if (res.status === 409 && data?.code === 'LOCAL_CACHE_OLDER') {
+        const localDate = data?.details?.localGeneratedAt
+        const sanityDate = data?.details?.sanityLastRefreshedAt
+        const shouldProceed = window.confirm(
+          `Local cache (${formatDate(localDate)}) is older than Sanity (${formatDate(sanityDate)}). Re-upload anyway?`
+        )
+        if (!shouldProceed) {
+          setMessage({ tone: 'caution', text: 'Upload canceled (local cache older than Sanity).' })
+          return
+        }
+        ;({ res, data } = await attemptUpload(true))
+        if (res.ok) {
+          setMessage({ tone: 'positive', text: `Uploaded! ${data.stats?.publications || 0} publications, ${data.stats?.withSummary || 0} with summaries` })
+          fetchStatus()
+          return
+        }
+      }
+      setMessage({ tone: 'critical', text: data.error || 'Upload failed' })
     } catch (err) {
       setMessage({ tone: 'critical', text: err.message || 'Network error' })
     } finally {
