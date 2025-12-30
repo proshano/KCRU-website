@@ -124,6 +124,9 @@ export default function ApprovalEditClient() {
   const [syncLoading, setSyncLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [commsLoading, setCommsLoading] = useState(false)
+  const [commsError, setCommsError] = useState('')
+  const [commsSuccess, setCommsSuccess] = useState('')
   const inclusionCriteriaRefs = useRef([])
   const exclusionCriteriaRefs = useRef([])
   const criteriaFocusRef = useRef(null)
@@ -181,6 +184,8 @@ export default function ApprovalEditClient() {
       const nextForm = mergeDraft(data.submission?.payload || {})
       setForm(nextForm)
       setBaselineSnapshot(serializeDraft(nextForm))
+      setCommsError('')
+      setCommsSuccess('')
     } catch (err) {
       setError(err.message || 'Failed to load submission.')
     } finally {
@@ -214,6 +219,85 @@ export default function ApprovalEditClient() {
         : [...existing, id]
       return { ...prev, [key]: next }
     })
+  }
+
+  function buildCommunicationsPayload(source) {
+    const ctGovData = source?.ctGovData || {}
+    return {
+      id: source?.id || undefined,
+      nctId: String(source?.nctId || '').trim().toUpperCase(),
+      title: source?.title || '',
+      officialTitle: ctGovData?.officialTitle || '',
+      briefTitle: ctGovData?.briefTitle || '',
+      eligibilityCriteriaRaw: ctGovData?.eligibilityCriteriaRaw || '',
+      inclusionCriteria: splitList(source?.inclusionCriteria),
+      exclusionCriteria: splitList(source?.exclusionCriteria),
+    }
+  }
+
+  async function requestCommunicationSuggestions(payload) {
+    const res = await fetch('/api/trials/communications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    })
+    const data = await res.json()
+    if (!res.ok || !data?.ok) {
+      throw new Error(data?.error || `Request failed (${res.status})`)
+    }
+    return data
+  }
+
+  async function handleGenerateCommunications({ fillOnly = false, overrideForm = null } = {}) {
+    const source = overrideForm || form
+    const payload = buildCommunicationsPayload(source)
+    const hasContext =
+      payload.title ||
+      payload.officialTitle ||
+      payload.briefTitle ||
+      payload.nctId ||
+      payload.inclusionCriteria.length ||
+      payload.eligibilityCriteriaRaw
+
+    setCommsError('')
+    setCommsSuccess('')
+
+    if (!hasContext) {
+      setCommsError('Add a study title or eligibility criteria before generating.')
+      return
+    }
+
+    if (!fillOnly && (source.emailTitle || source.emailEligibilitySummary)) {
+      const confirmed = window.confirm('Replace the current short clinical title and eligibility statement?')
+      if (!confirmed) return
+    }
+
+    setCommsLoading(true)
+    try {
+      const data = await requestCommunicationSuggestions(payload)
+      if (!data?.emailTitle && !data?.emailEligibilitySummary) {
+        throw new Error('No suggestions returned.')
+      }
+      setForm((prev) => ({
+        ...prev,
+        emailTitle: fillOnly
+          ? prev.emailTitle || data.emailTitle || ''
+          : data.emailTitle || prev.emailTitle,
+        emailEligibilitySummary: fillOnly
+          ? prev.emailEligibilitySummary || data.emailEligibilitySummary || ''
+          : data.emailEligibilitySummary || prev.emailEligibilitySummary,
+      }))
+      setCommsSuccess(
+        fillOnly ? 'AI suggestions added. Review and edit as needed.' : 'AI suggestions generated. Review and edit as needed.'
+      )
+    } catch (err) {
+      setCommsError(err.message || 'Failed to generate AI suggestions.')
+    } finally {
+      setCommsLoading(false)
+    }
   }
 
   function updateCriteriaItem(key, index, value) {
@@ -315,22 +399,26 @@ export default function ApprovalEditClient() {
       const hasSyncedExclusion =
         Array.isArray(synced.exclusionCriteria) ||
         (typeof synced.exclusionCriteria === 'string' && synced.exclusionCriteria.trim())
-      setForm((prev) => ({
-        ...prev,
-        title: prev.title || suggestedTitle || '',
-        slug: prev.slug || (suggestedTitle ? slugify(suggestedTitle) : ''),
-        studyType: synced.studyType || prev.studyType,
-        phase: synced.phase || prev.phase,
+      const nextForm = {
+        ...form,
+        title: form.title || suggestedTitle || '',
+        slug: form.slug || (suggestedTitle ? slugify(suggestedTitle) : ''),
+        studyType: synced.studyType || form.studyType,
+        phase: synced.phase || form.phase,
         inclusionCriteria: hasSyncedInclusion
           ? splitList(synced.inclusionCriteria)
-          : splitList(prev.inclusionCriteria),
+          : splitList(form.inclusionCriteria),
         exclusionCriteria: hasSyncedExclusion
           ? splitList(synced.exclusionCriteria)
-          : splitList(prev.exclusionCriteria),
-        laySummary: synced.laySummary || prev.laySummary,
-        ctGovData: synced.ctGovData || prev.ctGovData,
-      }))
+          : splitList(form.exclusionCriteria),
+        laySummary: synced.laySummary || form.laySummary,
+        ctGovData: synced.ctGovData || form.ctGovData,
+      }
+      setForm(nextForm)
       setSuccess('ClinicalTrials.gov data pulled in. Review and save when ready.')
+      if (!nextForm.emailTitle || !nextForm.emailEligibilitySummary) {
+        await handleGenerateCommunications({ fillOnly: true, overrideForm: nextForm })
+      }
     } catch (err) {
       setError(err.message || 'Sync failed')
     } finally {
@@ -766,6 +854,22 @@ export default function ApprovalEditClient() {
                 public site.
               </p>
             </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => handleGenerateCommunications()}
+                disabled={commsLoading}
+                className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
+              >
+                {commsLoading ? 'Generating...' : 'Generate with AI'}
+              </button>
+              <p className="text-xs text-gray-500">
+                Uses inclusion criteria and the official title when available.
+              </p>
+            </div>
+            {commsError && <p className="text-xs text-red-600">{commsError}</p>}
+            {!commsError && commsSuccess && <p className="text-xs text-emerald-700">{commsSuccess}</p>}
 
             <div className="space-y-1">
               <label htmlFor="approval-edit-email-title" className="text-sm font-medium">Short clinical title</label>
