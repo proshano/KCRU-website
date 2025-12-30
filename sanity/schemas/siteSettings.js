@@ -1,9 +1,15 @@
 import { DEFAULT_CLASSIFICATION_PROMPT } from '../../lib/classificationPrompt.js'
-import { DEFAULT_SYSTEM_PROMPT } from '../../lib/summaries.js'
+import {
+  DEFAULT_SYSTEM_PROMPT,
+  TRIAL_SUMMARY_SYSTEM_PROMPT,
+  TRIAL_COMMUNICATION_TITLE_PROMPT,
+  TRIAL_COMMUNICATION_ELIGIBILITY_PROMPT,
+} from '../../lib/summaries.js'
 import { ClassificationPromptInput } from '../components/ClassificationPromptInput.jsx'
 import { SystemPromptInput } from '../components/SystemPromptInput.jsx'
 import { TrialSummaryPromptInput } from '../components/TrialSummaryPromptInput.jsx'
-import { TRIAL_SUMMARY_SYSTEM_PROMPT } from '../../lib/summaries.js'
+import { TrialCommunicationTitlePromptInput } from '../components/TrialCommunicationTitlePromptInput.jsx'
+import { TrialCommunicationEligibilityPromptInput } from '../components/TrialCommunicationEligibilityPromptInput.jsx'
 
 export default {
   name: 'siteSettings',
@@ -163,6 +169,56 @@ export default {
       initialValue: TRIAL_SUMMARY_SYSTEM_PROMPT,
       components: {
         input: TrialSummaryPromptInput
+      }
+    },
+    {
+      name: 'trialCommunicationsLlmProvider',
+      title: 'LLM Provider (clinical communications)',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'OpenRouter', value: 'openrouter' },
+          { title: 'OpenAI', value: 'openai' },
+          { title: 'Together', value: 'together' },
+          { title: 'Groq', value: 'groq' },
+          { title: 'Ollama', value: 'ollama' },
+          { title: 'Anthropic', value: 'anthropic' }
+        ]
+      },
+      description: 'Optional override for short clinical titles and eligibility statements.'
+    },
+    {
+      name: 'trialCommunicationsLlmModel',
+      title: 'LLM Model (clinical communications)',
+      type: 'string',
+      description: 'Optional override for short clinical titles and eligibility statements.'
+    },
+    {
+      name: 'trialCommunicationsLlmApiKey',
+      title: 'LLM API Key (clinical communications; server-only)',
+      type: 'string',
+      description: 'Optional override. Leave blank to use server env vars.'
+    },
+    {
+      name: 'trialCommunicationsTitlePrompt',
+      title: 'LLM Prompt (short clinical title)',
+      type: 'text',
+      rows: 8,
+      description: 'Leave empty to use the built-in default prompt.',
+      initialValue: TRIAL_COMMUNICATION_TITLE_PROMPT,
+      components: {
+        input: TrialCommunicationTitlePromptInput
+      }
+    },
+    {
+      name: 'trialCommunicationsEligibilityPrompt',
+      title: 'LLM Prompt (eligibility statement)',
+      type: 'text',
+      rows: 8,
+      description: 'Leave empty to use the built-in default prompt.',
+      initialValue: TRIAL_COMMUNICATION_ELIGIBILITY_PROMPT,
+      components: {
+        input: TrialCommunicationEligibilityPromptInput
       }
     },
     {
