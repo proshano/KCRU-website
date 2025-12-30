@@ -315,6 +315,68 @@ export default {
             })
         }
       ]
+    },
+    {
+      name: 'studyUpdates',
+      title: 'Study Update Emails',
+      type: 'object',
+      description: 'Configure study update email settings and admin access.',
+      fields: [
+        {
+          name: 'admins',
+          title: 'Update Admin Emails',
+          type: 'array',
+          of: [{ type: 'string' }],
+          description: 'Only these emails can access the study update admin portal.',
+          validation: Rule =>
+            Rule.custom((items = []) => {
+              const invalid = (items || []).find((item) => item && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(item))
+              return invalid ? 'Provide valid email addresses.' : true
+            })
+        },
+        {
+          name: 'subjectTemplate',
+          title: 'Email Subject Template',
+          type: 'string',
+          description: 'Use {{month}} for the month label.',
+          initialValue: 'Monthly study updates - {{month}}'
+        },
+        {
+          name: 'introText',
+          title: 'Intro Text',
+          type: 'text',
+          rows: 2,
+          description: 'Shown when there are studies to share.'
+        },
+        {
+          name: 'emptyIntroText',
+          title: 'Empty Intro Text',
+          type: 'text',
+          rows: 2,
+          description: 'Shown when there are no recruiting studies.'
+        },
+        {
+          name: 'outroText',
+          title: 'Closing Text',
+          type: 'text',
+          rows: 2,
+          description: 'Optional closing line before preferences link.'
+        },
+        {
+          name: 'signature',
+          title: 'Signature',
+          type: 'string',
+          description: 'Footer signature line.',
+          initialValue: 'London Kidney Clinical Research'
+        },
+        {
+          name: 'maxStudies',
+          title: 'Max Studies Per Email',
+          type: 'number',
+          description: 'Overrides STUDY_UPDATE_MAX_STUDIES if set.',
+          validation: Rule => Rule.min(1).max(12)
+        }
+      ]
     }
   ]
 }
