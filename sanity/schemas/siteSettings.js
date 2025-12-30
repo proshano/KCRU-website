@@ -99,6 +99,119 @@ const siteSettings = {
       type: 'image'
     },
     {
+      name: 'seo',
+      title: 'SEO',
+      type: 'object',
+      fields: [
+        {
+          name: 'title',
+          title: 'Default Meta Title',
+          type: 'string',
+          description: 'Used for search and social previews when a page does not override it.'
+        },
+        {
+          name: 'description',
+          title: 'Default Meta Description',
+          type: 'text',
+          rows: 3,
+          description: 'Shown in search results and social previews.'
+        },
+        {
+          name: 'shareImage',
+          title: 'Default Share Image',
+          type: 'image',
+          description: 'Recommended size: 1200x630 for social previews.'
+        },
+        {
+          name: 'llmSummary',
+          title: 'LLM Summary',
+          type: 'text',
+          rows: 4,
+          description: 'Optional short summary for llms.txt and AI tools.'
+        },
+        {
+          name: 'llmTopics',
+          title: 'LLM Topics',
+          type: 'array',
+          of: [{ type: 'string' }],
+          description: 'Optional list of topics or focus areas for llms.txt.'
+        },
+        {
+          name: 'llmGeneratedAt',
+          title: 'LLM Summary Generated At',
+          type: 'datetime',
+          readOnly: true
+        },
+        {
+          name: 'publicationTopics',
+          title: 'Publication Topics',
+          type: 'array',
+          of: [{ type: 'string' }],
+          readOnly: true,
+          hidden: true
+        },
+        {
+          name: 'publicationHighlights',
+          title: 'Publication Highlights',
+          type: 'array',
+          of: [
+            {
+              type: 'object',
+              fields: [
+                {
+                  name: 'title',
+                  title: 'Title',
+                  type: 'string',
+                  readOnly: true
+                },
+                {
+                  name: 'summary',
+                  title: 'Summary',
+                  type: 'text',
+                  rows: 3,
+                  readOnly: true
+                },
+                {
+                  name: 'year',
+                  title: 'Year',
+                  type: 'string',
+                  readOnly: true
+                },
+                {
+                  name: 'url',
+                  title: 'URL',
+                  type: 'url',
+                  readOnly: true
+                },
+                {
+                  name: 'tags',
+                  title: 'Tags',
+                  type: 'array',
+                  of: [{ type: 'string' }],
+                  readOnly: true
+                }
+              ],
+              preview: {
+                select: {
+                  title: 'title',
+                  subtitle: 'year'
+                }
+              }
+            }
+          ],
+          readOnly: true,
+          hidden: true
+        },
+        {
+          name: 'publicationGeneratedAt',
+          title: 'Publication Snapshot Generated At',
+          type: 'datetime',
+          readOnly: true,
+          hidden: true
+        }
+      ]
+    },
+    {
       name: 'llmProvider',
       title: 'LLM Provider (summaries)',
       type: 'string',

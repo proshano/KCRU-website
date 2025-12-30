@@ -3,9 +3,61 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { PortableText } from '@portabletext/react'
+import { buildOpenGraph, buildTwitterMetadata, getSiteBaseUrl, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
+import JsonLd from '@/app/components/JsonLd'
 
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
+
+export async function generateMetadata({ params }) {
+  const resolvedParams = await params
+  const slugRaw = resolvedParams?.slug
+  const slug = typeof slugRaw === 'string' ? decodeURIComponent(slugRaw).replace(/^\/+|\/+$/g, '') : ''
+  if (!slug) return { title: 'News Post Not Found' }
+
+  const [postRaw, settingsRaw] = await Promise.all([
+    sanityFetch(queries.newsPostBySlug, { slug }),
+    sanityFetch(queries.siteSettings)
+  ])
+
+  if (!postRaw) return { title: 'News Post Not Found' }
+
+  const post = JSON.parse(JSON.stringify(postRaw))
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const siteTitle = resolveSiteTitle(settings)
+  const title = post.title
+  const description = normalizeDescription(
+    post.seo?.description ||
+    post.excerpt ||
+    `Read the latest update from ${siteTitle}.`
+  )
+  const canonical = `/news/${post.slug?.current || slug}`
+  const openGraph = buildOpenGraph({
+    settings,
+    title,
+    description,
+    path: canonical,
+    image: post.featuredImage,
+    type: 'article'
+  })
+
+  if (post.publishedAt) openGraph.publishedTime = post.publishedAt
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical
+    },
+    openGraph,
+    twitter: buildTwitterMetadata({
+      settings,
+      title,
+      description,
+      image: post.featuredImage
+    })
+  }
+}
 
 const portableTextComponents = {
   types: {
@@ -58,13 +110,56 @@ export default async function NewsPostPage({ params }) {
   const slug = typeof slugRaw === 'string' ? decodeURIComponent(slugRaw).replace(/^\/+|\/+$/g, '') : ''
   if (!slug) return notFound()
 
-  const postRaw = await sanityFetch(queries.newsPostBySlug, { slug })
+  const [postRaw, settingsRaw] = await Promise.all([
+    sanityFetch(queries.newsPostBySlug, { slug }),
+    sanityFetch(queries.siteSettings)
+  ])
   if (!postRaw) return notFound()
   // Strip Sanity data to plain JSON to break any circular references
   const post = JSON.parse(JSON.stringify(postRaw))
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const baseUrl = getSiteBaseUrl()
+  const siteTitle = resolveSiteTitle(settings)
+  const canonicalUrl = `${baseUrl}/news/${post.slug?.current || slug}`
+  const description = normalizeDescription(post.seo?.description || post.excerpt || '', 220)
+  const featuredImage = post.featuredImage
+    ? urlFor(post.featuredImage).width(1200).height(675).fit('crop').url()
+    : null
+  const publisherLogo = settings?.logo
+    ? urlFor(settings.logo).width(300).height(300).fit('crop').url()
+    : null
+
+  const articleSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: post.title,
+    mainEntityOfPage: canonicalUrl
+  }
+
+  if (description) articleSchema.description = description
+  if (post.publishedAt) articleSchema.datePublished = post.publishedAt
+  if (post._updatedAt || post.publishedAt) articleSchema.dateModified = post._updatedAt || post.publishedAt
+  if (featuredImage) articleSchema.image = [featuredImage]
+  if (post.author?.name) {
+    const author = {
+      '@type': 'Person',
+      name: post.author.name
+    }
+    if (post.author.slug?.current) author.url = `${baseUrl}/team/${post.author.slug.current}`
+    articleSchema.author = author
+  }
+
+  const publisher = {
+    '@type': 'Organization',
+    name: siteTitle,
+    url: baseUrl
+  }
+  if (publisherLogo) publisher.logo = { '@type': 'ImageObject', url: publisherLogo }
+  articleSchema.publisher = publisher
 
   return (
     <main className="max-w-[900px] mx-auto px-6 md:px-12 py-12 space-y-8">
+      <JsonLd data={articleSchema} />
       <div>
         <Link href="/news" className="arrow-link text-[13px]">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="rotate-180">

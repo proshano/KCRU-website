@@ -8,8 +8,15 @@ const nextConfig = {
         hostname: 'cdn.sanity.io'
       }
     ]
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/:path*.md',
+        destination: '/markdown/:path*'
+      }
+    ]
   }
 }
 
 export default nextConfig
-

@@ -1,8 +1,45 @@
 import { sanityFetch, queries } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
 import PublicationsBrowser from './PublicationsBrowser'
+import { buildOpenGraph, buildTwitterMetadata, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 
 export const revalidate = 86400 // 24 hours
+
+export async function generateMetadata() {
+  const [settingsRaw, pageContentRaw] = await Promise.all([
+    sanityFetch(queries.siteSettings),
+    sanityFetch(queries.pageContent)
+  ])
+
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const content = JSON.parse(JSON.stringify(pageContentRaw || {}))
+  const siteTitle = resolveSiteTitle(settings)
+  const rawTitle = (content.publicationsTitle || '').trim()
+  const title = rawTitle && !rawTitle.includes('{') ? rawTitle : 'Publications'
+  const description = normalizeDescription(
+    content.publicationsDescription || `Research publications from ${siteTitle}.`
+  )
+  const canonical = '/publications'
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical
+    },
+    openGraph: buildOpenGraph({
+      settings,
+      title,
+      description,
+      path: canonical
+    }),
+    twitter: buildTwitterMetadata({
+      settings,
+      title,
+      description
+    })
+  }
+}
 
 export default async function PublicationsPage() {
   const [settingsRaw, researchersRaw, pageContentRaw] = await Promise.all([
@@ -110,4 +147,3 @@ export default async function PublicationsPage() {
     </main>
   )
 }
-

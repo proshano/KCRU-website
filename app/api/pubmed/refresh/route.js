@@ -5,6 +5,7 @@ import { refreshPubmedCache } from '@/lib/publications'
 import { readCache } from '@/lib/pubmedCache'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { getZonedParts, isCronAuthorized, isWithinCronWindow, sameLocalDate } from '@/lib/cronUtils'
+import { getSiteBaseUrl } from '@/lib/seo'
 
 const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN || ''
 const CRON_SECRET = process.env.CRON_SECRET || ''
@@ -19,6 +20,7 @@ const CRON_ALLOWED_MINUTES = Number(process.env.CRON_ALLOWED_MINUTES || 10)
 // Cron refresh can generate a small number of summaries to avoid needing a second cron job.
 // Set CRON_SUMMARIES_LIMIT=0 to disable summary generation during cron runs.
 const CRON_SUMMARIES_LIMIT = Number(process.env.CRON_SUMMARIES_LIMIT || 5)
+const SEO_REFRESH_ON_PUBMED_CRON = process.env.SEO_REFRESH_ON_PUBMED_CRON === 'true'
 
 const CORS_HEADERS = buildCorsHeaders('GET, POST, OPTIONS')
 
@@ -155,6 +157,25 @@ async function runRefresh({ isCron = false } = {}) {
       console.warn('[pubmed] Revalidation warning:', revalErr.message)
     }
 
+    let seoRefresh = null
+    if (isCron && SEO_REFRESH_ON_PUBMED_CRON) {
+      try {
+        const baseUrl = getSiteBaseUrl()
+        const response = await fetch(`${baseUrl}/api/seo/refresh`, {
+          headers: {
+            Authorization: `Bearer ${CRON_SECRET}`
+          }
+        })
+        seoRefresh = { ok: response.ok, status: response.status }
+        if (!response.ok) {
+          const body = await response.text()
+          seoRefresh.error = body.slice(0, 500)
+        }
+      } catch (err) {
+        seoRefresh = { ok: false, error: err?.message || 'SEO refresh failed' }
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       meta: {
@@ -165,6 +186,7 @@ async function runRefresh({ isCron = false } = {}) {
         stale: false,
         triggeredBy: isCron ? 'cron' : 'manual',
       },
+      seoRefresh,
     }, { headers: CORS_HEADERS })
   } catch (err) {
     console.error('[pubmed] refresh endpoint failed', err)

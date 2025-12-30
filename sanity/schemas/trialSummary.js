@@ -248,6 +248,17 @@ const trialSummary = {
       description:
         'Short inclusion-only statement for clinical communications and referral outreach. Keep it simple and focus on major inclusion criteria; the coordinator will confirm full eligibility.'
     },
+    {
+      name: 'seo',
+      title: 'SEO (auto)',
+      type: 'object',
+      hidden: true,
+      fields: [
+        { name: 'description', title: 'Meta Description', type: 'text', rows: 2, readOnly: true },
+        { name: 'generatedAt', title: 'Generated At', type: 'datetime', readOnly: true },
+        { name: 'source', title: 'Source', type: 'string', readOnly: true }
+      ]
+    },
 
     // ============================================
     // ELIGIBILITY (Synced + Manual Override)

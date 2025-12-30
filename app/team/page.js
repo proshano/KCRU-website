@@ -1,8 +1,44 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
+import { buildOpenGraph, buildTwitterMetadata, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 
 export const revalidate = 3600 // 1 hour
+
+export async function generateMetadata() {
+  const [settingsRaw, pageContentRaw] = await Promise.all([
+    sanityFetch(queries.siteSettings),
+    sanityFetch(queries.pageContent)
+  ])
+
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const content = JSON.parse(JSON.stringify(pageContentRaw || {}))
+  const siteTitle = resolveSiteTitle(settings)
+  const title = content.teamTitle || 'Team'
+  const description = normalizeDescription(
+    content.teamDescription || `Meet the team at ${siteTitle}.`
+  )
+  const canonical = '/team'
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical
+    },
+    openGraph: buildOpenGraph({
+      settings,
+      title,
+      description,
+      path: canonical
+    }),
+    twitter: buildTwitterMetadata({
+      settings,
+      title,
+      description
+    })
+  }
+}
 
 export default async function TeamPage() {
   const [researchersRaw, pageContentRaw] = await Promise.all([

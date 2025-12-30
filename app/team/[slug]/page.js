@@ -4,8 +4,58 @@ import { notFound } from 'next/navigation'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
 import PublicationsBrowser from '@/app/publications/PublicationsBrowser'
+import { buildOpenGraph, buildTwitterMetadata, getSiteBaseUrl, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
+import JsonLd from '@/app/components/JsonLd'
 
 export const revalidate = 86400 // use cache; refresh daily
+
+export async function generateMetadata({ params }) {
+  const resolvedParams = await params
+  const slugRaw = resolvedParams?.slug
+  const slug = typeof slugRaw === 'string' ? decodeURIComponent(slugRaw).replace(/^\/+|\/+$/g, '') : ''
+  if (!slug) return { title: 'Team Member Not Found' }
+  const slugLower = slug.toLowerCase()
+  const slugPattern = `^${slugLower}$`
+
+  const [profileRaw, settingsRaw] = await Promise.all([
+    sanityFetch(queries.researcherBySlug, { slug, slugLower, slugPattern }),
+    sanityFetch(queries.siteSettings)
+  ])
+
+  if (!profileRaw) return { title: 'Team Member Not Found' }
+
+  const profile = JSON.parse(JSON.stringify(profileRaw))
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const siteTitle = resolveSiteTitle(settings)
+  const title = profile.name
+  const description = normalizeDescription(
+    profile.seo?.description ||
+    profile.bio ||
+    (profile.role ? `${profile.role} at ${siteTitle}.` : `${profile.name} is part of the ${siteTitle} team.`)
+  )
+  const canonical = `/team/${profile.slug?.current || slug}`
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical
+    },
+    openGraph: buildOpenGraph({
+      settings,
+      title,
+      description,
+      path: canonical,
+      image: profile.photo
+    }),
+    twitter: buildTwitterMetadata({
+      settings,
+      title,
+      description,
+      image: profile.photo
+    })
+  }
+}
 
 function formatGeneratedAt(ts) {
   if (!ts) return null
@@ -42,6 +92,41 @@ export default async function TeamMemberPage({ params }) {
   const researchers = JSON.parse(JSON.stringify(researchersRaw || []))
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
   const altmetricEnabled = settings?.altmetric?.enabled === true
+  const baseUrl = getSiteBaseUrl()
+  const siteTitle = resolveSiteTitle(settings)
+  const profileSlug = profile.slug?.current || profile.slug || slug
+  const profileUrl = `${baseUrl}/team/${profileSlug}`
+  const sameAs = []
+  const bioDescription = normalizeDescription(profile.seo?.description || profile.bio || '', 200)
+
+  if (profile.twitter) {
+    sameAs.push(`https://twitter.com/${profile.twitter.replace('@', '')}`)
+  }
+  if (profile.linkedin) sameAs.push(profile.linkedin)
+  if (profile.orcid) {
+    const orcidId = profile.orcid.replace('https://orcid.org/', '')
+    sameAs.push(`https://orcid.org/${orcidId}`)
+  }
+
+  const personSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: profile.name,
+    url: profileUrl,
+    affiliation: {
+      '@type': 'Organization',
+      name: siteTitle,
+      url: baseUrl
+    }
+  }
+
+  if (profile.role) personSchema.jobTitle = profile.role
+  if (bioDescription) personSchema.description = bioDescription
+  if (profile.email) personSchema.email = profile.email
+  if (sameAs.length) personSchema.sameAs = sameAs
+  if (profile.photo) {
+    personSchema.image = urlFor(profile.photo).width(400).height(400).fit('crop').url()
+  }
 
   // Extract only the fields needed for publications to avoid circular references
   const strippedResearchers = (researchers || []).map(r => ({
@@ -94,6 +179,7 @@ export default async function TeamMemberPage({ params }) {
 
   return (
     <main className="py-12 space-y-10">
+      <JsonLd data={personSchema} />
       {/* Profile header and bio - narrow */}
       <div className="max-w-[900px] mx-auto px-6 md:px-12 space-y-10">
         <div className="flex flex-wrap gap-8 items-start">
@@ -350,4 +436,3 @@ function prettyStatus(status) {
   }
   return map[status] || status || 'Status'
 }
-

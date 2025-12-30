@@ -3,48 +3,23 @@
 ## Project Structure
 
 ```
-/research-unit-site
-├── app/
-│   ├── layout.js                # Root layout (header, footer)
-│   ├── page.js                  # Homepage
-│   ├── news/
-│   │   ├── page.js              # News listing
-│   │   └── [slug]/
-│   │       └── page.js          # Individual news post
-│   ├── team/
-│   │   ├── page.js              # Team listing
-│   │   └── [slug]/
-│   │       └── page.js          # Individual researcher profile
-│   ├── publications/
-│   │   └── page.js              # Publications from PubMed + citations
-│   ├── trials/
-│   │   └── page.js              # Clinical trials from ClinicalTrials.gov
-│   └── api/
-│       ├── publications/
-│       │   └── route.js         # PubMed fetch endpoint
-│       ├── trials/
-│       │   └── route.js         # ClinicalTrials.gov endpoint
-│       └── metrics/
-│           └── route.js         # OpenAlex citation metrics
-├── components/
-│   ├── Header.js
-│   ├── Footer.js
-│   ├── NewsCard.js
-│   ├── TeamCard.js
-│   ├── PublicationList.js
-│   └── TrialCard.js
-├── lib/
-│   ├── sanity.js                # Sanity client config
-│   ├── pubmed.js                # PubMed API helpers
-│   ├── clinicaltrials.js        # ClinicalTrials.gov API
-│   ├── openalex.js              # OpenAlex API (citations, metrics)
-│   └── publications.js          # Combined PubMed + OpenAlex
-├── sanity/
-│   └── schemas/
-│       ├── researcher.js
-│       ├── newsPost.js
-│       ├── siteSettings.js
-│       └── index.js
+/kcru-website
+├── app/                         # Next.js App Router (pages, layouts, API routes)
+│   ├── admin/                   # Admin hub and entry points
+│   ├── api/                     # Route handlers
+│   ├── components/              # Shared UI components
+│   ├── news/                    # Inactive (legacy section)
+│   ├── publications/            # Publications pages
+│   ├── team/                    # Team listing + detail
+│   ├── trials/                  # Trials pages + approvals
+│   ├── updates/                 # Study updates flows
+│   └── ...                      # Other site sections
+├── lib/                         # Data clients/helpers (Sanity, PubMed, ClinicalTrials.gov, OpenAlex)
+├── sanity/                      # Sanity Studio config + schemas
+├── scripts/                     # Maintenance/migration scripts
+├── runtime/                     # Generated caches/locks (do not edit)
+├── dist/                        # Build output (do not edit)
+├── core                         # Tracked binary artifact
 ├── vercel.json                  # Cron jobs
 └── package.json
 ```
@@ -56,10 +31,11 @@
 - Returns title, authors, journal, DOI, abstract
 - Cached to `runtime/pubmed-cache.json` and refreshed daily
 
-### 2. ClinicalTrials.gov (Active Trials)
-- Searches by institution and PI names
-- Returns trial status, phase, enrollment, sites
-- Filters: recruiting, active, completed
+## Admin Access
+- Admin hub: `/admin`
+- Module entry points: `/admin/approvals` (study approvals) and `/admin/updates` (study update emails)
+- Legacy URLs remain supported: `/trials/approvals` and `/updates/admin`
+- Access is scoped by email lists in Sanity `siteSettings.studyApprovals.admins` and `siteSettings.studyUpdates.admins`
 
 ## Setup Steps
 
@@ -96,18 +72,18 @@ SANITY_API_TOKEN=your_token
 {
   "crons": [
     {
-      "path": "/api/publications?refresh=true",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/trials?refresh=true",
+      "path": "/api/pubmed/refresh",
       "schedule": "0 7 * * *"
     },
+    {
+      "path": "/api/updates/study-email/dispatch",
+      "schedule": "0 11 * * *"
+    }
   ]
 }
 ```
 
-Refreshes all data sources daily (staggered to avoid rate limits).
+Refreshes PubMed daily and dispatches study update emails.
 
 ## PubMed Cache (filesystem)
 - Cache file: `runtime/pubmed-cache.json` (metadata + publications + provenance)
@@ -116,14 +92,21 @@ Refreshes all data sources daily (staggered to avoid rate limits).
 - Refresh via API: `POST /api/pubmed/refresh` with `Authorization: Bearer $PUBMED_REFRESH_TOKEN`
 - Cancel a running refresh: `POST /api/pubmed/cancel` (same bearer token). The running job checks for cancellation and exits early; lock clears automatically.
 - Configure: `PUBMED_API_KEY` (higher PubMed limits), `PUBMED_TIMEOUT_MS`, `PUBMED_RETRIES`, `PUBMED_MAX_PER_RESEARCHER`, `PUBMED_CACHE_MAX_AGE_MS`
-- Scheduling: run `npm run refresh:pubmed` daily via cron/PM2/host scheduler
+- Scheduling: Vercel cron calls `/api/pubmed/refresh` (see `vercel.json`); for self-hosted setups, run `npm run refresh:pubmed` daily via cron/PM2
 
 ## API Endpoints
 
-| Endpoint | Purpose | Query Params |
-|----------|---------|--------------|
-| `/api/publications` | PubMed publications | `?refresh=true` |
-| `/api/trials` | Clinical trials | `?refresh=true&status=active\|completed\|all` |
+| Endpoint | Purpose | Methods/Notes |
+|----------|---------|---------------|
+| `/api/pubmed/refresh` | PubMed cache refresh | `GET` for cron (CRON_SECRET), `POST` for manual (Authorization: Bearer) |
+| `/api/pubmed/cancel` | Cancel a running refresh and clear lock | `POST` (Authorization: Bearer) |
+| `/api/pubmed/download` | Download cached publications JSON | `GET` (Authorization: Bearer) |
+| `/api/pubmed/upload` | Upload local `runtime/pubmed-cache.json` to Sanity | `POST` (Authorization: Bearer, body: `{ "force": true }` optional) |
+| `/api/pubmed/summarize` | Generate missing publication summaries | `GET` for cron (CRON_SECRET), `POST` for manual (Authorization: Bearer, body: `{ "maxSummaries": number }` optional) |
+| `/api/pubmed/publication` | Update or delete a single publication in cache | `POST` with `{ "pmid": "..." }` to regenerate summary; `DELETE ?pmid=...` to remove |
+| `/api/pubmed/classify-preview` | Preview classification + summaries for recent publications | `POST` (Authorization: Bearer, body: `{ count, prompt, provider, model, apiKey }` optional) |
+| `/api/pubmed/reclassify` | Classify publications and store results in Sanity | `POST` (Authorization: Bearer, body: `{ count|all|pmids, clear, batchSize, delayMs }` and prompt/provider/model overrides) |
+| `/api/updates/study-email/dispatch` | Study updates email dispatch | `GET` for cron (CRON_SECRET), `POST` for manual (Authorization: Bearer) |
 
 ## Tips
 
