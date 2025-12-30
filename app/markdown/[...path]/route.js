@@ -681,7 +681,11 @@ async function buildUpdatesMarkdown() {
 }
 
 export async function GET(request, { params }) {
-  const segments = Array.isArray(params?.path) ? params.path : []
+  const rawSegments = Array.isArray(params?.path) ? params.path : []
+  const segments = rawSegments.map((segment) => {
+    if (typeof segment !== 'string') return ''
+    return segment.endsWith('.md') ? segment.slice(0, -3) : segment
+  }).filter(Boolean)
   if (!segments.length) {
     return new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/plain; charset=utf-8' } })
   }
