@@ -29,20 +29,9 @@ function extractToken(request) {
 }
 
 function isVercelCron(request) {
-  const authHeader = request.headers.get('authorization')
-  if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) {
-    return true
-  }
-  if (request.headers.get('x-vercel-cron') === '1') {
-    return true
-  }
-  if (!CRON_SECRET) {
-    const userAgent = request.headers.get('user-agent') || ''
-    if (userAgent.includes('vercel-cron')) {
-      return true
-    }
-  }
-  return false
+  if (!CRON_SECRET) return false
+  const token = extractToken(request)
+  return token === CRON_SECRET
 }
 
 function getZonedParts(date, timeZone) {
@@ -268,6 +257,10 @@ export async function OPTIONS() {
 }
 
 export async function GET(request) {
+  if (!CRON_SECRET) {
+    return NextResponse.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 500, headers: CORS_HEADERS })
+  }
+
   if (!isVercelCron(request)) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
