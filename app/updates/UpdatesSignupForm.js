@@ -20,7 +20,7 @@ export default function UpdatesSignupForm({
     role: '',
     specialty: '',
     interestAreas: [],
-    correspondencePreferences: ['study_updates']
+    correspondencePreferences: ['study_updates', 'newsletter']
   })
   const [honeypot, setHoneypot] = useState('')
   const [loading, setLoading] = useState(false)
@@ -235,16 +235,16 @@ export default function UpdatesSignupForm({
           <label className="block text-base font-semibold text-[#333]">
             Correspondence preferences<span className="text-purple">*</span>
           </label>
-          <div className="space-y-2 text-sm">
+          <div className="flex flex-col gap-3 text-sm">
             {correspondenceOptions.map((option) => (
-              <label key={option.value} className="inline-flex items-center gap-2">
+              <label key={option.value} className="flex items-start gap-3">
                 <input
                   type="checkbox"
-                  className="h-4 w-4"
+                  className="mt-0.5 h-4 w-4 shrink-0"
                   checked={form.correspondencePreferences.includes(option.value)}
                   onChange={() => toggleCorrespondence(option.value)}
                 />
-                {option.title}
+                <span className="leading-relaxed">{option.title}</span>
               </label>
             ))}
           </div>
