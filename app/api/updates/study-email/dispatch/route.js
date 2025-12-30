@@ -104,7 +104,11 @@ function normalizeList(values) {
 
 function pickStudiesForSubscriber(studies, subscriber) {
   const eligibleStudies = Array.isArray(studies)
-    ? studies.filter((study) => String(study?.status || '').toLowerCase() === 'recruiting')
+    ? studies.filter(
+        (study) =>
+          String(study?.status || '').toLowerCase() === 'recruiting' &&
+          Boolean(study?.acceptsReferrals)
+      )
     : []
   const interestAreas = normalizeList(subscriber?.interestAreas)
   if (!interestAreas.length) return []
