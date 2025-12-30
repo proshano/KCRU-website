@@ -26,23 +26,7 @@ export default async function UpdatesPage() {
           />
         </div>
 
-        <aside className="space-y-4">
-          <div className="p-6 bg-white border border-black/[0.06] space-y-3">
-            <h2 className="text-xl font-semibold">What you can expect</h2>
-            <ul className="space-y-2 text-sm text-[#555]">
-              <li>Study updates aligned to your role, specialty, and interest areas.</li>
-              <li>Publication summaries when new research is published.</li>
-              <li>Occasional reminders about trials that are actively recruiting.</li>
-            </ul>
-          </div>
-          <div className="p-6 bg-white border border-black/[0.06] space-y-2 text-sm text-[#555]">
-            <h3 className="text-base font-semibold text-[#222]">Privacy note</h3>
-            <p>
-              We only use your details to share study and publication updates. Unsubscribe anytime using the link in
-              each email or your preference page.
-            </p>
-          </div>
-        </aside>
+        <aside />
       </div>
     </main>
   )
