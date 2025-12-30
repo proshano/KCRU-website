@@ -35,6 +35,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - Settings live in Sanity (`siteSettings.maintenanceMode`) and are read via `lib/sanity/client.js`.
 - Under-construction flow uses `/under-construction`, `/api/maintenance`, and `/api/auth` (cookie `site-auth`).
 - If you change this flow, keep it simple and stable so staff can toggle maintenance mode without dev help.
+- During maintenance, allowlisted paths still resolve: `/llms.txt`, `/sitemap.xml`, `/robots.txt`, and markdown endpoints (`/markdown/*` and `*.md`).
 
 ## Contact & Email
 - Contact form posts to `app/api/contact/route.js` and routes via Sanity `contactRouting`.

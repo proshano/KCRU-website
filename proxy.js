@@ -2,11 +2,16 @@ import { NextResponse } from 'next/server'
 
 export default async function proxy(request) {
   const isAuthenticated = request.cookies.get('site-auth')?.value === 'authenticated'
+  const pathname = request.nextUrl.pathname
+  const allowlistedPaths = new Set(['/llms.txt', '/sitemap.xml', '/robots.txt'])
+  const isMarkdown = pathname.endsWith('.md') || pathname.startsWith('/markdown/')
+  const isAllowlisted = allowlistedPaths.has(pathname) || isMarkdown
 
   if (
-    request.nextUrl.pathname === '/under-construction' ||
-    request.nextUrl.pathname.startsWith('/_next') ||
-    request.nextUrl.pathname.startsWith('/api')
+    pathname === '/under-construction' ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    isAllowlisted
   ) {
     return NextResponse.next()
   }
