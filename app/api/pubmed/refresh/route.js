@@ -32,30 +32,9 @@ function extractToken(request) {
 }
 
 function isVercelCron(request) {
-  // Method 1: Check CRON_SECRET (recommended by Vercel)
-  // When CRON_SECRET is set in Vercel env vars, Vercel sends it as Bearer token
-  const authHeader = request.headers.get('authorization')
-  if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) {
-    return true
-  }
-  
-  // Method 2: Check Vercel's internal cron header (set automatically by Vercel)
-  if (request.headers.get('x-vercel-cron') === '1') {
-    return true
-  }
-  
-  // Method 3: If no CRON_SECRET is configured, allow unauthenticated cron requests
-  // This is less secure but allows crons to work without extra configuration
-  // Remove this if you want stricter security
-  if (!CRON_SECRET) {
-    // Check if this looks like a Vercel cron request (User-Agent, etc.)
-    const userAgent = request.headers.get('user-agent') || ''
-    if (userAgent.includes('vercel-cron')) {
-      return true
-    }
-  }
-  
-  return false
+  if (!CRON_SECRET) return false
+  const token = extractToken(request)
+  return token === CRON_SECRET
 }
 
 export async function OPTIONS() {
@@ -114,6 +93,10 @@ export async function GET(request) {
     hasAuthHeader: !!request.headers.get('authorization'),
     hasCronSecret: !!CRON_SECRET,
   })
+
+  if (!CRON_SECRET) {
+    return NextResponse.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 500, headers: CORS_HEADERS })
+  }
 
   // Only allow cron requests
   if (!isVercelCron(request)) {

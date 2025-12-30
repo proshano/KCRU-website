@@ -6,8 +6,14 @@ export async function POST(request) {
 
   try {
     const settings = await getMaintenanceSettings()
+    const configuredPassword = String(settings?.password || '').trim()
+    if (!configuredPassword) {
+      console.warn('[maintenance] password not configured')
+      return NextResponse.json({ success: false, error: 'Maintenance password not configured' }, { status: 500 })
+    }
 
-    if (password === settings?.password) {
+    const submittedPassword = typeof password === 'string' ? password : ''
+    if (submittedPassword === configuredPassword) {
       const response = NextResponse.json({ success: true })
 
       response.cookies.set('site-auth', 'authenticated', {
