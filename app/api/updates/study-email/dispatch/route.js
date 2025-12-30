@@ -137,6 +137,24 @@ async function fetchStudies() {
   return fetcher(query)
 }
 
+async function fetchStudyUpdateSettings() {
+  const fetcher = writeClient.config().token ? writeClient.fetch.bind(writeClient) : sanityFetch
+  const query = `
+    *[_type == "siteSettings"][0]{
+      studyUpdates{
+        subjectTemplate,
+        introText,
+        emptyIntroText,
+        outroText,
+        signature,
+        maxStudies
+      }
+    }
+  `
+  const settings = await fetcher(query)
+  return settings?.studyUpdates || {}
+}
+
 async function fetchSubscribers({ monthStartIso, force }) {
   const fetcher = writeClient.config().token ? writeClient.fetch.bind(writeClient) : sanityFetch
   const monthFilter = force
@@ -173,13 +191,17 @@ async function runDispatch({ force = false } = {}) {
   const monthLabel = formatMonthLabel(now)
   const monthStartIso = getMonthStartIso()
 
-  const [studiesRaw, subscribersRaw] = await Promise.all([
+  const [studiesRaw, subscribersRaw, updateSettings] = await Promise.all([
     fetchStudies(),
     fetchSubscribers({ monthStartIso, force }),
+    fetchStudyUpdateSettings(),
   ])
 
   const studies = Array.isArray(studiesRaw) ? studiesRaw : []
   const subscribers = Array.isArray(subscribersRaw) ? subscribersRaw : []
+  const maxStudies = Number.isFinite(Number(updateSettings?.maxStudies)) && Number(updateSettings?.maxStudies) > 0
+    ? Number(updateSettings.maxStudies)
+    : MAX_STUDIES
 
   const stats = {
     total: subscribers.length,
@@ -191,13 +213,14 @@ async function runDispatch({ force = false } = {}) {
 
   for (const subscriber of subscribers) {
     const relevant = pickStudiesForSubscriber(studies, subscriber)
-    const topStudies = relevant.slice(0, MAX_STUDIES)
+    const topStudies = relevant.slice(0, maxStudies)
     const manageUrl = buildManageUrl(subscriber?.manageToken)
     const email = buildStudyUpdateEmail({
       subscriber,
       studies: topStudies,
       manageUrl,
       monthLabel,
+      settings: updateSettings,
     })
 
     try {

@@ -18,6 +18,7 @@ import updateSubscriber from './updateSubscriber'
 import studyReferral from './studyReferral'
 import studySubmission from './studySubmission'
 import studyApprovalSession from './studyApprovalSession'
+import studyUpdateAdminSession from './studyUpdateAdminSession'
 import studyCoordinatorSession from './studyCoordinatorSession'
 import studyDraft from './studyDraft'
 
@@ -45,6 +46,7 @@ export const schemaTypes = [
   studyReferral,
   studySubmission,
   studyApprovalSession,
+  studyUpdateAdminSession,
   studyCoordinatorSession,
   studyDraft
 ]
