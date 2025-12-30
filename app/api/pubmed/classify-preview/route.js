@@ -52,6 +52,8 @@ export async function POST(request) {
     const model = body?.model || settings.llmClassificationModel || settings.llmModel || undefined
     const apiKey = body?.apiKey || settings.llmClassificationApiKey || settings.llmApiKey || undefined
     const systemPrompt = settings.llmSystemPrompt || undefined
+    const concurrency = clamp(Number(settings.llmConcurrency || 1), 1, 20)
+    const delayMs = clamp(Number(settings.llmDelayMs || 0), 0, 60000)
 
     // Take most recent publications with abstracts
     const candidates = (cache.publications || [])
@@ -75,8 +77,8 @@ export async function POST(request) {
       includeExistingLaySummary: true,
       maxItems: candidates.length,
       skipIfHasSummary: false,
-      concurrency: 1,
-      delayMs: 0,
+      concurrency,
+      delayMs,
       retryAttempts: 1,
       debug: false,
     })

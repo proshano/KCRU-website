@@ -132,6 +132,11 @@ export async function POST(request) {
     const model = body?.model || settings.llmClassificationModel || settings.llmModel || undefined
     const apiKey = body?.apiKey || settings.llmClassificationApiKey || settings.llmApiKey || undefined
     const systemPrompt = settings.llmSystemPrompt || undefined
+    const concurrency = clamp(
+      Number(body?.concurrency || settings.llmConcurrency || 1),
+      1,
+      20
+    )
     const cacheGeneratedAtTs = cache?.generatedAt ? Date.parse(cache.generatedAt) : null
 
     // Allow classification even if abstract is missing (prompt rules handle this)
@@ -233,46 +238,51 @@ export async function POST(request) {
       const batch = candidates.slice(i, i + batchSize)
       const entries = []
 
-      // sequential per-record classification to be robust and avoid provider throttling
-      for (const pub of batch) {
-        try {
-          const c = await classifyPublication(
-            {
-              title: pub.title,
-              abstract: pub.abstract || '',
-              laySummary: pub.laySummary || ''
-            },
-            {
-              provider,
-              model,
-              apiKey,
-              systemPrompt,
-              classificationPrompt,
-              debug: false
+      for (let j = 0; j < batch.length; j += concurrency) {
+        const chunk = batch.slice(j, j + concurrency)
+        const results = await Promise.all(
+          chunk.map(async (pub) => {
+            try {
+              const c = await classifyPublication(
+                {
+                  title: pub.title,
+                  abstract: pub.abstract || '',
+                  laySummary: pub.laySummary || ''
+                },
+                {
+                  provider,
+                  model,
+                  apiKey,
+                  systemPrompt,
+                  classificationPrompt,
+                  debug: false
+                }
+              )
+              return {
+                pmid: pub.pmid,
+                title: pub.title || null,
+                summary: pub.laySummary || null,
+                topics: c.topics || [],
+                studyDesign: c.studyDesign || [],
+                methodologicalFocus: c.methodologicalFocus || [],
+                exclude: Boolean(c.exclude),
+                error: null
+              }
+            } catch (err) {
+              return {
+                pmid: pub.pmid,
+                title: pub.title || null,
+                summary: pub.laySummary || null,
+                topics: [],
+                studyDesign: [],
+                methodologicalFocus: [],
+                exclude: false,
+                error: err?.message || 'Classification failed'
+              }
             }
-          )
-          entries.push({
-            pmid: pub.pmid,
-            title: pub.title || null,
-            summary: pub.laySummary || null,
-            topics: c.topics || [],
-            studyDesign: c.studyDesign || [],
-            methodologicalFocus: c.methodologicalFocus || [],
-            exclude: Boolean(c.exclude),
-            error: null
           })
-        } catch (err) {
-          entries.push({
-            pmid: pub.pmid,
-            title: pub.title || null,
-            summary: pub.laySummary || null,
-            topics: [],
-            studyDesign: [],
-            methodologicalFocus: [],
-            exclude: false,
-            error: err?.message || 'Classification failed'
-          })
-        }
+        )
+        entries.push(...results)
       }
 
       await upsertClassifications(entries, meta, existingIdMap)

@@ -14,9 +14,9 @@ const CRON_TARGET_HOUR = Number(process.env.CRON_TARGET_HOUR || 3)
 // Allow a small window in case of minor scheduling drift.
 const CRON_ALLOWED_MINUTES = Number(process.env.CRON_ALLOWED_MINUTES || 10)
 
-// Cron job 1 (refresh) should NOT generate summaries - that's handled by cron job 2 (summarize)
-// Manual POST requests still generate summaries by default
-const CRON_SUMMARIES_LIMIT = 0
+// Cron refresh can generate a small number of summaries to avoid needing a second cron job.
+// Set CRON_SUMMARIES_LIMIT=0 to disable summary generation during cron runs.
+const CRON_SUMMARIES_LIMIT = Number(process.env.CRON_SUMMARIES_LIMIT || 5)
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -96,7 +96,9 @@ function sameLocalDate(a, b, timeZone) {
 function shouldRunNow({ timeZone, targetHour, allowedMinutes }) {
   const now = new Date()
   const p = getZonedParts(now, timeZone)
-  return p.hour === targetHour && p.minute >= 0 && p.minute < allowedMinutes
+  const fallbackHour = (targetHour + 23) % 24
+  const hourMatches = p.hour === targetHour || p.hour === fallbackHour
+  return hourMatches && p.minute >= 0 && p.minute < allowedMinutes
 }
 
 // GET handler for Vercel cron
