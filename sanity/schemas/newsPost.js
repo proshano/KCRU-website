@@ -65,6 +65,17 @@ const newsPost = {
       options: {
         layout: 'tags'
       }
+    },
+    {
+      name: 'seo',
+      title: 'SEO (auto)',
+      type: 'object',
+      hidden: true,
+      fields: [
+        { name: 'description', title: 'Meta Description', type: 'text', rows: 2, readOnly: true },
+        { name: 'generatedAt', title: 'Generated At', type: 'datetime', readOnly: true },
+        { name: 'source', title: 'Source', type: 'string', readOnly: true }
+      ]
     }
   ],
   orderings: [

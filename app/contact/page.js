@@ -1,8 +1,44 @@
 import { Suspense } from 'react'
 import ContactForm from './ContactForm'
 import { sanityFetch, queries } from '@/lib/sanity'
+import { buildOpenGraph, buildTwitterMetadata, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 
 export const revalidate = 3600
+
+export async function generateMetadata() {
+  const [settingsRaw, pageContentRaw] = await Promise.all([
+    sanityFetch(queries.siteSettings),
+    sanityFetch(queries.pageContent)
+  ])
+
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const content = JSON.parse(JSON.stringify(pageContentRaw || {}))
+  const siteTitle = resolveSiteTitle(settings)
+  const title = content.contactTitle || 'Contact'
+  const description = normalizeDescription(
+    content.contactDescription || `Contact ${siteTitle} for research inquiries and referrals.`
+  )
+  const canonical = '/contact'
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical
+    },
+    openGraph: buildOpenGraph({
+      settings,
+      title,
+      description,
+      path: canonical
+    }),
+    twitter: buildTwitterMetadata({
+      settings,
+      title,
+      description
+    })
+  }
+}
 
 const DEFAULT_OPTIONS = [
   {

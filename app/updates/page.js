@@ -1,7 +1,39 @@
 import { ROLE_OPTIONS, SPECIALTY_OPTIONS, INTEREST_AREA_OPTIONS, CORRESPONDENCE_OPTIONS } from '@/lib/communicationOptions'
+import { sanityFetch, queries } from '@/lib/sanity'
+import { buildOpenGraph, buildTwitterMetadata, normalizeDescription } from '@/lib/seo'
 import UpdatesSignupForm from './UpdatesSignupForm'
 
 export const revalidate = 3600
+
+export async function generateMetadata() {
+  const settingsRaw = await sanityFetch(queries.siteSettings)
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const title = 'Subscribe for updates'
+  const description = normalizeDescription(
+    'Share your role, specialty, and interest areas to receive study updates.',
+    200
+  )
+  const canonical = '/updates'
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical
+    },
+    openGraph: buildOpenGraph({
+      settings,
+      title,
+      description,
+      path: canonical
+    }),
+    twitter: buildTwitterMetadata({
+      settings,
+      title,
+      description
+    })
+  }
+}
 
 export default async function UpdatesPage() {
   const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''

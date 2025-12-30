@@ -2,6 +2,8 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
+import { buildOpenGraph, buildTwitterMetadata, getSiteBaseUrl, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
+import JsonLd from '@/app/components/JsonLd'
 import ReferralForm from './ReferralForm'
 
 // Revalidate every 12 hours
@@ -9,13 +11,41 @@ export const revalidate = 43200
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
-  const trial = await sanityFetch(queries.trialBySlug, { slug })
+  const [trialRaw, settingsRaw] = await Promise.all([
+    sanityFetch(queries.trialBySlug, { slug }),
+    sanityFetch(queries.siteSettings)
+  ])
   
-  if (!trial) return { title: 'Study Not Found' }
+  if (!trialRaw) return { title: 'Study Not Found' }
+
+  const trial = JSON.parse(JSON.stringify(trialRaw))
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const siteTitle = resolveSiteTitle(settings)
+  const title = trial.title
+  const description = normalizeDescription(
+    trial.seo?.description ||
+    trial.laySummary ||
+    `Learn about the ${trial.title} study from ${siteTitle}.`
+  )
+  const canonical = `/trials/${trial.slug?.current || slug}`
   
   return {
-    title: `${trial.title} | KCRU Clinical Studies`,
-    description: trial.laySummary || `Learn about the ${trial.title} study.`,
+    title,
+    description,
+    alternates: {
+      canonical
+    },
+    openGraph: buildOpenGraph({
+      settings,
+      title,
+      description,
+      path: canonical
+    }),
+    twitter: buildTwitterMetadata({
+      settings,
+      title,
+      description
+    })
   }
 }
 
@@ -55,9 +85,57 @@ export default async function TrialDetailPage({ params }) {
   const ctGovUrl = trial.ctGovData?.url || (trial.nctId ? `https://clinicaltrials.gov/study/${trial.nctId}` : null)
   const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''
   const studySlug = trial.slug?.current || trial.slug
+  const baseUrl = getSiteBaseUrl()
+  const canonicalUrl = `${baseUrl}/trials/${studySlug}`
+  const schemaStatusMap = {
+    recruiting: 'Recruiting',
+    coming_soon: 'NotYetRecruiting',
+    active_not_recruiting: 'ActiveNotRecruiting',
+    completed: 'Completed',
+    closed: 'Completed'
+  }
+  const schemaStatus = schemaStatusMap[trial.status]
+  const schemaDescription = normalizeDescription(
+    trial.seo?.description || trial.laySummary || trial.ctGovData?.briefSummary || `Learn about the ${trial.title} study.`,
+    280
+  )
+  const keywords = (trial.therapeuticAreas || []).map(area => area?.name).filter(Boolean)
+
+  const trialSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'ClinicalTrial',
+    name: trial.title,
+    url: canonicalUrl
+  }
+
+  if (schemaDescription) trialSchema.description = schemaDescription
+  if (schemaStatus) trialSchema.status = schemaStatus
+  if (trial.nctId) {
+    trialSchema.identifier = {
+      '@type': 'PropertyValue',
+      propertyID: 'NCT',
+      value: trial.nctId
+    }
+  }
+  if (trial.ctGovData?.sponsor) {
+    trialSchema.sponsor = {
+      '@type': 'Organization',
+      name: trial.ctGovData.sponsor
+    }
+  }
+  if (trial.principalInvestigator?.name) {
+    trialSchema.principalInvestigator = {
+      '@type': 'Person',
+      name: trial.principalInvestigator.name
+    }
+  }
+  if (trial.ctGovData?.startDate) trialSchema.startDate = trial.ctGovData.startDate
+  if (trial.ctGovData?.completionDate) trialSchema.endDate = trial.ctGovData.completionDate
+  if (keywords.length) trialSchema.keywords = keywords.join(', ')
 
   return (
     <main className="max-w-4xl mx-auto px-6 md:px-12 py-12">
+      <JsonLd data={trialSchema} />
       {/* Breadcrumb */}
       <nav className="mb-8">
         <Link href="/trials" className="text-sm text-gray-500 hover:text-purple transition">

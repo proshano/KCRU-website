@@ -15,6 +15,8 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - `app/` pages/layouts and API route handlers (`app/api/**/route.js`)
 - `app/admin/` admin hub and `/admin/*` entry points
 - `app/components/` shared UI components
+- `app/llms.txt/` LLM summary endpoint
+- `app/markdown/` markdown endpoints (used via `.md` URLs)
 - `lib/` data clients, caching, and shared helpers
 - `sanity/` Sanity Studio config and schemas
 - `scripts/` maintenance/migration scripts
@@ -75,6 +77,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 ## Cron Jobs
 - Scheduled routes are defined in `vercel.json`.
 - `/api/pubmed/refresh` uses `CRON_SECRET` (cron) or `PUBMED_REFRESH_TOKEN` (manual POST).
+- `/api/seo/refresh` auto-generates SEO/LLM summaries and snapshots publication topics/highlights for llms.txt/markdown (manual via `SEO_REFRESH_TOKEN`; requires `SANITY_API_TOKEN`). To keep within the 2-cron limit, enable optional piggybacking on `/api/pubmed/refresh` by setting `SEO_REFRESH_ON_PUBMED_CRON=true`.
 - `/api/updates/study-email/dispatch` is the daily email dispatch cron.
 
 ## Testing

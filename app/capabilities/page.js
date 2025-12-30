@@ -1,6 +1,42 @@
 import { sanityFetch, queries } from '@/lib/sanity'
+import { buildOpenGraph, buildTwitterMetadata, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 
 export const revalidate = 3600
+
+export async function generateMetadata() {
+  const [settingsRaw, capabilitiesRaw] = await Promise.all([
+    sanityFetch(queries.siteSettings),
+    sanityFetch(queries.capabilities)
+  ])
+
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const data = JSON.parse(JSON.stringify(capabilitiesRaw || {}))
+  const siteTitle = resolveSiteTitle(settings)
+  const title = data.headline || 'Capabilities'
+  const description = normalizeDescription(
+    data.introduction || `Capabilities for sponsors and partners working with ${siteTitle}.`
+  )
+  const canonical = '/capabilities'
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical
+    },
+    openGraph: buildOpenGraph({
+      settings,
+      title,
+      description,
+      path: canonical
+    }),
+    twitter: buildTwitterMetadata({
+      settings,
+      title,
+      description
+    })
+  }
+}
 
 export default async function CapabilitiesPage() {
   const dataRaw = (await sanityFetch(queries.capabilities)) || {}
