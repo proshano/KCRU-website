@@ -7,6 +7,11 @@ export default async function proxy(request) {
   const isMarkdown = pathname.endsWith('.md') || pathname.startsWith('/markdown/')
   const isAllowlisted = allowlistedPaths.has(pathname) || isMarkdown
 
+  if (pathname.endsWith('.md') && !pathname.startsWith('/markdown/')) {
+    const target = new URL(`/markdown${pathname}`, request.url)
+    return NextResponse.rewrite(target)
+  }
+
   if (
     pathname === '/under-construction' ||
     pathname.startsWith('/_next') ||
