@@ -1222,7 +1222,7 @@ export default function StudyManagerClient() {
                         slug: prev.slug ? prev.slug : slugify(nextTitle),
                       }))
                     }}
-                    placeholder="Patient-friendly study title"
+                    placeholder="Study title"
                     className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                   />
                   <p className="text-xs text-gray-500">
@@ -1454,9 +1454,6 @@ export default function StudyManagerClient() {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-500">
-                Used for internal tracking.
-              </p>
             </div>
           </div>
 

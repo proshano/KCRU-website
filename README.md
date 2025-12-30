@@ -94,6 +94,11 @@ Refreshes PubMed daily and dispatches study update emails.
 - Configure: `PUBMED_API_KEY` (higher PubMed limits), `PUBMED_TIMEOUT_MS`, `PUBMED_RETRIES`, `PUBMED_MAX_PER_RESEARCHER`, `PUBMED_CACHE_MAX_AGE_MS`
 - Scheduling: Vercel cron calls `/api/pubmed/refresh` (see `vercel.json`); for self-hosted setups, run `npm run refresh:pubmed` daily via cron/PM2
 
+## SEO Refresh (LLM/metadata)
+- Refresh via Sanity Studio: open `Site Settings` and click **Refresh SEO metadata** (configure `SANITY_STUDIO_SEO_REFRESH_URL` + `SANITY_STUDIO_SEO_REFRESH_TOKEN` to point at your deployed API)
+- Refresh via API: `POST /api/seo/refresh` with `Authorization: Bearer $SEO_REFRESH_TOKEN` (requires `SANITY_API_TOKEN` on the server)
+- Optional cron piggyback: set `SEO_REFRESH_ON_PUBMED_CRON=true` to refresh SEO after the PubMed cron finishes
+
 ## API Endpoints
 
 | Endpoint | Purpose | Methods/Notes |
@@ -106,6 +111,7 @@ Refreshes PubMed daily and dispatches study update emails.
 | `/api/pubmed/publication` | Update or delete a single publication in cache | `POST` with `{ "pmid": "..." }` to regenerate summary; `DELETE ?pmid=...` to remove |
 | `/api/pubmed/classify-preview` | Preview classification + summaries for recent publications | `POST` (Authorization: Bearer, body: `{ count, prompt, provider, model, apiKey }` optional) |
 | `/api/pubmed/reclassify` | Classify publications and store results in Sanity | `POST` (Authorization: Bearer, body: `{ count|all|pmids, clear, batchSize, delayMs }` and prompt/provider/model overrides) |
+| `/api/seo/refresh` | Refresh SEO metadata and LLM summaries | `POST` (Authorization: Bearer) or `GET` for cron (CRON_SECRET) |
 | `/api/updates/study-email/dispatch` | Study updates email dispatch | `GET` for cron (CRON_SECRET), `POST` for manual (Authorization: Bearer) |
 
 ## Tips

@@ -49,6 +49,7 @@ export default function UpdatesAdminClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [lastSendResult, setLastSendResult] = useState(null)
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -106,6 +107,7 @@ export default function UpdatesAdminClient() {
     setSettings(DEFAULT_SETTINGS)
     setError('')
     setSuccess('')
+    setLastSendResult(null)
   }, [])
 
   const loadAdminData = useCallback(async (activeToken = token) => {
@@ -206,6 +208,7 @@ export default function UpdatesAdminClient() {
     if (!token) return
     setError('')
     setSuccess('')
+    setLastSendResult(null)
     if (force) {
       setSendingForce(true)
     } else {
@@ -228,11 +231,18 @@ export default function UpdatesAdminClient() {
       const sent = formatCount(statsPayload.sent)
       const total = formatCount(statsPayload.total)
       const errors = formatCount(statsPayload.errors)
-      setSuccess(
-        errors
-          ? `Study updates sent with errors: ${sent} of ${total} delivered (${errors} failed).`
-          : `Study updates sent: ${sent} of ${total} delivered.`
-      )
+      const summaryMessage = errors
+        ? `Study updates sent with errors: ${sent} of ${total} delivered (${errors} failed).`
+        : `Study updates sent: ${sent} of ${total} delivered.`
+      setSuccess(summaryMessage)
+      setLastSendResult({
+        at: new Date().toISOString(),
+        sent,
+        total,
+        errors,
+        force,
+        summaryMessage,
+      })
       await loadAdminData(token)
     } catch (err) {
       setError(err.message || 'Failed to send study updates.')
@@ -451,6 +461,11 @@ export default function UpdatesAdminClient() {
                 {sendingForce ? 'Sending...' : 'Force send'}
               </button>
             </div>
+            {lastSendResult && (
+              <p className={`text-sm ${lastSendResult.errors ? 'text-amber-700' : 'text-emerald-700'}`}>
+                {lastSendResult.force ? 'Force send' : 'Send now'} completed {formatDate(lastSendResult.at)}. {lastSendResult.summaryMessage}
+              </p>
+            )}
           </section>
 
           <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
