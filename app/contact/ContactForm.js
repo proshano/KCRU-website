@@ -32,6 +32,13 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
   const [captchaReady, setCaptchaReady] = useState(!recaptchaSiteKey)
   const startTimeRef = useRef(Date.now())
 
+  useEffect(() => {
+    if (!recaptchaSiteKey) return
+    if (typeof window !== 'undefined' && window.grecaptcha?.execute) {
+      setCaptchaReady(true)
+    }
+  }, [recaptchaSiteKey])
+
   const selectedOption = useMemo(() => options.find((opt) => opt.key === form.reasonKey) || null, [form.reasonKey, options])
 
   const requiresMessage = selectedOption ? !selectedOption.showOceanLink : false
@@ -351,7 +358,6 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
     </div>
   )
 }
-
 
 
 

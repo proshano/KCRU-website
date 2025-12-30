@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Script from 'next/script'
 
 function isValidEmail(value) {
@@ -27,6 +27,13 @@ export default function UpdatesSignupForm({
   const [status, setStatus] = useState({ type: 'idle', message: '', manageUrl: '' })
   const [captchaReady, setCaptchaReady] = useState(!recaptchaSiteKey)
   const startTimeRef = useRef(Date.now())
+
+  useEffect(() => {
+    if (!recaptchaSiteKey) return
+    if (typeof window !== 'undefined' && window.grecaptcha?.execute) {
+      setCaptchaReady(true)
+    }
+  }, [recaptchaSiteKey])
 
   const toggleInterestArea = (value) => {
     setForm((prev) => {
