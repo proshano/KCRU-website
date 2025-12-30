@@ -290,13 +290,18 @@ export default function UpdatesSignupForm({
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="inline-flex items-center justify-center rounded-md bg-purple px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {loading ? 'Submitting...' : 'Sign up for updates'}
-        </button>
+        <div className="space-y-2">
+          <button
+            type="submit"
+            disabled={loading || (recaptchaSiteKey && !captchaReady)}
+            className="inline-flex items-center justify-center rounded-md bg-purple px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? 'Submitting...' : 'Sign up for updates'}
+          </button>
+          {recaptchaSiteKey && !captchaReady && (
+            <p className="text-xs text-[#777]">Loading spam protection...</p>
+          )}
+        </div>
       </form>
     </div>
   )
