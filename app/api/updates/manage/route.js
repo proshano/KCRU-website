@@ -1,27 +1,7 @@
 import { NextResponse } from 'next/server'
 import { writeClient } from '@/lib/sanity'
 import { ROLE_VALUES, SPECIALTY_VALUES, INTEREST_AREA_VALUES, CORRESPONDENCE_VALUES } from '@/lib/communicationOptions'
-
-function sanitizeString(value = '') {
-  if (!value) return ''
-  return String(value).trim()
-}
-
-function normalizeList(values) {
-  if (!Array.isArray(values)) return []
-  const cleaned = values.map((value) => sanitizeString(value)).filter(Boolean)
-  return Array.from(new Set(cleaned))
-}
-
-function normalizeInterestAreas(values) {
-  const normalized = normalizeList(values).filter((item) => INTEREST_AREA_VALUES.has(item))
-  if (normalized.includes('all')) return ['all']
-  return normalized
-}
-
-function normalizeCorrespondence(values) {
-  return normalizeList(values).filter((item) => CORRESPONDENCE_VALUES.has(item))
-}
+import { sanitizeString, normalizeCorrespondence, normalizeInterestAreas } from '@/lib/inputUtils'
 
 async function getSubscriberByToken(token) {
   return writeClient.fetch(
@@ -101,12 +81,12 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Please select a valid specialty.' }, { status: 400 })
   }
 
-  const normalizedInterestAreas = normalizeInterestAreas(interestAreas)
+  const normalizedInterestAreas = normalizeInterestAreas(interestAreas, INTEREST_AREA_VALUES)
   if (!normalizedInterestAreas.length) {
     return NextResponse.json({ error: 'Please select at least one interest area.' }, { status: 400 })
   }
 
-  const normalizedCorrespondence = normalizeCorrespondence(correspondencePreferences)
+  const normalizedCorrespondence = normalizeCorrespondence(correspondencePreferences, CORRESPONDENCE_VALUES)
   if (!normalizedCorrespondence.length) {
     return NextResponse.json({ error: 'Please select at least one correspondence option.' }, { status: 400 })
   }

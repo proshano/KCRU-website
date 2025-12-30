@@ -1,21 +1,15 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
-import { getAdminSession } from '@/lib/adminSessions'
+import { getScopedAdminSession } from '@/lib/adminSessions'
 import { handleRejectedSubmission, reviewSubmission } from '@/lib/studyApprovals'
+import { extractBearerToken } from '@/lib/httpUtils'
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
-const APPROVAL_BASE_URL = `${SITE_BASE_URL}/trials/approvals`
-
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (!header) return ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
-}
+const APPROVAL_BASE_URL = `${SITE_BASE_URL}/admin/approvals`
 
 async function getSession(token) {
-  return getAdminSession(token)
+  return getScopedAdminSession(token, { scope: 'approvals' })
 }
 
 export async function GET(request) {
@@ -30,10 +24,11 @@ export async function GET(request) {
     )
   }
 
-  const session = await getSession(token || extractToken(request))
+  const { session, error, status } = await getSession(token || extractBearerToken(request))
   if (!session) {
+    const message = status === 403 ? error : 'Approval session expired or invalid.'
     return NextResponse.redirect(
-      `${APPROVAL_BASE_URL}?error=${encodeURIComponent('Approval session expired or invalid.')}`
+      `${APPROVAL_BASE_URL}?error=${encodeURIComponent(message)}`
     )
   }
 

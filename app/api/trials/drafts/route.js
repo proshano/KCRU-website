@@ -1,19 +1,9 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
+import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
-
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (!header) return ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
-}
+const CORS_HEADERS = buildCorsHeaders('GET, POST, DELETE, OPTIONS')
 
 async function getCoordinatorSession(token) {
   if (!token) return null
@@ -27,7 +17,7 @@ async function getCoordinatorSession(token) {
 }
 
 async function requireCoordinatorSession(request) {
-  const token = extractToken(request)
+  const token = extractBearerToken(request)
   const session = await getCoordinatorSession(token)
   if (!session) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })

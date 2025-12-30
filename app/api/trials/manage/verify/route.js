@@ -2,12 +2,9 @@ import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
+import { buildCorsHeaders } from '@/lib/httpUtils'
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
+const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
 const SESSION_TTL_HOURS = 8
 

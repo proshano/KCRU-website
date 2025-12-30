@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server'
 import { syncTrialData, fetchTrialFromCTGov } from '@/lib/trialSync'
 import { sanityFetch, queries } from '@/lib/sanity'
+import { buildCorsHeaders } from '@/lib/httpUtils'
 
 // CORS headers for Sanity Studio
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
+const corsHeaders = buildCorsHeaders('GET, POST, OPTIONS')
 
 /**
  * OPTIONS handler for CORS preflight

@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
 import { buildStudyUpdateEmail } from '@/lib/studyUpdateEmailTemplate'
+import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
+import { getZonedParts, isCronAuthorized, isWithinCronWindow } from '@/lib/cronUtils'
+import { normalizeList } from '@/lib/inputUtils'
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
   /\/$/,
@@ -15,60 +18,18 @@ const CRON_ALLOWED_MINUTES = Number(process.env.STUDY_UPDATE_CRON_WINDOW || 10)
 const MAX_STUDIES = Number(process.env.STUDY_UPDATE_MAX_STUDIES || 4)
 const STUDY_UPDATES_PREF = 'study_updates'
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
-
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (!header) return ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
-}
-
-function isVercelCron(request) {
-  if (!CRON_SECRET) return false
-  const token = extractToken(request)
-  return token === CRON_SECRET
-}
-
-function getZonedParts(date, timeZone) {
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-  const parts = fmt.formatToParts(date)
-  const map = {}
-  for (const p of parts) {
-    if (p.type !== 'literal') map[p.type] = p.value
-  }
-  return {
-    year: Number(map.year),
-    month: Number(map.month),
-    day: Number(map.day),
-    hour: Number(map.hour),
-    minute: Number(map.minute),
-  }
-}
+const CORS_HEADERS = buildCorsHeaders('GET, POST, OPTIONS')
 
 function shouldRunNow() {
   const now = new Date()
   const parts = getZonedParts(now, CRON_TIMEZONE)
-  const fallbackHour = (CRON_TARGET_HOUR + 23) % 24
-  const hourMatches = parts.hour === CRON_TARGET_HOUR || parts.hour === fallbackHour
-  return (
-    parts.day === 1 &&
-    hourMatches &&
-    parts.minute >= 0 &&
-    parts.minute < CRON_ALLOWED_MINUTES
-  )
+  if (parts.day !== 1) return false
+  return isWithinCronWindow({
+    timeZone: CRON_TIMEZONE,
+    targetHour: CRON_TARGET_HOUR,
+    allowedMinutes: CRON_ALLOWED_MINUTES,
+    date: now,
+  })
 }
 
 function getMonthStartIso() {
@@ -84,11 +45,6 @@ function formatMonthLabel(date) {
     month: 'long',
     year: 'numeric',
   }).format(date)
-}
-
-function normalizeList(values) {
-  if (!Array.isArray(values)) return []
-  return values.map((value) => String(value || '').trim()).filter(Boolean)
 }
 
 function pickStudiesForSubscriber(studies, subscriber) {
@@ -261,7 +217,7 @@ export async function GET(request) {
     return NextResponse.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 500, headers: CORS_HEADERS })
   }
 
-  if (!isVercelCron(request)) {
+  if (!isCronAuthorized(request, CRON_SECRET)) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
@@ -285,7 +241,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   if (AUTH_TOKEN) {
-    const token = extractToken(request)
+    const token = extractBearerToken(request)
     if (token !== AUTH_TOKEN) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
     }

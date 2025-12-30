@@ -3,6 +3,8 @@ import { revalidatePath } from 'next/cache'
 import { sanityFetch, queries } from '@/lib/sanity'
 import { refreshPubmedCache } from '@/lib/publications'
 import { readCache } from '@/lib/pubmedCache'
+import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
+import { getZonedParts, isCronAuthorized, isWithinCronWindow, sameLocalDate } from '@/lib/cronUtils'
 
 const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN || ''
 const CRON_SECRET = process.env.CRON_SECRET || ''
@@ -18,66 +20,10 @@ const CRON_ALLOWED_MINUTES = Number(process.env.CRON_ALLOWED_MINUTES || 10)
 // Set CRON_SUMMARIES_LIMIT=0 to disable summary generation during cron runs.
 const CRON_SUMMARIES_LIMIT = Number(process.env.CRON_SUMMARIES_LIMIT || 5)
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
-
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (!header) return ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
-}
-
-function isVercelCron(request) {
-  if (!CRON_SECRET) return false
-  const token = extractToken(request)
-  return token === CRON_SECRET
-}
+const CORS_HEADERS = buildCorsHeaders('GET, POST, OPTIONS')
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
-}
-
-function getZonedParts(date, timeZone) {
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-  const parts = fmt.formatToParts(date)
-  const map = {}
-  for (const p of parts) {
-    if (p.type !== 'literal') map[p.type] = p.value
-  }
-  return {
-    year: Number(map.year),
-    month: Number(map.month),
-    day: Number(map.day),
-    hour: Number(map.hour),
-    minute: Number(map.minute),
-  }
-}
-
-function sameLocalDate(a, b, timeZone) {
-  if (!a || !b) return false
-  const pa = getZonedParts(a, timeZone)
-  const pb = getZonedParts(b, timeZone)
-  return pa.year === pb.year && pa.month === pb.month && pa.day === pb.day
-}
-
-function shouldRunNow({ timeZone, targetHour, allowedMinutes }) {
-  const now = new Date()
-  const p = getZonedParts(now, timeZone)
-  const fallbackHour = (targetHour + 23) % 24
-  const hourMatches = p.hour === targetHour || p.hour === fallbackHour
-  return hourMatches && p.minute >= 0 && p.minute < allowedMinutes
 }
 
 // GET handler for Vercel cron
@@ -99,7 +45,7 @@ export async function GET(request) {
   }
 
   // Only allow cron requests
-  if (!isVercelCron(request)) {
+  if (!isCronAuthorized(request, CRON_SECRET)) {
     console.warn('[pubmed] Cron request rejected: unauthorized', {
       xVercelCron: request.headers.get('x-vercel-cron'),
       authHeaderPresent: !!request.headers.get('authorization'),
@@ -111,7 +57,15 @@ export async function GET(request) {
   // Run only at 3:00am America/New_York (DST-aware), otherwise skip.
   // Set CRON_SKIP_TIME_CHECK=true to bypass for debugging
   const skipTimeCheck = process.env.CRON_SKIP_TIME_CHECK === 'true'
-  if (!skipTimeCheck && !shouldRunNow({ timeZone: CRON_TIMEZONE, targetHour: CRON_TARGET_HOUR, allowedMinutes: CRON_ALLOWED_MINUTES })) {
+  if (
+    !skipTimeCheck &&
+    !isWithinCronWindow({
+      timeZone: CRON_TIMEZONE,
+      targetHour: CRON_TARGET_HOUR,
+      allowedMinutes: CRON_ALLOWED_MINUTES,
+      date: now,
+    })
+  ) {
     console.info('[pubmed] Cron skipped: outside time window', {
       nowLocal: nowParts,
       targetHour: CRON_TARGET_HOUR,
@@ -151,7 +105,7 @@ export async function GET(request) {
 // POST handler for Studio/manual triggers
 export async function POST(request) {
   if (AUTH_TOKEN) {
-    const token = extractToken(request)
+    const token = extractBearerToken(request)
     if (token !== AUTH_TOKEN) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
     }

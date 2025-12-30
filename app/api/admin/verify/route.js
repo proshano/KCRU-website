@@ -1,13 +1,16 @@
 import { NextResponse } from 'next/server'
 import { writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
-import { getAdminEmails, verifyAdminPasscode } from '@/lib/adminSessions'
+import {
+  getAdminAccess,
+  getAdminEmails,
+  getAdminScopeLabel,
+  normalizeAdminScope,
+  verifyAdminPasscode,
+} from '@/lib/adminSessions'
+import { buildCorsHeaders } from '@/lib/httpUtils'
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
+const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
 const SESSION_TTL_HOURS = 72
 
@@ -27,6 +30,8 @@ export async function POST(request) {
     const body = await request.json()
     const email = sanitizeString(body?.email).toLowerCase()
     const code = sanitizeString(body?.code)
+    const scope = normalizeAdminScope(body?.scope)
+    const scopeLabel = getAdminScopeLabel(scope)
     if (!email || !code) {
       return NextResponse.json(
         { ok: false, error: 'Email and passcode are required.' },
@@ -34,7 +39,7 @@ export async function POST(request) {
       )
     }
 
-    const admins = await getAdminEmails()
+    const admins = await getAdminEmails(scope)
     if (!admins.length) {
       return NextResponse.json(
         { ok: false, error: 'No admin emails configured in Sanity.' },
@@ -44,13 +49,17 @@ export async function POST(request) {
 
     if (!admins.includes(email)) {
       return NextResponse.json(
-        { ok: false, error: 'Email not authorized for admin access.' },
+        { ok: false, error: `Email not authorized for ${scopeLabel} access.` },
         { status: 403, headers: CORS_HEADERS }
       )
     }
 
     const result = await verifyAdminPasscode({ email, code, sessionTtlHours: SESSION_TTL_HOURS })
-    return NextResponse.json({ ok: true, token: result.token, email: result.email }, { headers: CORS_HEADERS })
+    const access = await getAdminAccess(result.email)
+    return NextResponse.json(
+      { ok: true, token: result.token, email: result.email, access },
+      { headers: CORS_HEADERS }
+    )
   } catch (error) {
     console.error('[admin-verify] failed', error)
     return NextResponse.json(

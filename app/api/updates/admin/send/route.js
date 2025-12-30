@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getAdminSession } from '@/lib/adminSessions'
+import { getScopedAdminSession } from '@/lib/adminSessions'
+import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
+const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
   /\/$/,
@@ -13,15 +10,8 @@ const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL 
 )
 const DISPATCH_URL = `${SITE_BASE_URL}/api/updates/study-email/dispatch`
 
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (!header) return ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
-}
-
 async function getSession(token) {
-  return getAdminSession(token)
+  return getScopedAdminSession(token, { scope: 'updates' })
 }
 
 export async function OPTIONS() {
@@ -29,10 +19,10 @@ export async function OPTIONS() {
 }
 
 export async function POST(request) {
-  const token = extractToken(request)
-  const session = await getSession(token)
+  const token = extractBearerToken(request)
+  const { session, error, status } = await getSession(token)
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
+    return NextResponse.json({ ok: false, error }, { status, headers: CORS_HEADERS })
   }
 
   if (!process.env.STUDY_UPDATE_SEND_TOKEN) {

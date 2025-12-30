@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server'
 import { sanityFetch, queries, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escapeHtml'
+import { getClientIp } from '@/lib/httpUtils'
+import { sanitizeString } from '@/lib/inputUtils'
+import { verifyRecaptcha } from '@/lib/recaptcha'
 
 const MIN_FORM_TIME_MS = 800
 const MAX_MESSAGE_LENGTH = 2000
-const RECAPTCHA_ENDPOINT = 'https://www.google.com/recaptcha/api/siteverify'
 const MAX_ATTACHMENT_BYTES = 6 * 1024 * 1024 // 6MB
 const CONTACT_SENDER_NAME =
   (process.env.CONTACT_FROM_NAME || 'London Kidney Clinical Research').trim() || 'London Kidney Clinical Research'
@@ -16,40 +18,6 @@ const DEFAULT_OPTIONS = [
   { key: 'donation', label: 'Interested in donating to support research', showOceanLink: false },
   { key: 'website-feedback', label: 'Website feedback', showOceanLink: false }
 ]
-
-function sanitizeString(value = '') {
-  if (!value) return ''
-  return String(value).trim()
-}
-
-function getClientIp(headers) {
-  const xfwd = headers.get('x-forwarded-for')
-  if (xfwd) return xfwd.split(',')[0]?.trim()
-  return headers.get('x-real-ip') || null
-}
-
-async function verifyRecaptcha(token) {
-  const secret = process.env.RECAPTCHA_SECRET_KEY || process.env.RECAPTCHA_SECRET
-  if (!secret) {
-    console.warn('reCAPTCHA secret not configured; skipping verification.')
-    return { success: true, skipped: true }
-  }
-
-  try {
-    const res = await fetch(RECAPTCHA_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(token)}`
-    })
-
-    const data = await res.json()
-    const scoreOk = typeof data.score !== 'number' || data.score >= 0.4
-    return { success: Boolean(data.success) && scoreOk, data }
-  } catch (err) {
-    console.error('Failed to verify reCAPTCHA', err)
-    return { success: false, error: err }
-  }
-}
 
 async function storeSubmission({ payload, option, headers }) {
   if (!writeClient.config().token) {

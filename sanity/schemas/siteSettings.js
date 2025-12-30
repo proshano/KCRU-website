@@ -34,7 +34,13 @@ const siteSettings = {
           name: 'password',
           title: 'Access Password',
           type: 'string',
-          description: 'Password for privileged access during maintenance'
+          description: 'Password for privileged access during maintenance',
+          validation: (Rule) =>
+            Rule.custom((value, context) => {
+              const enabled = context?.parent?.enabled
+              if (!enabled) return true
+              return value ? true : 'Password required when maintenance mode is enabled.'
+            })
         },
         {
           name: 'title',

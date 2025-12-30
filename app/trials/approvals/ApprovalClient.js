@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 const TOKEN_STORAGE_KEY = 'kcru-admin-token'
@@ -40,6 +40,11 @@ function statusLabel(status) {
 export default function ApprovalClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const pathname = usePathname()
+  const prefersAdmin = pathname.startsWith('/admin')
+  const approvalsPath = prefersAdmin ? '/admin/approvals' : '/trials/approvals'
+  const approvalsEditPath = `${approvalsPath}/edit`
+  const updatesPath = prefersAdmin ? '/admin/updates' : '/updates/admin'
   const [token, setToken] = useState('')
   const [email, setEmail] = useState('')
   const [passcode, setPasscode] = useState('')
@@ -80,7 +85,7 @@ export default function ApprovalClient() {
     }
     if (shouldReplace) {
       const nextQuery = nextParams.toString()
-      router.replace(nextQuery ? `/trials/approvals?${nextQuery}` : '/trials/approvals')
+      router.replace(nextQuery ? `${approvalsPath}?${nextQuery}` : approvalsPath)
       return
     }
     let stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
@@ -99,7 +104,7 @@ export default function ApprovalClient() {
       }
     }
     if (storedEmail) setEmail(storedEmail)
-  }, [router, searchParams])
+  }, [approvalsPath, router, searchParams])
 
   useEffect(() => {
     if (token) {
@@ -233,7 +238,7 @@ export default function ApprovalClient() {
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, scope: 'approvals' }),
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -260,7 +265,7 @@ export default function ApprovalClient() {
       const res = await fetch('/api/admin/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: passcode }),
+        body: JSON.stringify({ email, code: passcode, scope: 'approvals' }),
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -287,10 +292,13 @@ export default function ApprovalClient() {
         {token && (
           <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
             <span className="text-xs uppercase tracking-wide text-gray-400">Admin links</span>
-            <Link href="/trials/approvals" className="text-purple font-medium">
+            <Link href="/admin" className="hover:text-gray-700">
+              Admin hub
+            </Link>
+            <Link href={approvalsPath} className="text-purple font-medium">
               Study approvals
             </Link>
-            <Link href="/updates/admin" className="hover:text-gray-700">
+            <Link href={updatesPath} className="hover:text-gray-700">
               Study update emails
             </Link>
           </div>
@@ -451,7 +459,7 @@ export default function ApprovalClient() {
                           {isReviewing && reviewingAction === 'reject' ? 'Rejecting...' : 'Reject'}
                         </button>
                         <Link
-                          href={`/trials/approvals/edit?submissionId=${submission._id}${token ? `&token=${token}` : ''}`}
+                          href={`${approvalsEditPath}?submissionId=${submission._id}${token ? `&token=${token}` : ''}`}
                           className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10"
                         >
                           Edit

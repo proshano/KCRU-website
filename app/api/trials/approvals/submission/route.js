@@ -1,23 +1,13 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
-import { getAdminSession } from '@/lib/adminSessions'
+import { getScopedAdminSession } from '@/lib/adminSessions'
+import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
-
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (!header) return ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
-}
+const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
 
 async function getSession(token) {
-  return getAdminSession(token)
+  return getScopedAdminSession(token, { scope: 'approvals' })
 }
 
 export async function OPTIONS() {
@@ -25,10 +15,10 @@ export async function OPTIONS() {
 }
 
 export async function GET(request) {
-  const token = extractToken(request)
-  const session = await getSession(token)
+  const token = extractBearerToken(request)
+  const { session, error, status } = await getSession(token)
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
+    return NextResponse.json({ ok: false, error }, { status, headers: CORS_HEADERS })
   }
 
   const url = new URL(request.url)
@@ -106,10 +96,10 @@ export async function GET(request) {
 }
 
 export async function PATCH(request) {
-  const token = extractToken(request)
-  const session = await getSession(token)
+  const token = extractBearerToken(request)
+  const { session, error, status } = await getSession(token)
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
+    return NextResponse.json({ ok: false, error }, { status, headers: CORS_HEADERS })
   }
 
   if (!writeClient.config().token) {

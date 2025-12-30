@@ -1,25 +1,16 @@
 import { NextResponse } from 'next/server'
 import { client as sanityClient, writeClient as sanityWriteClient, sanityFetch, queries } from '@/lib/sanity'
 import { generateLaySummary } from '@/lib/summaries'
+import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
 const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN || ''
 const CACHE_DOC_ID = 'pubmedCache'
 const CACHE_DOC_TYPE = 'pubmedCache'
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
+const CORS_HEADERS = buildCorsHeaders('POST, DELETE, OPTIONS')
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
-}
-
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
 }
 
 /**
@@ -27,7 +18,7 @@ function extractToken(request) {
  */
 export async function DELETE(request) {
   if (AUTH_TOKEN) {
-    const token = extractToken(request)
+    const token = extractBearerToken(request)
     if (token !== AUTH_TOKEN) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
     }
@@ -86,7 +77,7 @@ export async function POST(request) {
   console.log('[pubmed/publication] POST request received')
   
   if (AUTH_TOKEN) {
-    const token = extractToken(request)
+    const token = extractBearerToken(request)
     if (token !== AUTH_TOKEN) {
       console.log('[pubmed/publication] Unauthorized - token mismatch')
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 const TOKEN_STORAGE_KEY = 'kcru-admin-token'
@@ -115,6 +115,11 @@ function serializeDraft(data) {
 export default function ApprovalEditClient() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const pathname = usePathname()
+  const prefersAdmin = pathname.startsWith('/admin')
+  const approvalsPath = prefersAdmin ? '/admin/approvals' : '/trials/approvals'
+  const approvalsEditPath = `${approvalsPath}/edit`
+  const updatesPath = prefersAdmin ? '/admin/updates' : '/updates/admin'
   const [token, setToken] = useState('')
   const [submission, setSubmission] = useState(null)
   const [meta, setMeta] = useState({ areas: [], researchers: [] })
@@ -144,7 +149,7 @@ export default function ApprovalEditClient() {
       const nextParams = new URLSearchParams(searchParams.toString())
       nextParams.delete('token')
       const nextQuery = nextParams.toString()
-      router.replace(nextQuery ? `/trials/approvals/edit?${nextQuery}` : '/trials/approvals/edit')
+      router.replace(nextQuery ? `${approvalsEditPath}?${nextQuery}` : approvalsEditPath)
       return
     }
     let stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
@@ -155,7 +160,7 @@ export default function ApprovalEditClient() {
       }
     }
     if (stored) setToken(stored)
-  }, [router, searchParams])
+  }, [approvalsEditPath, router, searchParams])
 
   useEffect(() => {
     const pending = criteriaFocusRef.current
@@ -489,15 +494,18 @@ export default function ApprovalEditClient() {
         {token && (
           <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
             <span className="text-xs uppercase tracking-wide text-gray-400">Admin links</span>
-            <Link href="/trials/approvals" className="text-purple font-medium">
+            <Link href="/admin" className="hover:text-gray-700">
+              Admin hub
+            </Link>
+            <Link href={approvalsPath} className="text-purple font-medium">
               Study approvals
             </Link>
-            <Link href="/updates/admin" className="hover:text-gray-700">
+            <Link href={updatesPath} className="hover:text-gray-700">
               Study update emails
             </Link>
           </div>
         )}
-        <Link href="/trials/approvals" className="text-sm text-purple hover:text-purple/80">
+        <Link href={approvalsPath} className="text-sm text-purple hover:text-purple/80">
           Back to approvals
         </Link>
       </header>

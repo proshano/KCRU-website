@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { sanityFetch, queries } from '@/lib/sanity'
 import { generateMissingSummaries } from '@/lib/publications'
+import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
+import { isCronAuthorized } from '@/lib/cronUtils'
 
 const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN || ''
 const CRON_SECRET = process.env.CRON_SECRET || ''
@@ -9,35 +11,7 @@ const CRON_SECRET = process.env.CRON_SECRET || ''
 // Max summaries to generate per cron run (default: 5 to stay within timeout)
 const CRON_SUMMARIES_LIMIT = Number(process.env.CRON_SUMMARIES_LIMIT || 5)
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
-
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (!header) return ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
-}
-
-function isVercelCron(request) {
-  const authHeader = request.headers.get('authorization')
-  if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) {
-    return true
-  }
-  if (request.headers.get('x-vercel-cron') === '1') {
-    return true
-  }
-  if (!CRON_SECRET) {
-    const userAgent = request.headers.get('user-agent') || ''
-    if (userAgent.includes('vercel-cron')) {
-      return true
-    }
-  }
-  return false
-}
+const CORS_HEADERS = buildCorsHeaders('GET, POST, OPTIONS')
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
@@ -54,8 +28,12 @@ export async function GET(request) {
     hasCronSecret: !!CRON_SECRET,
   })
 
+  if (!CRON_SECRET) {
+    return NextResponse.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 500, headers: CORS_HEADERS })
+  }
+
   // Only allow cron requests
-  if (!isVercelCron(request)) {
+  if (!isCronAuthorized(request, CRON_SECRET)) {
     console.warn('[pubmed-summarize] Cron request rejected: unauthorized')
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
@@ -66,7 +44,7 @@ export async function GET(request) {
 // POST handler for manual triggers
 export async function POST(request) {
   if (AUTH_TOKEN) {
-    const token = extractToken(request)
+    const token = extractBearerToken(request)
     if (token !== AUTH_TOKEN) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
     }

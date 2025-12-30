@@ -4,63 +4,15 @@ import { writeClient } from '@/lib/sanity'
 import { ROLE_VALUES, SPECIALTY_VALUES, INTEREST_AREA_VALUES, CORRESPONDENCE_VALUES } from '@/lib/communicationOptions'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escapeHtml'
+import { getClientIp } from '@/lib/httpUtils'
+import { sanitizeString, normalizeCorrespondence, normalizeInterestAreas } from '@/lib/inputUtils'
+import { verifyRecaptcha } from '@/lib/recaptcha'
 
 const MIN_FORM_TIME_MS = 800
-const RECAPTCHA_ENDPOINT = 'https://www.google.com/recaptcha/api/siteverify'
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
   /\/$/,
   ''
 )
-
-function sanitizeString(value = '') {
-  if (!value) return ''
-  return String(value).trim()
-}
-
-function normalizeList(values) {
-  if (!Array.isArray(values)) return []
-  const cleaned = values.map((value) => sanitizeString(value)).filter(Boolean)
-  return Array.from(new Set(cleaned))
-}
-
-function normalizeInterestAreas(values) {
-  const normalized = normalizeList(values).filter((item) => INTEREST_AREA_VALUES.has(item))
-  if (normalized.includes('all')) return ['all']
-  return normalized
-}
-
-function normalizeCorrespondence(values) {
-  return normalizeList(values).filter((item) => CORRESPONDENCE_VALUES.has(item))
-}
-
-function getClientIp(headers) {
-  const xfwd = headers.get('x-forwarded-for')
-  if (xfwd) return xfwd.split(',')[0]?.trim()
-  return headers.get('x-real-ip') || null
-}
-
-async function verifyRecaptcha(token) {
-  const secret = process.env.RECAPTCHA_SECRET_KEY || process.env.RECAPTCHA_SECRET
-  if (!secret) {
-    console.warn('reCAPTCHA secret not configured; skipping verification.')
-    return { success: true, skipped: true }
-  }
-
-  try {
-    const res = await fetch(RECAPTCHA_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `secret=${encodeURIComponent(secret)}&response=${encodeURIComponent(token)}`
-    })
-
-    const data = await res.json()
-    const scoreOk = typeof data.score !== 'number' || data.score >= 0.4
-    return { success: Boolean(data.success) && scoreOk, data }
-  } catch (err) {
-    console.error('Failed to verify reCAPTCHA', err)
-    return { success: false, error: err }
-  }
-}
 
 async function sendSubscriptionEmail({ name, email, manageToken }) {
   if (!manageToken) return { skipped: true, reason: 'missing_token' }
@@ -223,12 +175,12 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Please select a valid specialty.' }, { status: 400 })
   }
 
-  const normalizedInterestAreas = normalizeInterestAreas(interestAreas)
+  const normalizedInterestAreas = normalizeInterestAreas(interestAreas, INTEREST_AREA_VALUES)
   if (!normalizedInterestAreas.length) {
     return NextResponse.json({ error: 'Please select at least one interest area.' }, { status: 400 })
   }
 
-  const normalizedCorrespondence = normalizeCorrespondence(correspondencePreferences)
+  const normalizedCorrespondence = normalizeCorrespondence(correspondencePreferences, CORRESPONDENCE_VALUES)
   if (!normalizedCorrespondence.length) {
     return NextResponse.json({ error: 'Please select at least one correspondence option.' }, { status: 400 })
   }
