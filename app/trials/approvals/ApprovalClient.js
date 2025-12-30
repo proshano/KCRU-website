@@ -475,6 +475,13 @@ export default function ApprovalClient() {
                       <p>
                         <span className="font-medium">Clinical summary:</span> {payload.laySummary || 'None'}
                       </p>
+                      <p>
+                        <span className="font-medium">Short clinical title:</span> {payload.emailTitle || 'None'}
+                      </p>
+                      <p>
+                        <span className="font-medium">Eligibility statement:</span>{' '}
+                        {payload.emailEligibilitySummary || 'None'}
+                      </p>
                     </div>
                   </details>
 

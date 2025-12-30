@@ -102,6 +102,8 @@ export default {
         { name: 'phase', title: 'Phase', type: 'string' },
         { name: 'therapeuticAreaIds', title: 'Therapeutic Areas', type: 'array', of: [{ type: 'string' }] },
         { name: 'laySummary', title: 'Clinical Summary', type: 'text', rows: 4 },
+        { name: 'emailTitle', title: 'Short Clinical Title', type: 'string' },
+        { name: 'emailEligibilitySummary', title: 'Eligibility Statement', type: 'text', rows: 3 },
         { name: 'inclusionCriteria', title: 'Inclusion Criteria', type: 'array', of: [{ type: 'string' }] },
         { name: 'exclusionCriteria', title: 'Exclusion Criteria', type: 'array', of: [{ type: 'string' }] },
         { name: 'sponsorWebsite', title: 'Study website (if available)', type: 'url' },

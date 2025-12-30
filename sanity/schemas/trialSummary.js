@@ -23,6 +23,7 @@ export default {
     { name: 'basic', title: 'Basic Info', default: true },
     { name: 'eligibility', title: 'Eligibility' },
     { name: 'localInfo', title: 'Local Info' },
+    { name: 'email', title: 'Clinical Communications' },
     { name: 'syncedData', title: 'ClinicalTrials.gov Data' },
   ],
   fields: [
@@ -229,6 +230,23 @@ export default {
       group: 'localInfo',
       initialValue: false,
       description: 'Enable the "Refer a Patient" form on this study page. Requires a coordinator email to be set above.'
+    },
+    {
+      name: 'emailTitle',
+      title: 'Short clinical title',
+      type: 'string',
+      group: 'email',
+      description:
+        'Short title for clinical communications (emails, outreach, referral requests). Example: "SGLT2 inhibitor in CKD trial". Not shown on the public site.'
+    },
+    {
+      name: 'emailEligibilitySummary',
+      title: 'Eligibility statement',
+      type: 'text',
+      group: 'email',
+      rows: 3,
+      description:
+        'Short inclusion-only statement for clinical communications and referral outreach. Keep it simple and focus on major inclusion criteria; the coordinator will confirm full eligibility.'
     },
 
     // ============================================

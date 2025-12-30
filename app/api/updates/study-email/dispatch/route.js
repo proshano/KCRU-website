@@ -1,0 +1,281 @@
+import { NextResponse } from 'next/server'
+import { sanityFetch, writeClient } from '@/lib/sanity'
+import { sendEmail } from '@/lib/email'
+import { buildStudyUpdateEmail } from '@/lib/studyUpdateEmailTemplate'
+
+const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
+  /\/$/,
+  ''
+)
+const AUTH_TOKEN = process.env.STUDY_UPDATE_SEND_TOKEN || ''
+const CRON_SECRET = process.env.CRON_SECRET || ''
+const CRON_TIMEZONE = process.env.CRON_TIMEZONE || 'America/New_York'
+const CRON_TARGET_HOUR = Number(process.env.STUDY_UPDATE_CRON_HOUR || 7)
+const CRON_ALLOWED_MINUTES = Number(process.env.STUDY_UPDATE_CRON_WINDOW || 10)
+const MAX_STUDIES = Number(process.env.STUDY_UPDATE_MAX_STUDIES || 4)
+const STUDY_UPDATES_PREF = 'study_updates'
+
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+}
+
+function extractToken(request) {
+  const header = request.headers.get('authorization') || ''
+  if (!header) return ''
+  if (header.startsWith('Bearer ')) return header.slice(7)
+  return header
+}
+
+function isVercelCron(request) {
+  const authHeader = request.headers.get('authorization')
+  if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) {
+    return true
+  }
+  if (request.headers.get('x-vercel-cron') === '1') {
+    return true
+  }
+  if (!CRON_SECRET) {
+    const userAgent = request.headers.get('user-agent') || ''
+    if (userAgent.includes('vercel-cron')) {
+      return true
+    }
+  }
+  return false
+}
+
+function getZonedParts(date, timeZone) {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const parts = fmt.formatToParts(date)
+  const map = {}
+  for (const p of parts) {
+    if (p.type !== 'literal') map[p.type] = p.value
+  }
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour),
+    minute: Number(map.minute),
+  }
+}
+
+function shouldRunNow() {
+  const now = new Date()
+  const parts = getZonedParts(now, CRON_TIMEZONE)
+  return (
+    parts.day === 1 &&
+    parts.hour === CRON_TARGET_HOUR &&
+    parts.minute >= 0 &&
+    parts.minute < CRON_ALLOWED_MINUTES
+  )
+}
+
+function getMonthStartIso() {
+  const now = new Date()
+  const parts = getZonedParts(now, CRON_TIMEZONE)
+  const startUtc = new Date(Date.UTC(parts.year, parts.month - 1, 1, 0, 0, 0))
+  return startUtc.toISOString()
+}
+
+function formatMonthLabel(date) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: CRON_TIMEZONE,
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
+}
+
+function normalizeList(values) {
+  if (!Array.isArray(values)) return []
+  return values.map((value) => String(value || '').trim()).filter(Boolean)
+}
+
+function pickStudiesForSubscriber(studies, subscriber) {
+  const interestAreas = normalizeList(subscriber?.interestAreas)
+  if (!interestAreas.length) return []
+  if (interestAreas.includes('all')) return studies
+  const interestSet = new Set(interestAreas)
+  return studies.filter((study) =>
+    Array.isArray(study?.therapeuticAreas)
+      ? study.therapeuticAreas.some((area) => interestSet.has(area?.name))
+      : false
+  )
+}
+
+function buildManageUrl(token) {
+  if (!token) return ''
+  return `${SITE_BASE_URL}/updates/manage?token=${encodeURIComponent(token)}`
+}
+
+async function fetchStudies() {
+  const fetcher = writeClient.config().token ? writeClient.fetch.bind(writeClient) : sanityFetch
+  const query = `
+    *[_type == "trialSummary" && status == "recruiting"] | order(featured desc, title asc) {
+      _id,
+      title,
+      emailTitle,
+      emailEligibilitySummary,
+      inclusionCriteria,
+      acceptsReferrals,
+      localContact { email },
+      principalInvestigator-> { name },
+      therapeuticAreas[]-> { name }
+    }
+  `
+  return fetcher(query)
+}
+
+async function fetchSubscribers({ monthStartIso, force }) {
+  const fetcher = writeClient.config().token ? writeClient.fetch.bind(writeClient) : sanityFetch
+  const monthFilter = force
+    ? ''
+    : ' && (!defined(lastStudyUpdateSentAt) || lastStudyUpdateSentAt < $monthStartIso)'
+  const query = `
+    *[_type == "updateSubscriber"
+      && status == "active"
+      && "${STUDY_UPDATES_PREF}" in correspondencePreferences
+      && defined(email)
+      ${monthFilter}
+    ]{
+      _id,
+      name,
+      email,
+      interestAreas,
+      manageToken,
+      lastStudyUpdateSentAt
+    }
+  `
+  return fetcher(query, { monthStartIso })
+}
+
+async function runDispatch({ force = false } = {}) {
+  if (!writeClient.config().token) {
+    return {
+      ok: false,
+      status: 500,
+      error: 'SANITY_API_TOKEN missing; cannot update send tracking.',
+    }
+  }
+
+  const now = new Date()
+  const monthLabel = formatMonthLabel(now)
+  const monthStartIso = getMonthStartIso()
+
+  const [studiesRaw, subscribersRaw] = await Promise.all([
+    fetchStudies(),
+    fetchSubscribers({ monthStartIso, force }),
+  ])
+
+  const studies = Array.isArray(studiesRaw) ? studiesRaw : []
+  const subscribers = Array.isArray(subscribersRaw) ? subscribersRaw : []
+
+  const stats = {
+    total: subscribers.length,
+    sent: 0,
+    skipped: 0,
+    errors: 0,
+  }
+  const errors = []
+
+  for (const subscriber of subscribers) {
+    const relevant = pickStudiesForSubscriber(studies, subscriber)
+    const topStudies = relevant.slice(0, MAX_STUDIES)
+    const manageUrl = buildManageUrl(subscriber?.manageToken)
+    const email = buildStudyUpdateEmail({
+      subscriber,
+      studies: topStudies,
+      manageUrl,
+      monthLabel,
+    })
+
+    try {
+      const result = await sendEmail({
+        to: subscriber.email,
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
+      })
+      if (result?.skipped) {
+        stats.skipped += 1
+        continue
+      }
+      await writeClient
+        .patch(subscriber._id)
+        .set({ lastStudyUpdateSentAt: now.toISOString() })
+        .commit({ returnDocuments: false })
+      stats.sent += 1
+    } catch (error) {
+      stats.errors += 1
+      errors.push({
+        email: subscriber.email,
+        message: error?.message || 'Failed to send',
+      })
+    }
+  }
+
+  return {
+    ok: true,
+    stats,
+    errors: errors.slice(0, 8),
+  }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+}
+
+export async function GET(request) {
+  if (!isVercelCron(request)) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
+  }
+
+  const skipTimeCheck = process.env.CRON_SKIP_TIME_CHECK === 'true'
+  if (!skipTimeCheck && !shouldRunNow()) {
+    return NextResponse.json(
+      {
+        ok: true,
+        skipped: true,
+        reason: 'Outside scheduled local-time window',
+        timezone: CRON_TIMEZONE,
+      },
+      { headers: CORS_HEADERS }
+    )
+  }
+
+  const result = await runDispatch({ force: false })
+  const status = result.ok ? 200 : result.status || 500
+  return NextResponse.json(result, { status, headers: CORS_HEADERS })
+}
+
+export async function POST(request) {
+  if (AUTH_TOKEN) {
+    const token = extractToken(request)
+    if (token !== AUTH_TOKEN) {
+      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
+    }
+  }
+
+  let body = {}
+  try {
+    body = await request.json()
+  } catch (error) {
+    body = {}
+  }
+
+  const force = Boolean(body?.force)
+  const result = await runDispatch({ force })
+  const status = result.ok ? 200 : result.status || 500
+  return NextResponse.json(result, { status, headers: CORS_HEADERS })
+}
+
+export const dynamic = 'force-dynamic'

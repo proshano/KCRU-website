@@ -109,6 +109,12 @@ export default {
       readOnly: true
     },
     {
+      name: 'lastStudyUpdateSentAt',
+      title: 'Last Study Update Sent',
+      type: 'datetime',
+      readOnly: true
+    },
+    {
       name: 'unsubscribedAt',
       title: 'Unsubscribed At',
       type: 'datetime',
