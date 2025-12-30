@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 
 interface Settings {
   title?: string
@@ -14,7 +13,6 @@ export default function UnderConstructionClient({ settings }: { settings: Settin
   const [password, setPassword] = useState('')
   const [error, setError] = useState(false)
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,8 +27,8 @@ export default function UnderConstructionClient({ settings }: { settings: Settin
       })
 
       if (response.ok) {
-        router.push('/')
-        router.refresh()
+        // Full reload ensures the auth cookie is applied for the first navigation.
+        window.location.assign('/')
       } else {
         setError(true)
         setPassword('')

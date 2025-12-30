@@ -3,24 +3,14 @@ import { sanityFetch, queries } from '@/lib/sanity'
 import { readCache } from '@/lib/pubmedCache'
 import { generateSummariesBatch } from '@/lib/summaries'
 import { DEFAULT_CLASSIFICATION_PROMPT } from '@/lib/classificationPrompt'
+import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
 const AUTH_TOKEN = process.env.PUBMED_PREVIEW_TOKEN || process.env.PUBMED_REFRESH_TOKEN || ''
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
+const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
-}
-
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (!header) return ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
 }
 
 function clamp(n, min, max) {
@@ -30,7 +20,7 @@ function clamp(n, min, max) {
 
 export async function POST(request) {
   if (AUTH_TOKEN) {
-    const token = extractToken(request)
+    const token = extractBearerToken(request)
     if (token !== AUTH_TOKEN) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
     }

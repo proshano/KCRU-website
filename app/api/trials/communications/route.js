@@ -2,22 +2,12 @@ import { NextResponse } from 'next/server'
 import { sanityFetch, queries } from '@/lib/sanity'
 import { generateTrialCommunications } from '@/lib/summaries'
 import { sanitizeString } from '@/lib/studySubmissions'
-import { getAdminSession } from '@/lib/adminSessions'
+import { getScopedAdminSession } from '@/lib/adminSessions'
+import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
+const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
 const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
-
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (!header) return ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
-}
 
 function normalizeList(value) {
   if (Array.isArray(value)) {
@@ -62,11 +52,12 @@ async function getCoordinatorSession(token) {
 }
 
 async function getApprovalSession(token) {
-  return getAdminSession(token)
+  const { session } = await getScopedAdminSession(token, { scope: 'approvals' })
+  return session
 }
 
 async function requireSession(request) {
-  const token = extractToken(request)
+  const token = extractBearerToken(request)
   const [coordinator, approval] = await Promise.all([
     getCoordinatorSession(token),
     getApprovalSession(token),

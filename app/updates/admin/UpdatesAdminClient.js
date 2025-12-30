@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 const TOKEN_STORAGE_KEY = 'kcru-admin-token'
 const EMAIL_STORAGE_KEY = 'kcru-admin-email'
@@ -32,6 +33,10 @@ function formatCount(value) {
 }
 
 export default function UpdatesAdminClient() {
+  const pathname = usePathname()
+  const prefersAdmin = pathname.startsWith('/admin')
+  const approvalsPath = prefersAdmin ? '/admin/approvals' : '/trials/approvals'
+  const updatesPath = prefersAdmin ? '/admin/updates' : '/updates/admin'
   const [token, setToken] = useState('')
   const [email, setEmail] = useState('')
   const [passcode, setPasscode] = useState('')
@@ -154,7 +159,7 @@ export default function UpdatesAdminClient() {
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, scope: 'updates' }),
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -181,7 +186,7 @@ export default function UpdatesAdminClient() {
       const res = await fetch('/api/admin/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: passcode }),
+        body: JSON.stringify({ email, code: passcode, scope: 'updates' }),
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -296,10 +301,13 @@ export default function UpdatesAdminClient() {
         {token && (
           <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
             <span className="text-xs uppercase tracking-wide text-gray-400">Admin links</span>
-            <Link href="/trials/approvals" className="hover:text-gray-700">
+            <Link href="/admin" className="hover:text-gray-700">
+              Admin hub
+            </Link>
+            <Link href={approvalsPath} className="hover:text-gray-700">
               Study approvals
             </Link>
-            <Link href="/updates/admin" className="text-purple font-medium">
+            <Link href={updatesPath} className="text-purple font-medium">
               Study update emails
             </Link>
           </div>

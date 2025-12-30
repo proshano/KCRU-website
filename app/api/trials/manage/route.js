@@ -5,31 +5,15 @@ import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
 import { createAdminTokenSession } from '@/lib/adminSessions'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 import { escapeHtml } from '@/lib/escapeHtml'
+import { buildCorsHeaders, extractBearerToken, getClientIp } from '@/lib/httpUtils'
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
+const CORS_HEADERS = buildCorsHeaders('GET, POST, PATCH, OPTIONS')
 
 const FALLBACK_NOTIFY_EMAIL = (process.env.STUDY_EDITOR_NOTIFY_EMAIL || '').trim()
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
-const APPROVAL_BASE_URL = `${SITE_BASE_URL}/trials/approvals`
+const APPROVAL_BASE_URL = `${SITE_BASE_URL}/admin/approvals`
 const APPROVAL_SESSION_TTL_HOURS = 72
 const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
-
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (!header) return ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
-}
-
-function getClientIp(headers) {
-  const xfwd = headers.get('x-forwarded-for')
-  if (xfwd) return xfwd.split(',')[0]?.trim()
-  return headers.get('x-real-ip') || null
-}
 
 function formatDate(value) {
   if (!value) return 'Unknown'
@@ -385,7 +369,7 @@ async function getCoordinatorSession(token) {
 }
 
 async function requireCoordinatorSession(request) {
-  const token = extractToken(request)
+  const token = extractBearerToken(request)
   const session = await getCoordinatorSession(token)
   if (!session) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
@@ -462,7 +446,7 @@ export async function GET(request) {
 export async function POST(request) {
   const auth = await requireCoordinatorSession(request)
   if (auth) return auth
-  const session = await getCoordinatorSession(extractToken(request))
+  const session = await getCoordinatorSession(extractBearerToken(request))
 
   if (!writeClient.config().token) {
     return NextResponse.json(
@@ -536,7 +520,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const auth = await requireCoordinatorSession(request)
   if (auth) return auth
-  const session = await getCoordinatorSession(extractToken(request))
+  const session = await getCoordinatorSession(extractBearerToken(request))
 
   if (!writeClient.config().token) {
     return NextResponse.json(

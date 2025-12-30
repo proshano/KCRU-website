@@ -9,9 +9,11 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - Favor stable patterns that minimize breakage when dependencies or frameworks update.
 - Prefer well-supported Next.js/Sanity patterns over custom or experimental approaches.
 - Keep editable content in Sanity when staff need to change it; avoid hard-coded copy.
+- After major changes, review and update this file (`AGENTS.md`) for consistency.
 
 ## Key Paths
 - `app/` pages/layouts and API route handlers (`app/api/**/route.js`)
+- `app/admin/` admin hub and `/admin/*` entry points
 - `app/components/` shared UI components
 - `lib/` data clients, caching, and shared helpers
 - `sanity/` Sanity Studio config and schemas
@@ -41,6 +43,13 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - Subscriber management uses `app/api/updates/manage/route.js` with `manageToken`.
 - Dispatch runs via `/api/updates/study-email/dispatch` (cron is daily; handler sends on the 1st in local time).
 - Requires `SANITY_API_TOKEN` to record send status.
+
+## Admin Access
+- Admin hub at `/admin` with module-specific entry points at `/admin/approvals` and `/admin/updates`.
+- Legacy admin URLs `/trials/approvals` and `/updates/admin` remain supported.
+- Admin sessions are scoped to approvals vs updates based on `siteSettings.studyApprovals.admins` and `siteSettings.studyUpdates.admins`.
+- `app/api/admin/login/route.js` and `app/api/admin/verify/route.js` accept a `scope` to limit access (`approvals`, `updates`, or `any`).
+- `app/api/admin/access/route.js` returns the current session's access flags for the admin hub.
 
 ## Aliases & File Types
 - `@/` path aliases are defined in `jsconfig.json` and `tsconfig.json`.

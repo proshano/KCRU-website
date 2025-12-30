@@ -1,49 +1,16 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
-import { getAdminSession } from '@/lib/adminSessions'
+import { getScopedAdminSession } from '@/lib/adminSessions'
+import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
+import { getZonedParts } from '@/lib/cronUtils'
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
+const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
 
 const CRON_TIMEZONE = process.env.CRON_TIMEZONE || 'America/New_York'
 
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (!header) return ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
-}
-
 async function getSession(token) {
-  return getAdminSession(token)
-}
-
-function getZonedParts(date, timeZone) {
-  const fmt = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-  const parts = fmt.formatToParts(date)
-  const map = {}
-  for (const p of parts) {
-    if (p.type !== 'literal') map[p.type] = p.value
-  }
-  return {
-    year: Number(map.year),
-    month: Number(map.month),
-    day: Number(map.day),
-    hour: Number(map.hour),
-    minute: Number(map.minute),
-  }
+  return getScopedAdminSession(token, { scope: 'updates' })
 }
 
 function getMonthStartIso() {
@@ -79,10 +46,10 @@ export async function OPTIONS() {
 }
 
 export async function GET(request) {
-  const token = extractToken(request)
-  const session = await getSession(token)
+  const token = extractBearerToken(request)
+  const { session, error, status } = await getSession(token)
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
+    return NextResponse.json({ ok: false, error }, { status, headers: CORS_HEADERS })
   }
 
   try {
@@ -135,10 +102,10 @@ export async function GET(request) {
 }
 
 export async function PATCH(request) {
-  const token = extractToken(request)
-  const session = await getSession(token)
+  const token = extractBearerToken(request)
+  const { session, error, status } = await getSession(token)
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
+    return NextResponse.json({ ok: false, error }, { status, headers: CORS_HEADERS })
   }
 
   if (!writeClient.config().token) {

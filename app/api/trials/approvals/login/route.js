@@ -2,13 +2,10 @@ import { NextResponse } from 'next/server'
 import { writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
 import { sanitizeString } from '@/lib/studySubmissions'
-import { createAdminPasscodeSession, getAdminEmails } from '@/lib/adminSessions'
+import { createAdminPasscodeSession, getAdminEmails, getAdminScopeLabel } from '@/lib/adminSessions'
+import { buildCorsHeaders } from '@/lib/httpUtils'
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
+const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
 const CODE_TTL_MINUTES = 10
 
@@ -27,6 +24,8 @@ export async function POST(request) {
   try {
     const body = await request.json()
     const email = sanitizeString(body?.email).toLowerCase()
+    const scope = 'approvals'
+    const scopeLabel = getAdminScopeLabel(scope)
     if (!email) {
       return NextResponse.json(
         { ok: false, error: 'Email is required.' },
@@ -34,7 +33,7 @@ export async function POST(request) {
       )
     }
 
-    const admins = await getAdminEmails()
+    const admins = await getAdminEmails(scope)
     if (!admins.length) {
       return NextResponse.json(
         { ok: false, error: 'No admin emails configured in Sanity.' },
@@ -44,7 +43,7 @@ export async function POST(request) {
 
     if (!admins.includes(email)) {
       return NextResponse.json(
-        { ok: false, error: 'Email not authorized for admin access.' },
+        { ok: false, error: `Email not authorized for ${scopeLabel} access.` },
         { status: 403, headers: CORS_HEADERS }
       )
     }

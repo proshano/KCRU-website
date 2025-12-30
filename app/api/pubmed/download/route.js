@@ -1,20 +1,10 @@
 import { NextResponse } from 'next/server'
 import { readCache } from '@/lib/pubmedCache'
+import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
 const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN || ''
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
-
-function extractToken(request) {
-  const header = request.headers.get('authorization') || ''
-  if (!header) return ''
-  if (header.startsWith('Bearer ')) return header.slice(7)
-  return header
-}
+const CORS_HEADERS = buildCorsHeaders('GET, OPTIONS')
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
@@ -22,7 +12,7 @@ export async function OPTIONS() {
 
 export async function GET(request) {
   if (AUTH_TOKEN) {
-    const token = extractToken(request)
+    const token = extractBearerToken(request)
     if (token !== AUTH_TOKEN) {
       return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
     }
