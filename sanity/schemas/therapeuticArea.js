@@ -10,7 +10,7 @@ import { ROLE_OPTIONS, THERAPEUTIC_AREA_OPTIONS } from '../../lib/communicationO
 
 const AREA_LABELS = new Map(THERAPEUTIC_AREA_OPTIONS.map((area) => [area.value, area.title]))
 
-export default {
+const therapeuticArea = {
   name: 'therapeuticArea',
   title: 'Therapeutic Areas',
   type: 'document',
@@ -111,3 +111,5 @@ export default {
     }
   ]
 }
+
+export default therapeuticArea

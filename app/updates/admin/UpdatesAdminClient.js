@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 
 const TOKEN_STORAGE_KEY = 'kcru-admin-token'
@@ -88,7 +88,22 @@ export default function UpdatesAdminClient() {
     }
   }, [email])
 
-  async function loadAdminData(activeToken = token) {
+  const handleLogout = useCallback(() => {
+    sessionStorage.removeItem(TOKEN_STORAGE_KEY)
+    sessionStorage.removeItem(EMAIL_STORAGE_KEY)
+    LEGACY_TOKEN_KEYS.forEach((key) => sessionStorage.removeItem(key))
+    LEGACY_EMAIL_KEYS.forEach((key) => sessionStorage.removeItem(key))
+    setToken('')
+    setEmail('')
+    setPasscode('')
+    setAdminEmail('')
+    setStats({ total: 0, active: 0, optedIn: 0, eligible: 0, lastSentAt: null })
+    setSettings(DEFAULT_SETTINGS)
+    setError('')
+    setSuccess('')
+  }, [])
+
+  const loadAdminData = useCallback(async (activeToken = token) => {
     if (!activeToken) return
     setLoading(true)
     setError('')
@@ -120,26 +135,11 @@ export default function UpdatesAdminClient() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token, handleLogout])
 
   useEffect(() => {
     if (token) loadAdminData(token)
-  }, [token])
-
-  function handleLogout() {
-    sessionStorage.removeItem(TOKEN_STORAGE_KEY)
-    sessionStorage.removeItem(EMAIL_STORAGE_KEY)
-    LEGACY_TOKEN_KEYS.forEach((key) => sessionStorage.removeItem(key))
-    LEGACY_EMAIL_KEYS.forEach((key) => sessionStorage.removeItem(key))
-    setToken('')
-    setEmail('')
-    setPasscode('')
-    setAdminEmail('')
-    setStats({ total: 0, active: 0, optedIn: 0, eligible: 0, lastSentAt: null })
-    setSettings(DEFAULT_SETTINGS)
-    setError('')
-    setSuccess('')
-  }
+  }, [token, loadAdminData])
 
   async function sendPasscode(event) {
     event.preventDefault()

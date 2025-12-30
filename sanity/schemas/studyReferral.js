@@ -5,7 +5,7 @@
  * The coordinator receives an email and follows up directly with the provider.
  */
 
-export default {
+const studyReferral = {
   name: 'studyReferral',
   title: 'Study Referrals',
   type: 'document',
@@ -96,3 +96,5 @@ export default {
     }
   ]
 }
+
+export default studyReferral

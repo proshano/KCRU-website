@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, queries, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml } from '@/lib/escapeHtml'
 
 const MIN_FORM_TIME_MS = 800
 const MAX_MESSAGE_LENGTH = 2000
@@ -122,15 +123,15 @@ async function sendNotification({ payload, option, attachment }) {
 
   const html = `
     <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.5;">
-      <p style="margin: 0 0 12px;"><strong>${CONTACT_SENDER_NAME} contact form submission</strong></p>
+      <p style="margin: 0 0 12px;"><strong>${escapeHtml(CONTACT_SENDER_NAME)} contact form submission</strong></p>
       <p style="margin: 0 0 12px;">
-        <strong>Submitted:</strong> ${submittedAt}<br/>
-        <strong>Reason:</strong> ${option.label} (${option.key})
+        <strong>Submitted:</strong> ${escapeHtml(submittedAt)}<br/>
+        <strong>Reason:</strong> ${escapeHtml(option.label)} (${escapeHtml(option.key)})
       </p>
-      <p style="margin: 0 0 12px;"><strong>Name:</strong> ${payload.name}<br/>
-      <strong>Email:</strong> ${payload.email}</p>
-      ${option.showOceanLink && option.oceanUrl ? `<p style="margin: 0 0 12px;"><strong>OceanMD link:</strong> ${option.oceanUrl}</p>` : ''}
-      ${payload.message ? `<p style="margin: 0 0 12px;"><strong>Message:</strong><br/>${payload.message.replace(/\n/g, '<br/>')}</p>` : ''}
+      <p style="margin: 0 0 12px;"><strong>Name:</strong> ${escapeHtml(payload.name)}<br/>
+      <strong>Email:</strong> ${escapeHtml(payload.email)}</p>
+      ${option.showOceanLink && option.oceanUrl ? `<p style="margin: 0 0 12px;"><strong>OceanMD link:</strong> ${escapeHtml(option.oceanUrl)}</p>` : ''}
+      ${payload.message ? `<p style="margin: 0 0 12px;"><strong>Message:</strong><br/>${escapeHtml(payload.message).replace(/\n/g, '<br/>')}</p>` : ''}
       <hr style="border: none; border-top: 1px solid #eee; margin: 16px 0;" />
       <p style="margin: 0; color: #555; font-size: 12px;">Sent via the londonkidney.ca contact form.</p>
     </div>
@@ -267,8 +268,6 @@ export async function POST(request) {
 }
 
 export const dynamic = 'force-dynamic'
-
-
 
 
 

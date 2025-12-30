@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { writeClient } from '@/lib/sanity'
 import { ROLE_VALUES, SPECIALTY_VALUES, INTEREST_AREA_VALUES, CORRESPONDENCE_VALUES } from '@/lib/communicationOptions'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml } from '@/lib/escapeHtml'
 
 const MIN_FORM_TIME_MS = 800
 const RECAPTCHA_ENDPOINT = 'https://www.google.com/recaptcha/api/siteverify'
@@ -82,11 +83,11 @@ async function sendSubscriptionEmail({ name, email, manageToken }) {
 
   const html = `
     <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.6;">
-      <p style="margin: 0 0 12px;">${greeting}</p>
+      <p style="margin: 0 0 12px;">${escapeHtml(greeting)}</p>
       <p style="margin: 0 0 12px;">Thanks for subscribing to London Clinical Kidney Research Updates.</p>
       <p style="margin: 0 0 16px;">
         Manage your preferences or unsubscribe at any time using this link:<br/>
-        <a href="${manageUrl}" style="color: #6b21a8; font-weight: 600;">Manage preferences</a>
+        <a href="${escapeHtml(manageUrl)}" style="color: #6b21a8; font-weight: 600;">Manage preferences</a>
       </p>
       <p style="margin: 0 0 12px; color: #555; font-size: 12px;">
         If you did not request these updates, you can use the same link to unsubscribe.

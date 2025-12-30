@@ -8,7 +8,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "clear:pubmed": "node scripts/clear-pubmed-cache.js",
     "refresh:pubmed": "node scripts/refresh-pubmed-cache.js",
     "upload:pubmed": "node scripts/upload-cache-to-sanity.js",

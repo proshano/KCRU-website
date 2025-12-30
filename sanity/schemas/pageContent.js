@@ -1,4 +1,4 @@
-export default {
+const pageContent = {
   name: 'pageContent',
   title: 'Page Content',
   type: 'document',
@@ -199,3 +199,5 @@ export default {
     }
   }
 }
+
+export default pageContent

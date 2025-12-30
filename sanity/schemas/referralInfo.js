@@ -1,4 +1,4 @@
-export default {
+const referralInfo = {
   name: 'referralInfo',
   title: 'Referral Information (For Physicians)',
   type: 'document',
@@ -89,3 +89,4 @@ export default {
   ]
 }
 
+export default referralInfo

@@ -1,4 +1,4 @@
-export default {
+const studyUpdateAdminSession = {
   name: 'studyUpdateAdminSession',
   title: 'Study Update Admin Sessions',
   type: 'document',
@@ -67,3 +67,5 @@ export default {
     }
   ]
 }
+
+export default studyUpdateAdminSession

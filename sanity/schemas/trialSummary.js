@@ -15,7 +15,7 @@
 import NctIdInput from '../components/NctIdInput'
 import AutoSlugInput from '../components/AutoSlugInput'
 
-export default {
+const trialSummary = {
   name: 'trialSummary',
   title: 'Studies',
   type: 'document',
@@ -342,3 +342,5 @@ export default {
     }
   ]
 }
+
+export default trialSummary

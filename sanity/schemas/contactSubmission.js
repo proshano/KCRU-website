@@ -1,4 +1,4 @@
-export default {
+const contactSubmission = {
   name: 'contactSubmission',
   title: 'Contact Submission',
   type: 'document',
@@ -68,9 +68,4 @@ export default {
   ],
 }
 
-
-
-
-
-
-
+export default contactSubmission

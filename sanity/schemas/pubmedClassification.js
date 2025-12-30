@@ -1,4 +1,4 @@
-export default {
+const pubmedClassification = {
   name: 'pubmedClassification',
   title: 'PubMed Classification',
   type: 'document',
@@ -110,3 +110,5 @@ export default {
     },
   },
 }
+
+export default pubmedClassification

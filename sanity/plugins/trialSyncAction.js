@@ -135,7 +135,7 @@ function TrialSyncAction(props) {
       setIsSyncing(false)
       onComplete()
     }
-  }, [nctId, isValidNctId, id, isNewDocument, client, onComplete])
+  }, [nctId, isValidNctId, id, isNewDocument, client, onComplete, doc?.slug, published])
 
   // Don't show if no NCT ID
   if (!nctId) {

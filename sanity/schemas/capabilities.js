@@ -1,4 +1,4 @@
-export default {
+const capabilities = {
   name: 'capabilities',
   title: 'Capabilities (For Sponsors)',
   type: 'document',
@@ -101,3 +101,4 @@ export default {
   ]
 }
 
+export default capabilities

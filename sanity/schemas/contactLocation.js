@@ -1,4 +1,4 @@
-export default {
+const contactLocation = {
   name: 'contactLocation',
   title: 'Locations',
   type: 'document',
@@ -73,9 +73,4 @@ export default {
   }
 }
 
-
-
-
-
-
-
+export default contactLocation

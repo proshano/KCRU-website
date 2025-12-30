@@ -1,6 +1,6 @@
 import AutoSlugInput from '../components/AutoSlugInput'
 
-export default {
+const newsPost = {
   name: 'newsPost',
   title: 'News Post',
   type: 'document',
@@ -90,3 +90,4 @@ export default {
   }
 }
 
+export default newsPost

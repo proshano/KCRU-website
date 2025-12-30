@@ -22,7 +22,7 @@ function formatList(values = []) {
   return values.map((value) => INTEREST_LABELS.get(value) || value).join(', ')
 }
 
-export default {
+const updateSubscriber = {
   name: 'updateSubscriber',
   title: 'Update Subscribers',
   type: 'document',
@@ -163,3 +163,5 @@ export default {
     }
   ]
 }
+
+export default updateSubscriber
