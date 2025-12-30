@@ -7,6 +7,7 @@ import { pubmedCacheTool } from './sanity/plugins/pubmedCacheTool'
 import { trialSyncAction } from './sanity/plugins/trialSyncAction'
 import { pubmedClassificationTool } from './sanity/plugins/pubmedClassificationTool'
 import { studyUpdateSendAction } from './sanity/plugins/studyUpdateSendAction'
+import { seoRefreshAction } from './sanity/plugins/seoRefreshAction'
 
 export default defineConfig({
   name: 'kcru-website',
@@ -18,6 +19,7 @@ export default defineConfig({
     deskTool(),
     visionTool(),
     pubmedCacheRefreshAction(),
+    seoRefreshAction(),
     pubmedCacheTool(),
     pubmedClassificationTool(),
     trialSyncAction(),

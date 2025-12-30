@@ -78,6 +78,7 @@ async function fetchStudies() {
       _id,
       status,
       title,
+      "slug": slug.current,
       emailTitle,
       emailEligibilitySummary,
       inclusionCriteria,
@@ -174,6 +175,7 @@ async function runDispatch({ force = false } = {}) {
       manageUrl,
       monthLabel,
       settings: updateSettings,
+      siteBaseUrl: SITE_BASE_URL,
     })
 
     try {

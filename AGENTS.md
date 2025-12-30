@@ -74,6 +74,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 ## Data Refresh
 - PubMed cache file: `runtime/pubmed-cache.json` with lock/cancel files.
 - If cache changes are needed, use the scripts rather than editing files directly.
+- Sanity Studio includes a Site Settings action to refresh SEO metadata (configure `SANITY_STUDIO_SEO_REFRESH_URL` and `SANITY_STUDIO_SEO_REFRESH_TOKEN`).
 
 ## Cron Jobs
 - Scheduled routes are defined in `vercel.json`.
