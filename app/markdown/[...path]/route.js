@@ -683,12 +683,11 @@ async function buildUpdatesMarkdown() {
 export async function GET(request, { params }) {
   const url = request?.url ? new URL(request.url) : null
   const pathname = url?.pathname || ''
+  const urlParts = pathname.split('/').filter(Boolean)
+  const urlSegments = urlParts[0] === 'markdown' ? urlParts.slice(1) : urlParts
   const rawSegments = Array.isArray(params?.path)
     ? params.path
     : (typeof params?.path === 'string' ? [params.path] : [])
-  const urlSegments = pathname.startsWith('/markdown/')
-    ? pathname.slice('/markdown/'.length).split('/').filter(Boolean)
-    : []
   const sourceSegments = rawSegments.length ? rawSegments : urlSegments
   const segments = sourceSegments.map((segment) => {
     if (typeof segment !== 'string') return ''
