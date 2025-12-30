@@ -7,6 +7,14 @@
     {
       "path": "/api/pubmed/summarize",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/updates/study-email/dispatch",
+      "schedule": "0 11 1 * *"
+    },
+    {
+      "path": "/api/updates/study-email/dispatch",
+      "schedule": "0 12 1 * *"
     }
   ]
 }

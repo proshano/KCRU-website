@@ -159,6 +159,8 @@ function buildApprovalEmail({
     : 'None'
   const detailRows = [
     ['Study title', payload.title || 'Untitled'],
+    ['Short clinical title', payload.emailTitle || 'None'],
+    ['Eligibility statement', payload.emailEligibilitySummary || 'None'],
     ['NCT ID', payload.nctId || 'None'],
     ['Status', payload.status || 'None'],
     ['Study type', payload.studyType || 'None'],
@@ -196,6 +198,8 @@ function buildApprovalEmail({
     '',
     'Summaries:',
     `- Clinical summary: ${truncateText(payload.laySummary, null)}`,
+    `- Short clinical title: ${truncateText(payload.emailTitle, null)}`,
+    `- Eligibility statement: ${truncateText(payload.emailEligibilitySummary, null)}`,
     '',
     'Eligibility criteria:',
     'Inclusion criteria:',
@@ -244,6 +248,11 @@ function buildApprovalEmail({
       </table>
       <h3 style="margin: 16px 0 6px; font-size: 14px;">Summaries</h3>
       <p style="margin: 0 0 8px;"><strong>Clinical summary:</strong><br />${formatParagraph(payload.laySummary, null)}</p>
+      <p style="margin: 0 0 8px;"><strong>Short clinical title:</strong><br />${formatParagraph(payload.emailTitle, null)}</p>
+      <p style="margin: 0 0 8px;"><strong>Eligibility statement:</strong><br />${formatParagraph(
+        payload.emailEligibilitySummary,
+        null
+      )}</p>
       <h3 style="margin: 16px 0 6px; font-size: 14px;">Eligibility criteria</h3>
       <p style="margin: 0;"><strong>Inclusion criteria:</strong></p>
       ${formatListHtml(inclusionItems)}
@@ -417,6 +426,8 @@ export async function GET(request) {
           studyType,
           phase,
           laySummary,
+          emailTitle,
+          emailEligibilitySummary,
           inclusionCriteria,
           exclusionCriteria,
           featured,

@@ -6,6 +6,7 @@ import { pubmedCacheRefreshAction } from './sanity/plugins/pubmedCacheRefreshAct
 import { pubmedCacheTool } from './sanity/plugins/pubmedCacheTool'
 import { trialSyncAction } from './sanity/plugins/trialSyncAction'
 import { pubmedClassificationTool } from './sanity/plugins/pubmedClassificationTool'
+import { studyUpdateSendAction } from './sanity/plugins/studyUpdateSendAction'
 
 export default defineConfig({
   name: 'kcru-website',
@@ -19,7 +20,8 @@ export default defineConfig({
     pubmedCacheRefreshAction(),
     pubmedCacheTool(),
     pubmedClassificationTool(),
-    trialSyncAction()
+    trialSyncAction(),
+    studyUpdateSendAction()
   ],
   schema: {
     types: schemaTypes,

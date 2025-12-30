@@ -41,6 +41,8 @@ const EMPTY_FORM = {
   phase: '',
   therapeuticAreaIds: [],
   laySummary: '',
+  emailTitle: '',
+  emailEligibilitySummary: '',
   inclusionCriteria: [],
   exclusionCriteria: [],
   sponsorWebsite: '',
@@ -752,6 +754,48 @@ export default function ApprovalEditClient() {
               />
               <p className="text-xs text-gray-500">
                 Public link to the sponsor or trial page. Leave blank if none.
+              </p>
+            </div>
+          </section>
+
+          <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold">Clinical Communications</h3>
+              <p className="text-sm text-gray-500">
+                Used in communications with clinical audiences (emails, outreach, referral requests). Not shown on the
+                public site.
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="approval-edit-email-title" className="text-sm font-medium">Short clinical title</label>
+              <input
+                id="approval-edit-email-title"
+                type="text"
+                value={form.emailTitle}
+                onChange={(e) => updateFormField('emailTitle', e.target.value)}
+                placeholder="SGLT2 inhibitor in CKD trial"
+                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
+              />
+              <p className="text-xs text-gray-500">
+                One-line clinical headline for fast scanning. Example: "SGLT2 inhibitor in CKD trial".
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <label htmlFor="approval-edit-email-eligibility" className="text-sm font-medium">
+                Eligibility statement
+              </label>
+              <textarea
+                id="approval-edit-email-eligibility"
+                value={form.emailEligibilitySummary}
+                onChange={(e) => updateFormField('emailEligibilitySummary', e.target.value)}
+                rows={3}
+                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
+              />
+              <p className="text-xs text-gray-500">
+                1-2 sentences with major inclusion criteria only. Example: "Adults with CKD stage 3-4 and albuminuria;
+                stable on ACEi/ARB." The coordinator will confirm full eligibility.
               </p>
             </div>
           </section>
