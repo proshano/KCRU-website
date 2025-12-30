@@ -5,8 +5,10 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
-const TOKEN_STORAGE_KEY = 'kcru-approval-token'
-const EMAIL_STORAGE_KEY = 'kcru-approval-email'
+const TOKEN_STORAGE_KEY = 'kcru-admin-token'
+const EMAIL_STORAGE_KEY = 'kcru-admin-email'
+const LEGACY_TOKEN_KEYS = ['kcru-approval-token', 'kcru-updates-admin-token']
+const LEGACY_EMAIL_KEYS = ['kcru-approval-email', 'kcru-updates-admin-email']
 
 function formatList(items) {
   if (!items || !items.length) return 'None'
@@ -81,9 +83,21 @@ export default function ApprovalClient() {
       router.replace(nextQuery ? `/trials/approvals?${nextQuery}` : '/trials/approvals')
       return
     }
-    const stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+    let stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
+    if (!stored) {
+      stored = LEGACY_TOKEN_KEYS.map((key) => sessionStorage.getItem(key)).find(Boolean) || ''
+      if (stored) {
+        sessionStorage.setItem(TOKEN_STORAGE_KEY, stored)
+      }
+    }
     if (stored) setToken(stored)
-    const storedEmail = sessionStorage.getItem(EMAIL_STORAGE_KEY)
+    let storedEmail = sessionStorage.getItem(EMAIL_STORAGE_KEY)
+    if (!storedEmail) {
+      storedEmail = LEGACY_EMAIL_KEYS.map((key) => sessionStorage.getItem(key)).find(Boolean) || ''
+      if (storedEmail) {
+        sessionStorage.setItem(EMAIL_STORAGE_KEY, storedEmail)
+      }
+    }
     if (storedEmail) setEmail(storedEmail)
   }, [router, searchParams])
 
@@ -202,7 +216,7 @@ export default function ApprovalClient() {
     }
     setSendingCode(true)
     try {
-      const res = await fetch('/api/trials/approvals/login', {
+      const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -229,7 +243,7 @@ export default function ApprovalClient() {
     }
     setVerifyingCode(true)
     try {
-      const res = await fetch('/api/trials/approvals/verify', {
+      const res = await fetch('/api/admin/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: passcode }),
@@ -251,6 +265,8 @@ export default function ApprovalClient() {
   function handleLogout() {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY)
     sessionStorage.removeItem(EMAIL_STORAGE_KEY)
+    LEGACY_TOKEN_KEYS.forEach((key) => sessionStorage.removeItem(key))
+    LEGACY_EMAIL_KEYS.forEach((key) => sessionStorage.removeItem(key))
     setToken('')
     setEmail('')
     setPasscode('')
@@ -268,6 +284,17 @@ export default function ApprovalClient() {
         <p className="text-gray-600 max-w-2xl">
           Review study submissions from coordinators. Approving a submission updates the live studies list.
         </p>
+        {token && (
+          <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+            <span className="text-xs uppercase tracking-wide text-gray-400">Admin links</span>
+            <Link href="/trials/approvals" className="text-purple font-medium">
+              Study approvals
+            </Link>
+            <Link href="/updates/admin" className="hover:text-gray-700">
+              Study update emails
+            </Link>
+          </div>
+        )}
       </header>
 
       {!token && (

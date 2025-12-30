@@ -52,7 +52,7 @@ export async function POST(request) {
     const result = await verifyAdminPasscode({ email, code, sessionTtlHours: SESSION_TTL_HOURS })
     return NextResponse.json({ ok: true, token: result.token, email: result.email }, { headers: CORS_HEADERS })
   } catch (error) {
-    console.error('[approvals-verify] failed', error)
+    console.error('[admin-verify] failed', error)
     return NextResponse.json(
       { ok: false, error: error?.message || 'Failed to verify passcode.' },
       { status: 500, headers: CORS_HEADERS }

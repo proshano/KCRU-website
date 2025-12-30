@@ -21,6 +21,7 @@ import studyApprovalSession from './studyApprovalSession'
 import studyUpdateAdminSession from './studyUpdateAdminSession'
 import studyCoordinatorSession from './studyCoordinatorSession'
 import studyDraft from './studyDraft'
+import adminSession from './adminSession'
 
 export const schemaTypes = [
   // Singletons (one instance)
@@ -48,5 +49,6 @@ export const schemaTypes = [
   studyApprovalSession,
   studyUpdateAdminSession,
   studyCoordinatorSession,
-  studyDraft
+  studyDraft,
+  adminSession
 ]

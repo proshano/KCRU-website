@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import crypto from 'crypto'
-import { sanityFetch, writeClient } from '@/lib/sanity'
+import { writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
 import { sanitizeString } from '@/lib/studySubmissions'
+import { createAdminPasscodeSession, getAdminEmails } from '@/lib/adminSessions'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -11,15 +11,6 @@ const CORS_HEADERS = {
 }
 
 const CODE_TTL_MINUTES = 10
-
-async function getUpdateAdmins() {
-  const settings = await sanityFetch(`
-    *[_type == "siteSettings"][0]{
-      "admins": studyUpdates.admins
-    }
-  `)
-  return (settings?.admins || []).map((email) => String(email).trim().toLowerCase()).filter(Boolean)
-}
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
@@ -43,46 +34,34 @@ export async function POST(request) {
       )
     }
 
-    const admins = await getUpdateAdmins()
+    const admins = await getAdminEmails()
     if (!admins.length) {
       return NextResponse.json(
-        { ok: false, error: 'No study update admins configured in Sanity.' },
+        { ok: false, error: 'No admin emails configured in Sanity.' },
         { status: 400, headers: CORS_HEADERS }
       )
     }
 
     if (!admins.includes(email)) {
       return NextResponse.json(
-        { ok: false, error: 'Email not authorized for study updates.' },
+        { ok: false, error: 'Email not authorized for admin access.' },
         { status: 403, headers: CORS_HEADERS }
       )
     }
 
-    const createdAt = new Date().toISOString()
-    const code = String(Math.floor(100000 + Math.random() * 900000))
-    const codeHash = crypto.createHash('sha256').update(code).digest('hex')
-    const codeExpiresAt = new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000).toISOString()
+    const { code } = await createAdminPasscodeSession({ email, codeTtlMinutes: CODE_TTL_MINUTES })
 
-    await writeClient.create({
-      _type: 'studyUpdateAdminSession',
-      email,
-      codeHash,
-      codeExpiresAt,
-      createdAt,
-      revoked: false,
-    })
-
-    const subject = 'Study updates admin: your passcode'
+    const subject = 'Admin portal: your passcode'
     const text = [
-      'Use this passcode to access the study updates admin page:',
+      'Use this passcode to access the admin portal:',
       code,
       '',
       `This code expires in ${CODE_TTL_MINUTES} minutes.`,
     ].join('\n')
     const html = `
       <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.5;">
-        <p style="margin: 0 0 12px;"><strong>Study updates admin sign-in</strong></p>
-        <p style="margin: 0 0 12px;">Use this passcode to access the study updates admin page:</p>
+        <p style="margin: 0 0 12px;"><strong>Admin portal sign-in</strong></p>
+        <p style="margin: 0 0 12px;">Use this passcode to access the admin portal:</p>
         <p style="margin: 0 0 12px; font-size: 20px; letter-spacing: 0.2em;"><strong>${code}</strong></p>
         <p style="margin: 0;">This code expires in ${CODE_TTL_MINUTES} minutes.</p>
       </div>

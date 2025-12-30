@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
+import { writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
 import { createAdminPasscodeSession, getAdminEmails } from '@/lib/adminSessions'
 
@@ -77,7 +77,7 @@ export async function POST(request) {
 
     return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })
   } catch (error) {
-    console.error('[approvals-login] failed', error)
+    console.error('[admin-login] failed', error)
     return NextResponse.json(
       { ok: false, error: error?.message || 'Failed to send passcode.' },
       { status: 500, headers: CORS_HEADERS }

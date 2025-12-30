@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
-import crypto from 'crypto'
 import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
+import { createAdminTokenSession } from '@/lib/adminSessions'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 const CORS_HEADERS = {
@@ -108,16 +108,9 @@ async function getApprovalAdmins() {
 }
 
 async function createApprovalSessionLink(email) {
-  const token = crypto.randomBytes(32).toString('hex')
-  const createdAt = new Date().toISOString()
-  const expiresAt = new Date(Date.now() + APPROVAL_SESSION_TTL_HOURS * 60 * 60 * 1000).toISOString()
-  await writeClient.create({
-    _type: 'studyApprovalSession',
+  const { token } = await createAdminTokenSession({
     email,
-    token,
-    createdAt,
-    expiresAt,
-    revoked: false,
+    sessionTtlHours: APPROVAL_SESSION_TTL_HOURS,
   })
   return `${APPROVAL_BASE_URL}?token=${token}`
 }
