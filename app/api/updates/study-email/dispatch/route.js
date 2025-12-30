@@ -103,11 +103,14 @@ function normalizeList(values) {
 }
 
 function pickStudiesForSubscriber(studies, subscriber) {
+  const eligibleStudies = Array.isArray(studies)
+    ? studies.filter((study) => String(study?.status || '').toLowerCase() === 'recruiting')
+    : []
   const interestAreas = normalizeList(subscriber?.interestAreas)
   if (!interestAreas.length) return []
-  if (interestAreas.includes('all')) return studies
+  if (interestAreas.includes('all')) return eligibleStudies
   const interestSet = new Set(interestAreas)
-  return studies.filter((study) =>
+  return eligibleStudies.filter((study) =>
     Array.isArray(study?.therapeuticAreas)
       ? study.therapeuticAreas.some((area) => interestSet.has(area?.name))
       : false
@@ -124,6 +127,7 @@ async function fetchStudies() {
   const query = `
     *[_type == "trialSummary" && status == "recruiting"] | order(featured desc, title asc) {
       _id,
+      status,
       title,
       emailTitle,
       emailEligibilitySummary,
