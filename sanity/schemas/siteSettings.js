@@ -552,6 +552,82 @@ const siteSettings = {
           validation: Rule => Rule.min(1).max(12)
         }
       ]
+    },
+    {
+      name: 'publicationNewsletter',
+      title: 'Publication Newsletter',
+      type: 'object',
+      description: 'Configure publication newsletter settings.',
+      fields: [
+        {
+          name: 'subjectTemplate',
+          title: 'Email Subject Template',
+          type: 'string',
+          description: 'Use {{month}}, {{range}}, or {{count}}.',
+          initialValue: 'Research publication updates - {{month}}'
+        },
+        {
+          name: 'introText',
+          title: 'Intro Text',
+          type: 'text',
+          rows: 2,
+          description: 'Shown when there are publications to share.'
+        },
+        {
+          name: 'emptyIntroText',
+          title: 'Empty Intro Text',
+          type: 'text',
+          rows: 2,
+          description: 'Shown when there are no publications in the window.'
+        },
+        {
+          name: 'outroText',
+          title: 'Closing Text',
+          type: 'text',
+          rows: 2,
+          description: 'Optional closing line before preferences link.'
+        },
+        {
+          name: 'signature',
+          title: 'Signature',
+          type: 'string',
+          description: 'Footer signature line.',
+          initialValue: 'London Kidney Clinical Research'
+        },
+        {
+          name: 'windowMode',
+          title: 'Date Window Mode',
+          type: 'string',
+          initialValue: 'rolling_days',
+          options: {
+            list: [
+              { title: 'Rolling days (last N days)', value: 'rolling_days' },
+              { title: 'Since last email', value: 'last_sent' }
+            ]
+          }
+        },
+        {
+          name: 'windowDays',
+          title: 'Date Window (days)',
+          type: 'number',
+          description: 'Used for rolling days and as the fallback for first-time sends.',
+          validation: Rule => Rule.min(1).max(365)
+        },
+        {
+          name: 'maxPublications',
+          title: 'Max Publications Per Email',
+          type: 'number',
+          description: 'Overrides PUBLICATION_NEWSLETTER_MAX_PUBLICATIONS if set.',
+          validation: Rule => Rule.min(1).max(30)
+        },
+        {
+          name: 'sendEmpty',
+          title: 'Send even when empty',
+          type: 'boolean',
+          description: 'Send a newsletter even if there are no new publications in the window.',
+          initialValue: false
+        }
+      ]
     }
   ]
 }

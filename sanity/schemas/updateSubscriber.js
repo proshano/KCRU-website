@@ -115,6 +115,18 @@ const updateSubscriber = {
       readOnly: true
     },
     {
+      name: 'lastPublicationNewsletterSentAt',
+      title: 'Last Publication Newsletter Sent',
+      type: 'datetime',
+      readOnly: true
+    },
+    {
+      name: 'lastNewsletterSentAt',
+      title: 'Last Newsletter Sent',
+      type: 'datetime',
+      readOnly: true
+    },
+    {
       name: 'unsubscribedAt',
       title: 'Unsubscribed At',
       type: 'datetime',

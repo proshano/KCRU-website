@@ -40,6 +40,7 @@ const pubmedCache = {
           fields: [
             { name: 'pmid', type: 'string', title: 'PMID' },
             { name: 'title', type: 'string', title: 'Title' },
+            { name: 'publishedAt', type: 'datetime', title: 'Published At' },
             { name: 'authors', type: 'array', of: [{ type: 'string' }], title: 'Authors' },
             { name: 'journal', type: 'string', title: 'Journal' },
             { name: 'year', type: 'number', title: 'Year' },

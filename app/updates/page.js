@@ -10,7 +10,7 @@ export async function generateMetadata() {
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
   const title = 'Subscribe for updates'
   const description = normalizeDescription(
-    'Share your role, specialty, and interest areas to receive study updates.',
+    'Share your role, specialty, and interest areas to receive study and publication updates.',
     200
   )
   const canonical = '/updates'
@@ -45,8 +45,8 @@ export default async function UpdatesPage() {
           <div className="space-y-3">
             <h1 className="text-4xl font-bold tracking-tight">Subscribe for updates</h1>
             <p className="text-[#666]">
-              Share your role, specialty, and interest areas so we can send updates about active studies. You can
-              unsubscribe or change your preferences at any time.
+              Share your role, specialty, and interest areas so we can send updates about active studies and
+              publications. You can unsubscribe or change your preferences at any time.
             </p>
           </div>
           <UpdatesSignupForm

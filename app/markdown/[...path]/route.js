@@ -673,7 +673,7 @@ async function buildUpdatesMarkdown() {
   const lines = []
   lines.push('# Subscribe for updates')
   lines.push('')
-  lines.push('Share your role, specialty, and interest areas to receive study updates. You can update preferences or unsubscribe any time.')
+  lines.push('Share your role, specialty, and interest areas to receive study and publication updates. You can update preferences or unsubscribe any time.')
   lines.push('')
   lines.push(`- Subscribe page: ${getSiteBaseUrl()}/updates`)
   lines.push('')

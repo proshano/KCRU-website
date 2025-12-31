@@ -1,12 +1,12 @@
 import { Suspense } from 'react'
-import UpdatesAdminClient from '@/app/updates/admin/UpdatesAdminClient'
+import StudyManagerClient from '@/app/trials/manage/StudyManagerClient'
 
 export const metadata = {
-  title: 'Update Emails & Newsletters | KCRU',
-  description: 'Manage study update emails, publication newsletters, and send schedules.',
+  title: 'Study Manager | KCRU',
+  description: 'Admin access to create and publish studies.',
 }
 
-export default function AdminUpdatesPage() {
+export default function AdminStudiesPage() {
   return (
     <Suspense
       fallback={
@@ -15,7 +15,7 @@ export default function AdminUpdatesPage() {
         </div>
       }
     >
-      <UpdatesAdminClient />
+      <StudyManagerClient adminMode />
     </Suspense>
   )
 }
