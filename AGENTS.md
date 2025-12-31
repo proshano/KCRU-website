@@ -47,6 +47,11 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - Dispatch runs via `/api/updates/study-email/dispatch` (cron is daily; handler sends on the 1st in local time).
 - Requires `SANITY_API_TOKEN` to record send status.
 
+## Newsletters
+- Publication newsletter dispatch lives at `/api/updates/publication-newsletter/dispatch` with admin endpoints `/api/updates/publication-newsletter/admin` and `/api/updates/publication-newsletter/send`.
+- Custom one-off newsletters send via `/api/updates/custom-newsletter` (filters by role/specialty/interest areas).
+- Settings live in `siteSettings.publicationNewsletter`; send tracking uses `updateSubscriber.lastPublicationNewsletterSentAt` and `updateSubscriber.lastNewsletterSentAt`.
+
 ## Admin Access
 - Admin hub at `/admin` with module-specific entry points at `/admin/approvals` and `/admin/updates`.
 - Legacy admin URLs `/trials/approvals` and `/updates/admin` remain supported.

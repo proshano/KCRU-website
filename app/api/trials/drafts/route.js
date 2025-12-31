@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
+import { getScopedAdminSession } from '@/lib/adminSessions'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
 const CORS_HEADERS = buildCorsHeaders('GET, POST, DELETE, OPTIONS')
@@ -16,11 +17,29 @@ async function getCoordinatorSession(token) {
   return session
 }
 
-async function requireCoordinatorSession(request) {
+async function getManageSession(request) {
   const token = extractBearerToken(request)
-  const session = await getCoordinatorSession(token)
+  if (!token) {
+    return { session: null, error: 'Unauthorized', status: 401 }
+  }
+
+  const coordinator = await getCoordinatorSession(token)
+  if (coordinator) {
+    return { session: coordinator, status: 200 }
+  }
+
+  const { session, error, status } = await getScopedAdminSession(token, { scope: 'approvals' })
+  if (session) {
+    return { session, status: 200 }
+  }
+
+  return { session: null, error, status }
+}
+
+async function requireManageSession(request) {
+  const { session, error, status } = await getManageSession(request)
   if (!session) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
+    return NextResponse.json({ ok: false, error }, { status, headers: CORS_HEADERS })
   }
   return session
 }
@@ -40,7 +59,7 @@ export async function OPTIONS() {
 }
 
 export async function GET(request) {
-  const session = await requireCoordinatorSession(request)
+  const session = await requireManageSession(request)
   if (session instanceof NextResponse) return session
 
   try {
@@ -64,7 +83,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const session = await requireCoordinatorSession(request)
+  const session = await requireManageSession(request)
   if (session instanceof NextResponse) return session
 
   if (!writeClient.config().token) {
@@ -124,7 +143,7 @@ export async function POST(request) {
 }
 
 export async function DELETE(request) {
-  const session = await requireCoordinatorSession(request)
+  const session = await requireManageSession(request)
   if (session instanceof NextResponse) return session
 
   if (!writeClient.config().token) {

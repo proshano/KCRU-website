@@ -18,9 +18,17 @@ const MODULES = [
     actionLabel: 'Open approvals',
   },
   {
+    key: 'studies',
+    accessKey: 'approvals',
+    title: 'Study manager',
+    description: 'Create and edit studies directly (publishes immediately for approval admins).',
+    href: '/admin/studies',
+    actionLabel: 'Open study manager',
+  },
+  {
     key: 'updates',
     title: 'Study update emails',
-    description: 'Manage subscriber counts, settings, and send monthly updates.',
+    description: 'Manage study update emails, publication newsletters, and send schedules.',
     href: '/admin/updates',
     actionLabel: 'Open updates',
   },
@@ -293,7 +301,8 @@ export default function AdminHubClient() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {MODULES.map((module) => {
-                const allowed = Boolean(access[module.key])
+                const accessKey = module.accessKey || module.key
+                const allowed = Boolean(access[accessKey])
                 return (
                   <article
                     key={module.key}

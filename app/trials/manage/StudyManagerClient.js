@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 const STATUS_OPTIONS = [
@@ -57,6 +58,8 @@ const EMPTY_FORM = {
 
 const TOKEN_STORAGE_KEY = 'kcru-study-session'
 const EMAIL_STORAGE_KEY = 'kcru-study-email'
+const ADMIN_TOKEN_STORAGE_KEY = 'kcru-admin-token'
+const ADMIN_EMAIL_STORAGE_KEY = 'kcru-admin-email'
 const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
 const AUTOSAVE_DEBOUNCE_MS = 10000
 
@@ -170,7 +173,7 @@ function statusLabel(status) {
   return match?.label || status || 'draft'
 }
 
-export default function StudyManagerClient() {
+export default function StudyManagerClient({ adminMode = false } = {}) {
   const [token, setToken] = useState('')
   const [email, setEmail] = useState('')
   const [passcode, setPasscode] = useState('')
@@ -213,9 +216,13 @@ export default function StudyManagerClient() {
   const handleSignOut = useCallback(() => {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY)
     sessionStorage.removeItem(EMAIL_STORAGE_KEY)
+    if (adminMode) {
+      sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY)
+      sessionStorage.removeItem(ADMIN_EMAIL_STORAGE_KEY)
+    }
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current)
-    autosaveTimeoutRef.current = null
+      autosaveTimeoutRef.current = null
     }
     autosavePendingRef.current = false
     autosaveSuppressRef.current = false
@@ -234,9 +241,21 @@ export default function StudyManagerClient() {
     setCommsSuccess('')
     setCommsLoading(false)
     setDuplicateMatch(null)
-  }, [])
+  }, [adminMode])
 
   useEffect(() => {
+    if (adminMode) {
+      const storedAdminToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY)
+      const storedAdminEmail = sessionStorage.getItem(ADMIN_EMAIL_STORAGE_KEY)
+      if (storedAdminToken) {
+        setToken(storedAdminToken)
+      }
+      if (storedAdminEmail) {
+        setEmail(storedAdminEmail)
+      }
+      return
+    }
+
     const stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
     const storedEmail = sessionStorage.getItem(EMAIL_STORAGE_KEY)
     if (stored) {
@@ -245,23 +264,25 @@ export default function StudyManagerClient() {
     if (storedEmail) {
       setEmail(storedEmail)
     }
-  }, [])
+  }, [adminMode])
 
   useEffect(() => {
+    if (adminMode) return
     if (token) {
       sessionStorage.setItem(TOKEN_STORAGE_KEY, token)
     } else {
       sessionStorage.removeItem(TOKEN_STORAGE_KEY)
     }
-  }, [token])
+  }, [token, adminMode])
 
   useEffect(() => {
+    if (adminMode) return
     if (email) {
       sessionStorage.setItem(EMAIL_STORAGE_KEY, email)
     } else {
       sessionStorage.removeItem(EMAIL_STORAGE_KEY)
     }
-  }, [email])
+  }, [email, adminMode])
 
   useEffect(() => {
     draftSavingRef.current = draftSaving
@@ -975,6 +996,12 @@ export default function StudyManagerClient() {
     return 'Drafts autosave every 10s.'
   })()
   const autosaveStatusClass = draftError ? 'text-xs text-red-600' : 'text-xs text-gray-500'
+  const portalLabel = adminMode ? 'Admin Portal' : 'Coordinator Portal'
+  const accessNote = adminMode
+    ? 'Sign in through the Admin Hub to manage studies.'
+    : 'Sign in with your lhsc.on.ca email to receive a passcode.'
+  const showCoordinatorLogin = !token && !adminMode
+  const showAdminSigninHint = !token && adminMode
   const workflowNote = canBypassApprovals
     ? 'Publish and edit studies. Changes go live immediately for approval admins.'
     : 'Submit or edit studies. Submissions are sent to an approval admin before changes go live.'
@@ -993,7 +1020,7 @@ export default function StudyManagerClient() {
       aria-labelledby="study-manager-title"
     >
       <header className="space-y-3">
-        <p className="text-sm font-semibold text-purple uppercase tracking-wide">Coordinator Portal</p>
+        <p className="text-sm font-semibold text-purple uppercase tracking-wide">{portalLabel}</p>
         <h1 id="study-manager-title" className="text-3xl md:text-4xl font-bold tracking-tight">
           Study Manager
         </h1>
@@ -1008,7 +1035,7 @@ export default function StudyManagerClient() {
           <div>
             <h2 className="text-lg font-semibold">Access</h2>
             <p className="text-sm text-gray-500">
-              Sign in with your lhsc.on.ca email to receive a passcode.
+              {accessNote}
             </p>
             {token && (
               <p className="text-sm text-gray-500">
@@ -1038,7 +1065,7 @@ export default function StudyManagerClient() {
           )}
         </div>
 
-        {!token && (
+        {showCoordinatorLogin && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <form className="space-y-2" onSubmit={sendPasscode}>
               <label htmlFor="study-manager-email" className="text-sm font-medium">Work email</label>
@@ -1082,6 +1109,15 @@ export default function StudyManagerClient() {
                 {verifyingCode ? 'Verifying...' : 'Verify passcode'}
               </button>
             </form>
+          </div>
+        )}
+
+        {showAdminSigninHint && (
+          <div className="text-sm text-gray-600">
+            <p className="mb-2">Sign in through the Admin Hub to access study management tools.</p>
+            <Link href="/admin" className="text-purple font-medium hover:text-purple/80">
+              Go to Admin Hub
+            </Link>
           </div>
         )}
 

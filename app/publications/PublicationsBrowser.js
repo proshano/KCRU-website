@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 import { urlFor } from '@/lib/sanity'
+import { findResearchersForPublication } from '@/lib/publicationUtils'
 
 const DEFAULT_VISIBLE_TAGS = 5
 const METHODS_VISIBLE_TAGS = 4
@@ -426,7 +427,7 @@ function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled, onTa
 
 function PublicationItem({ pub, researchers, provenance, altmetricEnabled, onTagClick, activeFilter }) {
   const shareButtons = getShareButtons(pub)
-  const matchedResearchers = findResearchersForPub(pub, researchers, provenance)
+  const matchedResearchers = findResearchersForPublication(pub, researchers, provenance)
   const hasAltmetricId = Boolean(pub?.doi || pub?.pmid)
   const showAltmetric = altmetricEnabled && hasAltmetricId
 
@@ -502,35 +503,6 @@ function PublicationItem({ pub, researchers, provenance, altmetricEnabled, onTag
       <ClassificationTags pub={pub} onTagClick={onTagClick} activeFilter={activeFilter} />
     </article>
   )
-}
-
-function findResearchersForPub(pub, researchers = [], provenance = {}) {
-  if (!researchers.length) return []
-  const fromProvenance = new Set(provenance[pub.pmid] || [])
-
-  const chips = []
-
-  if (fromProvenance.size > 0) {
-    for (const r of researchers) {
-      if (fromProvenance.has(r._id)) {
-        chips.push(r)
-      }
-    }
-  }
-
-  if (chips.length === 0 && pub?.authors?.length) {
-    const authors = pub.authors.map((a) => a.toLowerCase())
-    for (const r of researchers) {
-      if (!r.name) continue
-      const name = r.name.toLowerCase()
-      const last = name.split(' ').slice(-1)[0]
-      if (authors.some((a) => a.includes(name) || a.includes(last))) {
-        chips.push(r)
-      }
-    }
-  }
-
-  return chips
 }
 
 function ClassificationTags({ pub, onTagClick, activeFilter }) {

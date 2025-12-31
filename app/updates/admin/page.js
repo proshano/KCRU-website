@@ -2,8 +2,8 @@ import { Suspense } from 'react'
 import UpdatesAdminClient from './UpdatesAdminClient'
 
 export const metadata = {
-  title: 'Study Update Admin | KCRU',
-  description: 'Manage study update emails and send schedules.',
+  title: 'Update Emails & Newsletters | KCRU',
+  description: 'Manage study update emails, publication newsletters, and send schedules.',
 }
 
 export default function UpdatesAdminPage() {

@@ -77,13 +77,14 @@ export async function POST(request) {
       _key: pub.pmid || `pub-${idx}`,
       pmid: pub.pmid,
       title: pub.title,
+      publishedAt: pub.publishedAt || null,
       authors: pub.authors || [],
       journal: pub.journal,
       year: pub.year,
       month: pub.month,
       abstract: pub.abstract,
       doi: pub.doi,
-      pubmedUrl: pub.pubmedUrl,
+      pubmedUrl: pub.pubmedUrl || pub.url || null,
       laySummary: pub.laySummary || null,
     }))
 
