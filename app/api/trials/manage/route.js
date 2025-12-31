@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
-import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
-import { createAdminTokenSession } from '@/lib/adminSessions'
+import {
+  normalizeStudyPayload,
+  sanitizeString,
+  slugify,
+  ensureUniqueSlug,
+  buildPatchFields,
+  buildUnsetFields,
+  buildReferences,
+} from '@/lib/studySubmissions'
+import { createAdminTokenSession, isAdminEmail } from '@/lib/adminSessions'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 import { escapeHtml } from '@/lib/escapeHtml'
 import { buildCorsHeaders, extractBearerToken, getClientIp } from '@/lib/httpUtils'
@@ -81,6 +89,11 @@ async function getApprovalAdmins() {
   if (admins.length) return admins
   if (FALLBACK_NOTIFY_EMAIL) return [FALLBACK_NOTIFY_EMAIL]
   return []
+}
+
+async function canBypassApprovals(email) {
+  if (!email) return false
+  return isAdminEmail(email, 'approvals')
 }
 
 async function createApprovalSessionLink(email) {
@@ -316,6 +329,32 @@ async function resolvePayloadReferences(payload) {
   }
 }
 
+function buildTrialSummaryDoc(normalized, slugValue) {
+  return {
+    _type: 'trialSummary',
+    title: normalized.title,
+    slug: { _type: 'slug', current: slugValue },
+    status: normalized.status,
+    nctId: normalized.nctId || undefined,
+    studyType: normalized.studyType || undefined,
+    phase: normalized.phase || undefined,
+    laySummary: normalized.laySummary || null,
+    emailTitle: normalized.emailTitle || null,
+    emailEligibilitySummary: normalized.emailEligibilitySummary || null,
+    inclusionCriteria: normalized.inclusionCriteria || [],
+    exclusionCriteria: normalized.exclusionCriteria || [],
+    sponsorWebsite: normalized.sponsorWebsite || null,
+    featured: normalized.featured,
+    acceptsReferrals: normalized.acceptsReferrals,
+    localContact: normalized.localContact || undefined,
+    therapeuticAreas: buildReferences(normalized.therapeuticAreaIds),
+    principalInvestigator: normalized.principalInvestigatorId
+      ? { _type: 'reference', _ref: normalized.principalInvestigatorId }
+      : undefined,
+    ctGovData: normalized.ctGovData || undefined,
+  }
+}
+
 async function notifyAdmins({
   action,
   submissionId,
@@ -374,16 +413,20 @@ async function requireCoordinatorSession(request) {
   if (!session) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
-  return null
+  return session
 }
 
 export async function GET(request) {
+  let session = null
   if (!DEV_PREVIEW_MODE) {
-    const auth = await requireCoordinatorSession(request)
-    if (auth) return auth
+    session = await requireCoordinatorSession(request)
+    if (session instanceof NextResponse) return session
+  } else {
+    session = await getCoordinatorSession(extractBearerToken(request))
   }
 
   try {
+    const bypassApprovals = await canBypassApprovals(session?.email)
     const [trialsRaw, areasRaw, researchersRaw] = await Promise.all([
       sanityFetch(`
         *[_type == "trialSummary"] | order(status asc, title asc) {
@@ -431,6 +474,9 @@ export async function GET(request) {
           areas: areasRaw || [],
           researchers: researchersRaw || [],
         },
+        access: {
+          canBypassApprovals: bypassApprovals,
+        },
       },
       { headers: CORS_HEADERS }
     )
@@ -444,9 +490,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const auth = await requireCoordinatorSession(request)
-  if (auth) return auth
-  const session = await getCoordinatorSession(extractBearerToken(request))
+  const session = await requireCoordinatorSession(request)
+  if (session instanceof NextResponse) return session
 
   if (!writeClient.config().token) {
     return NextResponse.json(
@@ -469,6 +514,24 @@ export async function POST(request) {
       return NextResponse.json(
         { ok: false, error: 'A study with this NCT ID already exists.', duplicate },
         { status: 409, headers: CORS_HEADERS }
+      )
+    }
+
+    const bypassApprovals = await canBypassApprovals(session?.email)
+    if (bypassApprovals) {
+      const baseSlug = slugify(payload.slug || payload.title)
+      if (!baseSlug) {
+        return NextResponse.json(
+          { ok: false, error: 'Slug is required to create a study.' },
+          { status: 400, headers: CORS_HEADERS }
+        )
+      }
+      const slugValue = await ensureUniqueSlug({ baseSlug, sanityFetch })
+      const doc = buildTrialSummaryDoc(payload, slugValue)
+      const created = await writeClient.create(doc)
+      return NextResponse.json(
+        { ok: true, studyId: created?._id, directPublish: true },
+        { headers: CORS_HEADERS }
       )
     }
 
@@ -507,7 +570,10 @@ export async function POST(request) {
       supersededCount,
     })
 
-    return NextResponse.json({ ok: true, submissionId: submission?._id }, { headers: CORS_HEADERS })
+    return NextResponse.json(
+      { ok: true, submissionId: submission?._id, directPublish: false },
+      { headers: CORS_HEADERS }
+    )
   } catch (error) {
     console.error('[trials-manage] POST failed', error)
     return NextResponse.json(
@@ -518,9 +584,8 @@ export async function POST(request) {
 }
 
 export async function PATCH(request) {
-  const auth = await requireCoordinatorSession(request)
-  if (auth) return auth
-  const session = await getCoordinatorSession(extractBearerToken(request))
+  const session = await requireCoordinatorSession(request)
+  if (session instanceof NextResponse) return session
 
   if (!writeClient.config().token) {
     return NextResponse.json(
@@ -553,6 +618,25 @@ export async function PATCH(request) {
         { ok: false, error: 'A study with this NCT ID already exists.', duplicate },
         { status: 409, headers: CORS_HEADERS }
       )
+    }
+
+    const bypassApprovals = await canBypassApprovals(session?.email)
+    if (bypassApprovals) {
+      let slugValue = null
+      if (payload.slug || payload.title) {
+        const baseSlug = slugify(payload.slug || payload.title)
+        if (baseSlug) {
+          slugValue = await ensureUniqueSlug({ baseSlug, excludeId: id, sanityFetch })
+        }
+      }
+      const fields = buildPatchFields(payload, slugValue)
+      const unset = buildUnsetFields(payload)
+      let patch = writeClient.patch(id).set(fields)
+      if (unset.length) {
+        patch = patch.unset(unset)
+      }
+      await patch.commit({ returnDocuments: false })
+      return NextResponse.json({ ok: true, studyId: id, directPublish: true }, { headers: CORS_HEADERS })
     }
 
     const admins = await getApprovalAdmins()
@@ -596,7 +680,10 @@ export async function PATCH(request) {
     })
     await supersedePromise
 
-    return NextResponse.json({ ok: true, submissionId: submission?._id }, { headers: CORS_HEADERS })
+    return NextResponse.json(
+      { ok: true, submissionId: submission?._id, directPublish: false },
+      { headers: CORS_HEADERS }
+    )
   } catch (error) {
     console.error('[trials-manage] PATCH failed', error)
     return NextResponse.json(
