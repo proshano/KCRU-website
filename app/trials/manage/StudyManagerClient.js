@@ -174,6 +174,7 @@ export default function StudyManagerClient() {
   const [token, setToken] = useState('')
   const [email, setEmail] = useState('')
   const [passcode, setPasscode] = useState('')
+  const [canBypassApprovals, setCanBypassApprovals] = useState(false)
   const [sendingCode, setSendingCode] = useState(false)
   const [verifyingCode, setVerifyingCode] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -214,12 +215,13 @@ export default function StudyManagerClient() {
     sessionStorage.removeItem(EMAIL_STORAGE_KEY)
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current)
-      autosaveTimeoutRef.current = null
+    autosaveTimeoutRef.current = null
     }
     autosavePendingRef.current = false
     autosaveSuppressRef.current = false
     lastSavedSnapshotRef.current = ''
     setToken('')
+    setCanBypassApprovals(false)
     setTrials([])
     setDraft(null)
     setDraftLoading(false)
@@ -332,6 +334,7 @@ export default function StudyManagerClient() {
         areas: data.meta?.areas || [],
         researchers: data.meta?.researchers || [],
       })
+      setCanBypassApprovals(Boolean(data.access?.canBypassApprovals))
       return data
     } catch (err) {
       setError(err.message || 'Failed to load studies')
@@ -827,7 +830,16 @@ export default function StudyManagerClient() {
         }
         throw new Error(saveResult?.error || `Submission failed (${res.status})`)
       }
-      setSuccess(form.id ? 'Update submitted for approval.' : 'New study submitted for approval.')
+      const directPublish = Boolean(saveResult?.directPublish) || canBypassApprovals
+      setSuccess(
+        directPublish
+          ? form.id
+            ? 'Update published.'
+            : 'New study published.'
+          : form.id
+            ? 'Update submitted for approval.'
+            : 'New study submitted for approval.'
+      )
       setDuplicateMatch(null)
       setBaselineSnapshot(formSnapshot)
       await loadData()
@@ -963,6 +975,17 @@ export default function StudyManagerClient() {
     return 'Drafts autosave every 10s.'
   })()
   const autosaveStatusClass = draftError ? 'text-xs text-red-600' : 'text-xs text-gray-500'
+  const workflowNote = canBypassApprovals
+    ? 'Publish and edit studies. Changes go live immediately for approval admins.'
+    : 'Submit or edit studies. Submissions are sent to an approval admin before changes go live.'
+  const submitLabel = canBypassApprovals
+    ? form.id
+      ? 'Publish changes'
+      : 'Publish new study'
+    : form.id
+      ? 'Submit changes'
+      : 'Submit new study'
+  const savingLabel = canBypassApprovals ? 'Publishing...' : 'Submitting...'
 
   return (
     <section
@@ -975,9 +998,8 @@ export default function StudyManagerClient() {
           Study Manager
         </h1>
         <p className="text-gray-600 max-w-2xl">
-          Submit or edit studies. Submissions are sent to an approval admin before changes go live. For studies
-          registered with ClinicalTrials.gov (i.e., those that have an NCT number), use the sync tool to pull details
-          from ClinicalTrials.gov first.
+          {workflowNote} For studies registered with ClinicalTrials.gov (i.e., those that have an NCT number), use the
+          sync tool to pull details from ClinicalTrials.gov first.
         </p>
       </header>
 
@@ -989,7 +1011,10 @@ export default function StudyManagerClient() {
               Sign in with your lhsc.on.ca email to receive a passcode.
             </p>
             {token && (
-              <p className="text-sm text-gray-500">Signed in as {email || 'coordinator'}.</p>
+              <p className="text-sm text-gray-500">
+                Signed in as {email || 'coordinator'}
+                {canBypassApprovals ? ' (approval admin).' : '.'}
+              </p>
             )}
           </div>
           {token && (
@@ -1151,7 +1176,7 @@ export default function StudyManagerClient() {
                   disabled={saving || !canSubmit || !hasChanges}
                   className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
                 >
-                  {saving ? 'Submitting...' : form.id ? 'Submit changes' : 'Submit new study'}
+                  {saving ? savingLabel : submitLabel}
                 </button>
               </div>
               {canSubmit && (
