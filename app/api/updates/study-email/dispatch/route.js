@@ -184,6 +184,7 @@ async function runDispatch({ force = false } = {}) {
         subject: email.subject,
         text: email.text,
         html: email.html,
+        tags: [{ name: 'campaign', value: 'study-updates' }],
       })
       if (result?.skipped) {
         stats.skipped += 1
