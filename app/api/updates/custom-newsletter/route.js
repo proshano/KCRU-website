@@ -155,6 +155,7 @@ export async function POST(request) {
           subject: email.subject,
           text: email.text,
           html: email.html,
+          tags: [{ name: 'campaign', value: 'custom-newsletter' }],
         })
         if (result?.skipped) {
           stats.skipped += 1
