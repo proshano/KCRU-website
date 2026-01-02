@@ -570,7 +570,7 @@ const siteSettings = {
           name: 'subjectTemplate',
           title: 'Email Subject Template',
           type: 'string',
-          description: 'Use {{month}}, {{range}}, or {{count}}.',
+          description: 'Use {{month}}, {{range}}, {{count}}, {{previousYear}}, {{countSincePreviousYear}}, or {{countSince2022}}.',
           initialValue: 'Research publication updates - {{month}}'
         },
         {
