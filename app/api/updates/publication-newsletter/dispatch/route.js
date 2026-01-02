@@ -6,6 +6,7 @@ import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { getZonedParts, isCronAuthorized, isWithinCronWindow } from '@/lib/cronUtils'
 import { readCache } from '@/lib/pubmedCache'
 import { getPublicationDate } from '@/lib/publicationUtils'
+import { mergeWithClassifications } from '@/lib/publications'
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
   /\/$/,
@@ -60,6 +61,16 @@ function formatRangeLabel(startDate, endDate) {
     year: 'numeric',
   })
   return `${startFormatter.format(startDate)}-${endFormatter.format(end)}`
+}
+
+function countPublicationsSinceYear(publications = [], startYear) {
+  const normalizedStart = Number(startYear)
+  if (!Number.isFinite(normalizedStart)) return 0
+  return publications.reduce((total, pub) => {
+    const year = Number(pub?.year)
+    if (Number.isFinite(year) && year >= normalizedStart) return total + 1
+    return total
+  }, 0)
 }
 
 function buildManageUrl(token) {
@@ -198,8 +209,16 @@ async function runDispatch({ force = false } = {}) {
 
   const subscribers = Array.isArray(subscribersRaw) ? subscribersRaw : []
   const researchers = Array.isArray(researchersRaw) ? researchersRaw : []
-  const publications = preparePublications(cache?.publications || [])
+  const cachePublications = Array.isArray(cache?.publications) ? cache.publications : []
+  const publicationsWithClassifications = await mergeWithClassifications(cachePublications)
+  const publications = preparePublications(publicationsWithClassifications || [])
   const provenance = cache?.provenance || {}
+  const previousYear = now.getFullYear() - 1
+  const publicationStats = {
+    previousYear,
+    countSincePreviousYear: countPublicationsSinceYear(publications, previousYear),
+    countSince2022: countPublicationsSinceYear(publications, 2022),
+  }
 
   const stats = {
     total: subscribers.length,
@@ -228,6 +247,7 @@ async function runDispatch({ force = false } = {}) {
       monthLabel,
       rangeLabel,
       settings,
+      publicationStats,
       siteBaseUrl: SITE_BASE_URL,
       researchers,
       provenance,

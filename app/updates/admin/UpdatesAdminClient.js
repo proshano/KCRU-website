@@ -953,7 +953,13 @@ export default function UpdatesAdminClient() {
                   placeholder="Research publication updates - {{month}}"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
-                <p className="text-xs text-gray-500">Use <span className="font-mono">{'{{month}}'}</span>, <span className="font-mono">{'{{range}}'}</span>, or <span className="font-mono">{'{{count}}'}</span>.</p>
+                <p className="text-xs text-gray-500">
+                  Tokens (use in subject/intro/closing): <span className="font-mono">{'{{month}}'}</span>,{' '}
+                  <span className="font-mono">{'{{range}}'}</span>, <span className="font-mono">{'{{count}}'}</span>,{' '}
+                  <span className="font-mono">{'{{previousYear}}'}</span>,{' '}
+                  <span className="font-mono">{'{{countSincePreviousYear}}'}</span>,{' '}
+                  <span className="font-mono">{'{{countSince2022}}'}</span>.
+                </p>
               </div>
               <div>
                 <label htmlFor="publication-intro" className="text-sm font-medium">Intro text</label>
