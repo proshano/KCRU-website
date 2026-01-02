@@ -968,7 +968,7 @@ export default function UpdatesAdminClient() {
                   value={publicationSettings.introText}
                   onChange={(event) => updatePublicationSetting('introText', event.target.value)}
                   rows={2}
-                  placeholder="Here are the latest publications from our researchers."
+                  placeholder="We published {{countSincePreviousYear}} articles since the start of {{previousYear}} and {{countSince2022}} since 2022. See more at https://londonkidney.ca/publications"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
               </div>
