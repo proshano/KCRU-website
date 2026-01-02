@@ -30,6 +30,7 @@ function normalizeSettingsPayload(body) {
   const maxStudies = Number.isFinite(maxStudiesRaw) && maxStudiesRaw > 0
     ? Math.min(Math.round(maxStudiesRaw), 12)
     : null
+  const sendEmpty = Boolean(body?.sendEmpty)
 
   return {
     subjectTemplate,
@@ -38,6 +39,7 @@ function normalizeSettingsPayload(body) {
     outroText,
     signature,
     maxStudies,
+    sendEmpty,
   }
 }
 
@@ -77,7 +79,8 @@ export async function GET(request) {
             emptyIntroText,
             outroText,
             signature,
-            maxStudies
+            maxStudies,
+            sendEmpty
           }
         }`
       ),
@@ -136,6 +139,7 @@ export async function PATCH(request) {
         'studyUpdates.outroText': updates.outroText,
         'studyUpdates.signature': updates.signature,
         'studyUpdates.maxStudies': updates.maxStudies,
+        'studyUpdates.sendEmpty': updates.sendEmpty,
       })
       .commit({ returnDocuments: false })
 
@@ -147,7 +151,8 @@ export async function PATCH(request) {
           emptyIntroText,
           outroText,
           signature,
-          maxStudies
+          maxStudies,
+          sendEmpty
         }
       }`
     )

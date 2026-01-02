@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = {
   outroText: '',
   signature: '',
   maxStudies: '',
+  sendEmpty: false,
 }
 
 const DEFAULT_PUBLICATION_SETTINGS = {
@@ -191,6 +192,7 @@ export default function UpdatesAdminClient() {
         outroText: nextSettings.outroText || '',
         signature: nextSettings.signature || '',
         maxStudies: nextSettings.maxStudies ? String(nextSettings.maxStudies) : '',
+        sendEmpty: Boolean(nextSettings.sendEmpty),
       })
     } catch (err) {
       setError(err.message || 'Failed to load study update admin data.')
@@ -417,6 +419,7 @@ export default function UpdatesAdminClient() {
         outroText: settings.outroText,
         signature: settings.signature,
         maxStudies: settings.maxStudies ? Number(settings.maxStudies) : null,
+        sendEmpty: Boolean(settings.sendEmpty),
       }
       const res = await fetch('/api/updates/admin', {
         method: 'PATCH',
@@ -438,6 +441,7 @@ export default function UpdatesAdminClient() {
         outroText: nextSettings.outroText || '',
         signature: nextSettings.signature || '',
         maxStudies: nextSettings.maxStudies ? String(nextSettings.maxStudies) : '',
+        sendEmpty: Boolean(nextSettings.sendEmpty),
       })
       setSuccess('Email settings saved.')
     } catch (err) {
@@ -856,6 +860,14 @@ export default function UpdatesAdminClient() {
                   />
                 </div>
               </div>
+              <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={settings.sendEmpty}
+                  onChange={(event) => updateSetting('sendEmpty', event.target.checked)}
+                />
+                Send even when there are no matching studies
+              </label>
               <button
                 type="submit"
                 disabled={savingSettings}
