@@ -45,7 +45,7 @@ Research websites go out of date quickly. This project solves that by automating
 - Cached results are stored in `runtime/` to keep the site fast and resilient.
 - Email delivery is handled via `lib/email.js` (Resend).
 
-## Architecture (lightweight)
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -54,9 +54,9 @@ flowchart LR
   Sanity -->|Content APIs| Next
 
   Next -->|Email sends| Resend[Resend]
-  Next -->|Publication data| PubMed[PubMed]
-  Next -->|Trial data| ClinicalTrials[ClinicalTrials.gov]
-  Next -.->|Optional summaries/tags| LLM[LLM providers]
+  PubMed[PubMed] -->|Publication data| Next
+  ClinicalTrials[ClinicalTrials.gov] -->|Trial data| Next
+  Next <-->|Summaries/tags (via OpenRouter)| LLM[LLM providers]
   Next -->|Cache| Runtime[Runtime cache]
 
   Cron[Vercel Cron Jobs] -->|Refresh data and dispatch emails| Next
@@ -72,7 +72,7 @@ flowchart LR
 - **Team:** Researcher profiles and publication ties.
 - **News and training:** Posts, opportunities, and alumni.
 - **Contact:** Form submissions routed by Sanity-managed rules.
-- **Updates and newsletters:** Subscriptions, study updates, publication and custom newsletters.
+- **Updates and newsletters:** Subscriptions plus two outreach streams. Publication newsletters summarize new papers with key takeaways and links. Study updates highlight actively recruiting studies and provide a one-click referral pathway for clinicians. Together they keep internal teams, referring providers, and external collaborators aware of current research and make engagement easy.
 
 ## Data pipelines
 
