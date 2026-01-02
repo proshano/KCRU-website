@@ -228,7 +228,7 @@ export default async function TeamPage() {
 }
 
 function SocialLinks({ person }) {
-  const hasLinks = person.twitter || person.linkedin
+  const hasLinks = person.twitter || person.linkedin || person.googleScholar || person.github
   if (!hasLinks) return null
   return (
     <div className="flex flex-wrap gap-2 mt-2 text-xs text-purple font-medium">
@@ -250,6 +250,26 @@ function SocialLinks({ person }) {
           className="hover:underline"
         >
           LinkedIn
+        </a>
+      )}
+      {person.googleScholar && (
+        <a
+          href={person.googleScholar}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          Google Scholar
+        </a>
+      )}
+      {person.github && (
+        <a
+          href={person.github}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          GitHub
         </a>
       )}
     </div>
