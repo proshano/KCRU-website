@@ -101,7 +101,8 @@ async function fetchStudyUpdateSettings() {
         emptyIntroText,
         outroText,
         signature,
-        maxStudies
+        maxStudies,
+        sendEmpty
       }
     }
   `
@@ -156,6 +157,7 @@ async function runDispatch({ force = false } = {}) {
   const maxStudies = Number.isFinite(Number(updateSettings?.maxStudies)) && Number(updateSettings?.maxStudies) > 0
     ? Number(updateSettings.maxStudies)
     : MAX_STUDIES
+  const sendEmpty = Boolean(updateSettings?.sendEmpty)
 
   const stats = {
     total: subscribers.length,
@@ -168,6 +170,10 @@ async function runDispatch({ force = false } = {}) {
   for (const subscriber of subscribers) {
     const relevant = pickStudiesForSubscriber(studies, subscriber)
     const topStudies = relevant.slice(0, maxStudies)
+    if (!topStudies.length && !sendEmpty) {
+      stats.skipped += 1
+      continue
+    }
     const manageUrl = buildManageUrl(subscriber?.manageToken)
     const email = buildStudyUpdateEmail({
       subscriber,

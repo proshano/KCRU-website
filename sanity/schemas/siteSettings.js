@@ -550,6 +550,13 @@ const siteSettings = {
           type: 'number',
           description: 'Overrides STUDY_UPDATE_MAX_STUDIES if set.',
           validation: Rule => Rule.min(1).max(12)
+        },
+        {
+          name: 'sendEmpty',
+          title: 'Send even when empty',
+          type: 'boolean',
+          description: 'Send a study update even if there are no recruiting studies for a subscriber.',
+          initialValue: false
         }
       ]
     },
