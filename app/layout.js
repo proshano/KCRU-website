@@ -163,14 +163,15 @@ export default async function RootLayout({ children }) {
           {/* Footer */}
           <footer className="border-t border-black/[0.08] py-12 px-6 md:px-12 text-sm text-[#888] font-medium mt-6">
             <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span>© {new Date().getFullYear()}</span>
                 <a
                   href="https://github.com/proshano/KCRU-website"
                   className="hover:text-purple transition-colors"
                   target="_blank"
                   rel="noreferrer"
                 >
-                  Learn more
+                  More about the site
                 </a>
               </div>
               <div className="flex gap-6">
