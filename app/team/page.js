@@ -205,17 +205,13 @@ export default async function TeamPage() {
                   </div>
                 )
 
-                const social = <SocialLinks key={`${person._id}-social`} person={person} />
-
                 return href ? (
                   <div key={person._id} className="flex flex-col">
                     <Link href={href}>{cardBody}</Link>
-                    {social}
                   </div>
                 ) : (
                   <div key={person._id} className="flex flex-col">
                     {cardBody}
-                    {social}
                   </div>
                 )
               })}
@@ -224,54 +220,5 @@ export default async function TeamPage() {
         )
       })}
     </main>
-  )
-}
-
-function SocialLinks({ person }) {
-  const hasLinks = person.twitter || person.linkedin || person.googleScholar || person.github
-  if (!hasLinks) return null
-  return (
-    <div className="flex flex-wrap gap-2 mt-2 text-xs text-purple font-medium">
-      {person.googleScholar && (
-        <a
-          href={person.googleScholar}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline"
-        >
-          Google Scholar
-        </a>
-      )}
-      {person.github && (
-        <a
-          href={person.github}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline"
-        >
-          GitHub
-        </a>
-      )}
-      {person.linkedin && (
-        <a
-          href={person.linkedin}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline"
-        >
-          LinkedIn
-        </a>
-      )}
-      {person.twitter && (
-        <a
-          href={`https://twitter.com/${person.twitter.replace('@', '')}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline"
-        >
-          X
-        </a>
-      )}
-    </div>
   )
 }
