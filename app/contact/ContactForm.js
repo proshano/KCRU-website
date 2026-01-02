@@ -40,6 +40,7 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
   }, [recaptchaSiteKey])
 
   const selectedOption = useMemo(() => options.find((opt) => opt.key === form.reasonKey) || null, [form.reasonKey, options])
+  const isReferralOption = selectedOption?.key === 'referral'
 
   const requiresMessage = selectedOption ? !selectedOption.showOceanLink : false
   const messagePlaceholder =
@@ -118,6 +119,9 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
     const email = form.email.trim()
     const message = form.message.trim()
     const currentOption = options.find((opt) => opt.key === form.reasonKey) || null
+    if (currentOption?.key === 'referral') {
+      return
+    }
 
     if (!name || !email || !form.reasonKey || !currentOption) {
       setStatus({ type: 'error', message: 'Please complete the required fields.' })
@@ -345,20 +349,21 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
         <div className="flex items-center gap-3">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || isReferralOption}
             className="inline-flex items-center justify-center rounded-md bg-purple px-5 py-2.5 text-base font-semibold text-white shadow-sm hover:bg-purple/90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? 'Sending…' : 'Submit'}
           </button>
           <p className="text-sm text-[#777]">
-            We will use your email to follow up about this inquiry.
+            {isReferralOption
+              ? 'Referral submissions are currently unavailable.'
+              : 'We will use your email to follow up about this inquiry.'}
           </p>
         </div>
       </form>
     </div>
   )
 }
-
 
 
 

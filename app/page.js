@@ -190,8 +190,8 @@ export default async function HomePage() {
               <Link href="/trials" className="btn-primary text-center flex-1">
                 View Active Studies
               </Link>
-              <Link href="/contact?reason=referral" className="btn-secondary text-center flex-1">
-                Refer a Patient
+              <Link href="/contact?reason=donation" className="btn-secondary text-center flex-1">
+                Donate
               </Link>
               <Link href="/contact?reason=industry" className="btn-secondary text-center flex-1">
                 Partner With Us
