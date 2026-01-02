@@ -1,0 +1,31 @@
+name: Publication Newsletter Dispatch
+
+on:
+  schedule:
+    # Runs at 12:00 UTC on the 1st of each month.
+    - cron: "0 12 1 * *"
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send publication newsletter
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          TOKEN: ${{ secrets.PUBLICATION_NEWSLETTER_SEND_TOKEN }}
+        run: |
+          if [ -z "$SITE_URL" ]; then
+            echo "SITE_URL secret is not set."
+            exit 1
+          fi
+          if [ -z "$TOKEN" ]; then
+            echo "PUBLICATION_NEWSLETTER_SEND_TOKEN secret is not set."
+            exit 1
+          fi
+          SITE_URL="${SITE_URL%/}"
+          curl -f -sS -X POST "$SITE_URL/api/updates/publication-newsletter/dispatch" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            --data '{"force":false}'
+          echo ""
