@@ -139,6 +139,7 @@ async function runRefresh({ isCron = false } = {}) {
       maxPerResearcher: Number(process.env.PUBMED_MAX_PER_RESEARCHER || 1000),
       summariesPerRun,
       force: true,
+      enableDoiAbstractBackfill: isCron ? true : undefined,
       llmOptions: {
         provider: settings.llmProvider || 'openrouter',
         model: settings.llmModel,
