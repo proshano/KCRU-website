@@ -204,14 +204,14 @@ export default async function TeamMemberPage({ params }) {
               {profile.role && <p className="text-lg text-[#666] mt-1">{profile.role}</p>}
             </div>
             <div className="flex flex-wrap gap-3 text-sm font-medium">
-              {profile.email && (
-                <a className="text-purple hover:underline" href={`mailto:${profile.email}`}>
-                  Email
+              {profile.googleScholar && (
+                <a className="text-purple hover:underline" href={profile.googleScholar} target="_blank" rel="noopener noreferrer">
+                  Google Scholar
                 </a>
               )}
-              {profile.twitter && (
-                <a className="text-purple hover:underline" href={`https://twitter.com/${profile.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
-                  X / Twitter
+              {profile.github && (
+                <a className="text-purple hover:underline" href={profile.github} target="_blank" rel="noopener noreferrer">
+                  GitHub
                 </a>
               )}
               {profile.linkedin && (
@@ -224,14 +224,14 @@ export default async function TeamMemberPage({ params }) {
                   ORCID
                 </a>
               )}
-              {profile.googleScholar && (
-                <a className="text-purple hover:underline" href={profile.googleScholar} target="_blank" rel="noopener noreferrer">
-                  Google Scholar
+              {profile.twitter && (
+                <a className="text-purple hover:underline" href={`https://twitter.com/${profile.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
+                  X / Twitter
                 </a>
               )}
-              {profile.github && (
-                <a className="text-purple hover:underline" href={profile.github} target="_blank" rel="noopener noreferrer">
-                  GitHub
+              {profile.email && (
+                <a className="text-purple hover:underline" href={`mailto:${profile.email}`}>
+                  Email
                 </a>
               )}
             </div>
