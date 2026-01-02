@@ -232,26 +232,6 @@ function SocialLinks({ person }) {
   if (!hasLinks) return null
   return (
     <div className="flex flex-wrap gap-2 mt-2 text-xs text-purple font-medium">
-      {person.twitter && (
-        <a
-          href={`https://twitter.com/${person.twitter.replace('@', '')}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline"
-        >
-          X
-        </a>
-      )}
-      {person.linkedin && (
-        <a
-          href={person.linkedin}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline"
-        >
-          LinkedIn
-        </a>
-      )}
       {person.googleScholar && (
         <a
           href={person.googleScholar}
@@ -270,6 +250,26 @@ function SocialLinks({ person }) {
           className="hover:underline"
         >
           GitHub
+        </a>
+      )}
+      {person.linkedin && (
+        <a
+          href={person.linkedin}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          LinkedIn
+        </a>
+      )}
+      {person.twitter && (
+        <a
+          href={`https://twitter.com/${person.twitter.replace('@', '')}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:underline"
+        >
+          X
         </a>
       )}
     </div>
