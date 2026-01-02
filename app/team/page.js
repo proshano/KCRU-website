@@ -161,7 +161,7 @@ export default async function TeamPage() {
                       <div className="flex flex-col items-center">
                         <div className="relative" style={{ width: '132px', height: '132px' }}>
                           {visibleTags.length > 0 && (
-                            <div className="absolute inset-0 pointer-events-none z-0">
+                            <div className="absolute inset-0 pointer-events-none z-0 hidden md:block">
                               {visibleTags.map((tag, idx) => {
                                 const position = arcPositions[idx]
                                 return (

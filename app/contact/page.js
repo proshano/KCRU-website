@@ -44,7 +44,7 @@ const DEFAULT_OPTIONS = [
   {
     key: 'referral',
     label: 'Healthcare provider making a research or clinical referral',
-    description: 'For clinical or research referrals. You will continue to our referral flow.',
+    description: 'clinical referrals coming soon. To refer a patient for individual studies, please see the Studies page.',
     showOceanLink: true
   },
   {
