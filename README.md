@@ -56,7 +56,8 @@ flowchart LR
   Next -->|Email sends| Resend[Resend]
   PubMed[PubMed] -->|Publication data| Next
   ClinicalTrials[ClinicalTrials.gov] -->|Trial data| Next
-  Next <-->|Summaries/tags (via OpenRouter)| LLM[LLM providers]
+  Next -->|Summaries and tags via OpenRouter| LLM[LLM providers]
+  LLM -->|Responses| Next
   Next -->|Cache| Runtime[Runtime cache]
 
   Cron[Vercel Cron Jobs] -->|Refresh data and dispatch emails| Next
@@ -66,13 +67,13 @@ flowchart LR
 
 ## Content and staff workflows
 
-- **Site settings:** Global config, maintenance mode, newsletter settings.
 - **Studies:** Recruiting-focused listings (plus coming soon and not recruiting), eligibility emphasis, and referral routing.
 - **Referrals:** Collects only the referring provider's email and routes to the study coordinator; no patient-identifying information is collected.
+- **Updates and newsletters:** Subscriptions enable two outreach methods. Publication newsletters summarize new papers with key takeaways and links. Study updates highlight actively recruiting studies and provide a one-click referral pathway for clinicians. Together they keep internal teams, referring providers, and external collaborators aware of current research and make engagement easy.
 - **Team:** Researcher profiles and publication ties.
 - **News and training:** Posts, opportunities, and alumni.
 - **Contact:** Form submissions routed by Sanity-managed rules.
-- **Updates and newsletters:** Subscriptions plus two outreach streams. Publication newsletters summarize new papers with key takeaways and links. Study updates highlight actively recruiting studies and provide a one-click referral pathway for clinicians. Together they keep internal teams, referring providers, and external collaborators aware of current research and make engagement easy.
+- **Site settings:** Global config, maintenance mode, newsletter settings.
 
 ## Data pipelines
 
