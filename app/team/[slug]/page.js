@@ -107,6 +107,8 @@ export default async function TeamMemberPage({ params }) {
     const orcidId = profile.orcid.replace('https://orcid.org/', '')
     sameAs.push(`https://orcid.org/${orcidId}`)
   }
+  if (profile.googleScholar) sameAs.push(profile.googleScholar)
+  if (profile.github) sameAs.push(profile.github)
 
   const personSchema = {
     '@context': 'https://schema.org',
@@ -220,6 +222,16 @@ export default async function TeamMemberPage({ params }) {
               {profile.orcid && (
                 <a className="text-purple hover:underline" href={`https://orcid.org/${profile.orcid.replace('https://orcid.org/', '')}`} target="_blank" rel="noopener noreferrer">
                   ORCID
+                </a>
+              )}
+              {profile.googleScholar && (
+                <a className="text-purple hover:underline" href={profile.googleScholar} target="_blank" rel="noopener noreferrer">
+                  Google Scholar
+                </a>
+              )}
+              {profile.github && (
+                <a className="text-purple hover:underline" href={profile.github} target="_blank" rel="noopener noreferrer">
+                  GitHub
                 </a>
               )}
             </div>

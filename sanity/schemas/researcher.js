@@ -87,6 +87,18 @@ const researcher = {
       type: 'url'
     },
     {
+      name: 'googleScholar',
+      title: 'Google Scholar URL',
+      type: 'url',
+      description: 'Paste the full Google Scholar profile URL.'
+    },
+    {
+      name: 'github',
+      title: 'GitHub URL',
+      type: 'url',
+      description: 'Paste the full GitHub profile URL.'
+    },
+    {
       name: 'order',
       title: 'Display Order',
       type: 'number',

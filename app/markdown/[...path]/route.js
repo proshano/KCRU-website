@@ -358,6 +358,8 @@ async function buildTeamDetailMarkdown(slug) {
   addKeyValue(lines, 'ORCID', profile.orcid)
   addKeyValue(lines, 'Twitter', profile.twitter ? `https://twitter.com/${profile.twitter.replace('@', '')}` : '')
   addKeyValue(lines, 'LinkedIn', profile.linkedin)
+  addKeyValue(lines, 'Google Scholar', profile.googleScholar)
+  addKeyValue(lines, 'GitHub', profile.github)
   lines.push('')
 
   if (profile.bio) {
