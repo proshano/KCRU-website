@@ -956,6 +956,7 @@ export default function UpdatesAdminClient() {
                 <p className="text-xs text-gray-500">
                   Tokens (use in subject/intro/closing): <span className="font-mono">{'{{month}}'}</span>,{' '}
                   <span className="font-mono">{'{{range}}'}</span>, <span className="font-mono">{'{{count}}'}</span>,{' '}
+                  <span className="font-mono">{'{{displayCount}}'}</span>,{' '}
                   <span className="font-mono">{'{{previousYear}}'}</span>,{' '}
                   <span className="font-mono">{'{{countSincePreviousYear}}'}</span>,{' '}
                   <span className="font-mono">{'{{countSince2022}}'}</span>.

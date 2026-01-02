@@ -416,6 +416,12 @@ const siteSettings = {
       description: 'Optional fallback used when a contact reason does not provide a target email.'
     },
     {
+      name: 'replyToEmail',
+      title: 'Reply-To Email',
+      type: 'string',
+      description: 'Optional address to receive replies from website emails.'
+    },
+    {
       name: 'phone',
       title: 'Phone',
       type: 'string'
@@ -570,7 +576,7 @@ const siteSettings = {
           name: 'subjectTemplate',
           title: 'Email Subject Template',
           type: 'string',
-          description: 'Use {{month}}, {{range}}, {{count}}, {{previousYear}}, {{countSincePreviousYear}}, or {{countSince2022}}.',
+          description: 'Use {{month}}, {{range}}, {{count}}, {{displayCount}}, {{previousYear}}, {{countSincePreviousYear}}, or {{countSince2022}}.',
           initialValue: 'Research publication updates - {{month}}'
         },
         {
