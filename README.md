@@ -1,15 +1,15 @@
 # KCRU Research Unit Website
 
-A clinical research unit website is a web application developed by researchers in Nephrology to stay current with minimal manual effort. It keeps publications, trials, and metrics up to date. The public-facing experience is designed for healthcare providers, researchers, sponsors, and trainees who need accurate, current information. Automated data refreshes and admin workflows reduce the maintenance burden that typically makes research sites go stale.
+This website is a web application developed by researchers in Nephrology to stay current with minimal manual effort. It keeps publications, trials, and metrics up to date. The public-facing experience is designed for healthcare providers, researchers, sponsors, and trainees who need accurate, current information. Automated data refreshes and admin workflows reduce the maintenance burden that typically makes research sites go stale.
 
 ## What this site does
 
+- Aggregates, summarizes, and categorizes publications.
+- Showcases researchers.
+- Sends study updates and publication newsletters on a schedule to maintain awareness.
 - Publishes recruiting study listings with referral workflows and coordinator routing.
-- Showcases the team, training opportunities, alumni, and research network sites.
-- Presents sponsor and physician referral information with structured capabilities.
-- Aggregates publications and citation metrics from authoritative sources.
-- Sends study updates and publication newsletters on a reliable schedule.
 - Provides admin tools and LLM/SEO summaries for operational visibility.
+
 
 ## Automation-first by design
 
