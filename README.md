@@ -1,126 +1,144 @@
-# Research Unit Website
+# KCRU Research Unit Website
 
-## Project Structure
+A clinical research unit website is a web application developed by researchers in Nephrology to stay current with minimal manual effort. It keeps publications, trials, and metrics up to date. The public-facing experience is designed for healthcare providers, researchers, sponsors, and trainees who need accurate, current information. Automated data refreshes and admin workflows reduce the maintenance burden that typically makes research sites go stale.
 
+## What this site does
+
+- Publishes recruiting study listings with referral workflows and coordinator routing.
+- Showcases the team, training opportunities, alumni, and research network sites.
+- Presents sponsor and physician referral information with structured capabilities.
+- Aggregates publications and citation metrics from authoritative sources.
+- Sends study updates and publication newsletters on a reliable schedule.
+- Provides admin tools and LLM/SEO summaries for operational visibility.
+
+## Automation-first by design
+
+Research websites go out of date quickly. This project solves that by automating the highest-friction content and keeping it current without manual curation.
+
+- Publications are pulled from PubMed using investigator queries, deduplicated across the group, and refreshed on a schedule.
+- Publications can include AI-generated lay summaries and tags for topic, study type, and methods/approaches.
+- Those tags roll up into a live summary of what the unit works on and how it does it, updating automatically as new papers appear.
+- Adding a registered study can be as simple as entering the NCT ID, local PI name, and coordinator email.
+- Study details and eligibility are pulled from ClinicalTrials.gov, with plain-language summaries generated for clarity.
+
+## Who it serves
+
+- Referring physicians and community clinics.
+- Researchers and collaborators looking for current outputs.
+- Sponsors, CROs, and funders evaluating capabilities.
+- Trainees exploring opportunities and alumni outcomes.
+
+## Highlights
+
+- Sanity-first content model so staff can edit most pages without code.
+- Automated research data ingestion (PubMed, ClinicalTrials.gov) with caching.
+- Optional LLM summaries and classification for publications, cached for stability.
+- Maintenance mode that can be toggled in Sanity without developer help.
+- Clear separation of public pages, admin tools, and API routes.
+- Built for long-term maintainability with stable Next.js patterns.
+
+## How it works
+
+- Next.js App Router powers public pages, admin UI, and API routes.
+- Sanity CMS stores structured content and site settings.
+- Scheduled cron jobs refresh external data and dispatch emails.
+- Cached results are stored in `runtime/` to keep the site fast and resilient.
+- Email delivery is handled via `lib/email.js` (Resend).
+
+## Architecture (lightweight)
+
+```mermaid
+flowchart LR
+  Browser[Clinicians, researchers, sponsors] -->|Browse| Next[Next.js App on Vercel]
+  Staff[Staff editors] -->|Edit content| Sanity[Sanity CMS/Studio]
+  Sanity -->|Content APIs| Next
+
+  Next -->|Email sends| Resend[Resend]
+  Next -->|Publication data| PubMed[PubMed]
+  Next -->|Trial data| ClinicalTrials[ClinicalTrials.gov]
+  Next -.->|Optional summaries/tags| LLM[LLM providers]
+  Next -->|Cache| Runtime[Runtime cache]
+
+  Cron[Vercel Cron Jobs] -->|Refresh data and dispatch emails| Next
+  GitHub[GitHub repo] -->|Deploy| Next
+  Developer[Developer machine] -->|Code changes| GitHub
 ```
-/kcru-website
-├── app/                         # Next.js App Router (pages, layouts, API routes)
-│   ├── admin/                   # Admin hub and entry points
-│   ├── api/                     # Route handlers
-│   ├── components/              # Shared UI components
-│   ├── news/                    # Inactive (legacy section)
-│   ├── publications/            # Publications pages
-│   ├── team/                    # Team listing + detail
-│   ├── trials/                  # Trials pages + approvals
-│   ├── updates/                 # Study updates flows
-│   └── ...                      # Other site sections
-├── lib/                         # Data clients/helpers (Sanity, PubMed, ClinicalTrials.gov, OpenAlex)
-├── sanity/                      # Sanity Studio config + schemas
-├── scripts/                     # Maintenance/migration scripts
-├── runtime/                     # Generated caches/locks (do not edit)
-├── dist/                        # Build output (do not edit)
-├── core                         # Tracked binary artifact
-├── vercel.json                  # Cron jobs
-└── package.json
-```
 
-## Automated Data Sources
+## Content and staff workflows
 
-### 1. PubMed (Publications)
-- Searches by affiliation or individual researcher queries
-- Returns title, authors, journal, DOI, abstract
-- Cached to `runtime/pubmed-cache.json` and refreshed daily
+- **Site settings:** Global config, maintenance mode, newsletter settings.
+- **Studies:** Recruiting-focused listings (plus coming soon and not recruiting), eligibility emphasis, and referral routing.
+- **Referrals:** Collects only the referring provider's email and routes to the study coordinator; no patient-identifying information is collected.
+- **Team:** Researcher profiles and publication ties.
+- **News and training:** Posts, opportunities, and alumni.
+- **Contact:** Form submissions routed by Sanity-managed rules.
+- **Updates and newsletters:** Subscriptions, study updates, publication and custom newsletters.
 
-## Admin Access
-- Admin hub: `/admin`
-- Module entry points: `/admin/approvals` (study approvals) and `/admin/updates` (study update emails)
-- Legacy URLs remain supported: `/trials/approvals` and `/updates/admin`
-- Access is scoped by email lists in Sanity `siteSettings.studyApprovals.admins` and `siteSettings.studyUpdates.admins`
+## Data pipelines
 
-## Setup Steps
+- **PubMed:** Publication metadata and abstracts, cached daily.
+- **ClinicalTrials.gov:** Trial metadata and eligibility to support study listings.
+- **LLM summaries:** Plain-language publication summaries generated once and cached.
 
-### 1. Create Next.js project
+## Admin and maintenance
+
+- Admin hub at `/admin` with scoped access for approvals and updates.
+- Legacy admin URLs remain supported for continuity.
+- Maintenance flow uses `/under-construction`, `/api/maintenance`, and `/api/auth`.
+- Allowlisted paths still resolve during maintenance (`/llms.txt`, `/sitemap.xml`, `/robots.txt`, and markdown endpoints).
+
+## LLM and markdown endpoints
+
+- `/llms.txt` provides a site summary for AI tools.
+- `/markdown/*` and `*.md` expose page-level markdown summaries.
+- `/api/seo/refresh` updates SEO metadata and LLM summaries.
+
+## Tech stack
+
+- **Framework:** Next.js (App Router)
+- **CMS:** Sanity
+- **Styling:** Tailwind CSS
+- **Email:** Resend
+- **Hosting:** Vercel
+
+## Local development
+
 ```bash
-npx create-next-app@latest research-unit-site
-cd research-unit-site
+npm install
+npm run dev
 ```
 
-### 2. Install dependencies
-```bash
-npm install @sanity/client @sanity/image-url
-npm install -g sanity
-sanity init --coupon sonext
-```
+Environment variables (example):
 
-### 3. Add environment variables
-Create `.env.local`:
 ```
 NEXT_PUBLIC_SANITY_PROJECT_ID=your_project_id
 NEXT_PUBLIC_SANITY_DATASET=production
 SANITY_API_TOKEN=your_token
+RESEND_API_KEY=re_xxx
+PUBMED_API_KEY=your_ncbi_key
 ```
 
-### 4. Deploy
-- Push to GitHub
-- Connect repo to Vercel
-- Add environment variables in Vercel dashboard
-- Done
+## Cron jobs
 
-## Cron Jobs (vercel.json)
+Cron schedules are defined in `vercel.json`, including:
 
-```json
-{
-  "crons": [
-    {
-      "path": "/api/pubmed/refresh",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/updates/study-email/dispatch",
-      "schedule": "0 11 * * *"
-    }
-  ]
-}
-```
+- `/api/pubmed/refresh` - refreshes the PubMed cache
+- `/api/updates/study-email/dispatch` - sends scheduled study updates
 
-Refreshes PubMed daily and dispatches study update emails.
+Optional SEO refresh can piggyback on the PubMed cron with `SEO_REFRESH_ON_PUBMED_CRON=true`.
 
-## PubMed Cache (filesystem)
-- Cache file: `runtime/pubmed-cache.json` (metadata + publications + provenance)
-- Refresh manually: `npm run refresh:pubmed`
-- Refresh via Sanity Studio: open `Site Settings` and click **Refresh PubMed cache** (configure `SANITY_STUDIO_PUBMED_REFRESH_URL` + `SANITY_STUDIO_PUBMED_REFRESH_TOKEN` to point at your deployed API)
-- Refresh via API: `POST /api/pubmed/refresh` with `Authorization: Bearer $PUBMED_REFRESH_TOKEN`
-- Cancel a running refresh: `POST /api/pubmed/cancel` (same bearer token). The running job checks for cancellation and exits early; lock clears automatically.
-- Configure: `PUBMED_API_KEY` (higher PubMed limits), `PUBMED_TIMEOUT_MS`, `PUBMED_RETRIES`, `PUBMED_MAX_PER_RESEARCHER`, `PUBMED_CACHE_MAX_AGE_MS`
-- Scheduling: Vercel cron calls `/api/pubmed/refresh` (see `vercel.json`); for self-hosted setups, run `npm run refresh:pubmed` daily via cron/PM2
+## Key paths
 
-## SEO Refresh (LLM/metadata)
-- Refresh via Sanity Studio: open `Site Settings` and click **Refresh SEO metadata** (configure `SANITY_STUDIO_SEO_REFRESH_URL` + `SANITY_STUDIO_SEO_REFRESH_TOKEN` to point at your deployed API)
-- Refresh via API: `POST /api/seo/refresh` with `Authorization: Bearer $SEO_REFRESH_TOKEN` (requires `SANITY_API_TOKEN` on the server)
-- Optional cron piggyback: set `SEO_REFRESH_ON_PUBMED_CRON=true` to refresh SEO after the PubMed cron finishes
+- `app/` pages, layouts, and API routes
+- `app/admin/` admin hub and entry points
+- `app/components/` shared UI components
+- `app/llms.txt/` LLM summary endpoint
+- `app/markdown/` markdown endpoints
+- `lib/` data clients, caching, helpers
+- `sanity/` Sanity Studio config and schemas
+- `scripts/` maintenance scripts
+- `runtime/` generated caches and locks (do not edit by hand)
 
-## API Endpoints
+## Contributing
 
-| Endpoint | Purpose | Methods/Notes |
-|----------|---------|---------------|
-| `/api/pubmed/refresh` | PubMed cache refresh | `GET` for cron (CRON_SECRET), `POST` for manual (Authorization: Bearer) |
-| `/api/pubmed/cancel` | Cancel a running refresh and clear lock | `POST` (Authorization: Bearer) |
-| `/api/pubmed/download` | Download cached publications JSON | `GET` (Authorization: Bearer) |
-| `/api/pubmed/upload` | Upload local `runtime/pubmed-cache.json` to Sanity | `POST` (Authorization: Bearer, body: `{ "force": true }` optional) |
-| `/api/pubmed/summarize` | Generate missing publication summaries | `GET` for cron (CRON_SECRET), `POST` for manual (Authorization: Bearer, body: `{ "maxSummaries": number }` optional) |
-| `/api/pubmed/publication` | Update or delete a single publication in cache | `POST` with `{ "pmid": "..." }` to regenerate summary; `DELETE ?pmid=...` to remove |
-| `/api/pubmed/classify-preview` | Preview classification + summaries for recent publications | `POST` (Authorization: Bearer, body: `{ count, prompt, provider, model, apiKey }` optional) |
-| `/api/pubmed/reclassify` | Classify publications and store results in Sanity | `POST` (Authorization: Bearer, body: `{ count|all|pmids, clear, batchSize, delayMs }` and prompt/provider/model overrides) |
-| `/api/seo/refresh` | Refresh SEO metadata and LLM summaries | `POST` (Authorization: Bearer) or `GET` for cron (CRON_SECRET) |
-| `/api/updates/study-email/dispatch` | Study updates email dispatch | `GET` for cron (CRON_SECRET), `POST` for manual (Authorization: Bearer) |
-
-## Tips
-
-### Caching Strategy
-- API routes cache in memory (resets on cold start)
-- For persistent cache, add Vercel KV or a database
-- ISR (revalidate) handles page-level caching
-
-### Rate Limits
-- PubMed: 3 requests/second without API key, 10 with
-- ClinicalTrials.gov: No published limits, be reasonable
+This project favors stable patterns and maintainability. Keep editable content in Sanity whenever possible, and avoid hard-coded copy that staff cannot update.
