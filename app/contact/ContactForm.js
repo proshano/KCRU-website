@@ -266,7 +266,7 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
               <div className="rounded-md border border-purple/30 bg-purple/5 px-4 py-3 text-base text-[#333]">
                 <p className="font-semibold text-[#1a1a1a]">Use our referral link</p>
                 <p className="mt-1 text-[#555]">
-                  Share your contact email above, then continue to the OceanMD referral service.
+                  clinical referrals coming soon. To refer a patient for individual studies, please see the Studies page.
                 </p>
                 {status?.oceanUrl && (
                   <a
@@ -358,8 +358,6 @@ export default function ContactForm({ options = [], recaptchaSiteKey }) {
     </div>
   )
 }
-
-
 
 
 
