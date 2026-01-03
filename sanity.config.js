@@ -9,15 +9,15 @@ import { pubmedClassificationTool } from './sanity/plugins/pubmedClassificationT
 import { studyUpdateSendAction } from './sanity/plugins/studyUpdateSendAction'
 import { seoRefreshAction } from './sanity/plugins/seoRefreshAction'
 
-const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
-const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET
+const projectId = process.env.SANITY_STUDIO_PROJECT_ID
+const dataset = process.env.SANITY_STUDIO_DATASET
 
 if (!projectId) {
-  throw new Error('Missing NEXT_PUBLIC_SANITY_PROJECT_ID. Set it in the environment.')
+  throw new Error('Missing SANITY_STUDIO_PROJECT_ID. Set it in the environment.')
 }
 
 if (!dataset) {
-  throw new Error('Missing NEXT_PUBLIC_SANITY_DATASET. Set it in the environment.')
+  throw new Error('Missing SANITY_STUDIO_DATASET. Set it in the environment.')
 }
 
 export default defineConfig({

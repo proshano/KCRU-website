@@ -66,8 +66,8 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 ## Environment & Secrets
 - `.env.local` holds secrets (Sanity tokens, API keys). Never commit or echo values.
 - Mutations require `SANITY_API_TOKEN` (used by `writeClient` in `lib/sanity.js`).
-- `NEXT_PUBLIC_SANITY_PROJECT_ID` and `NEXT_PUBLIC_SANITY_DATASET` are required for the app, Studio, and scripts (no fallbacks).
-- Studio cache tooling that queries Sanity directly needs `SANITY_STUDIO_PROJECT_ID` and `SANITY_STUDIO_DATASET`.
+- `NEXT_PUBLIC_SANITY_PROJECT_ID` and `NEXT_PUBLIC_SANITY_DATASET` are required for the app and scripts (no fallbacks).
+- `SANITY_STUDIO_PROJECT_ID` and `SANITY_STUDIO_DATASET` are required for the Studio (including cache tooling).
 
 ## Sanity Content Model
 - Schemas live in `sanity/schemas/` and are registered in `sanity/schemas/index.js`.
