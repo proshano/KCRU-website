@@ -85,6 +85,7 @@ async function fetchStudies() {
       acceptsReferrals,
       localContact { email },
       principalInvestigator-> { name },
+      principalInvestigatorName,
       therapeuticAreas[]-> { name }
     }
   `

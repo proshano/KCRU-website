@@ -33,6 +33,8 @@ export default function FeaturedStudy({ trials = [] }) {
   const href = slugValue ? `/trials/${slugValue}` : '/trials'
   const title = trial.title || 'Study'
   const pi = trial.principalInvestigator
+  const piName = pi?.name || trial.principalInvestigatorName
+  const piPhoto = pi?.photo
 
   const handleClick = () => {
     router.push(href)
@@ -72,10 +74,10 @@ export default function FeaturedStudy({ trials = [] }) {
         {/* Bottom row: Investigator chip + Learn more */}
         <div className="mt-4 flex items-center gap-4">
           {/* Investigator chip */}
-          {pi?.name && (
+          {piName && (
             <span className="inline-flex items-center gap-2 text-sm font-medium text-purple bg-white/60 px-3 py-1.5 rounded-full border border-black/[0.06]">
-              <Avatar photo={pi.photo} name={pi.name} />
-              {pi.name}
+              <Avatar photo={piPhoto} name={piName} />
+              {piName}
             </span>
           )}
 

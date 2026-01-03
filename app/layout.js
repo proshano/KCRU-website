@@ -171,7 +171,7 @@ export default async function RootLayout({ children }) {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  More about the site
+                  read technical information about this site
                 </a>
               </div>
               <div className="flex gap-6">
