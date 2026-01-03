@@ -55,19 +55,30 @@ export async function POST(request) {
 
     const { code } = await createAdminPasscodeSession({ email, codeTtlMinutes: CODE_TTL_MINUTES })
 
-    const subject = 'Admin portal: your passcode'
+    const portalLabel = 'administrator'
+    const subject = 'London Kidney Clinical Research  - Portal access'
     const text = [
-      'Use this passcode to access the admin portal:',
+      'London Kidney Clinical Research',
+      '',
+      `Your verification code for the ${portalLabel} portal is:`,
       code,
       '',
       `This code expires in ${CODE_TTL_MINUTES} minutes.`,
+      '',
+      "If you didn't request this code, you can safely ignore this email.",
+      '',
+      '--',
+      'London Kidney Clinical Research',
     ].join('\n')
     const html = `
       <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.5;">
-        <p style="margin: 0 0 12px;"><strong>Admin portal sign-in</strong></p>
-        <p style="margin: 0 0 12px;">Use this passcode to access the admin portal:</p>
+        <p style="margin: 0 0 12px;">London Kidney Clinical Research</p>
+        <p style="margin: 0 0 12px;">Your verification code for the ${portalLabel} portal is:</p>
         <p style="margin: 0 0 12px; font-size: 20px; letter-spacing: 0.2em;"><strong>${code}</strong></p>
-        <p style="margin: 0;">This code expires in ${CODE_TTL_MINUTES} minutes.</p>
+        <p style="margin: 0 0 12px;">This code expires in ${CODE_TTL_MINUTES} minutes.</p>
+        <p style="margin: 0 0 12px;">If you didn't request this code, you can safely ignore this email.</p>
+        <p style="margin: 0 0 4px;">--</p>
+        <p style="margin: 0;">London Kidney Clinical Research</p>
       </div>
     `
 
