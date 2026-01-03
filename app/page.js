@@ -298,7 +298,7 @@ export default async function HomePage() {
                     let logoUrl
                     if (isSvg) {
                       // For SVGs, construct the CDN URL directly
-                      logoUrl = `https://cdn.sanity.io/images/${process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 't6eeltne'}/${process.env.NEXT_PUBLIC_SANITY_DATASET || 'production'}/${id}-${dimensions}.${format}`
+                      logoUrl = `https://cdn.sanity.io/images/${process.env.NEXT_PUBLIC_SANITY_PROJECT_ID}/${process.env.NEXT_PUBLIC_SANITY_DATASET}/${id}-${dimensions}.${format}`
                     } else {
                       try {
                         logoUrl = urlFor(affiliation.logo).url()

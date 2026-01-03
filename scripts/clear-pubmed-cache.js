@@ -47,9 +47,21 @@ async function deleteLocalCache() {
 }
 
 async function deleteSanityCacheDoc() {
-  const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 't6eeltne'
-  const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production'
+  const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
+  const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET
   const token = process.env.SANITY_API_TOKEN
+
+  if (!projectId) {
+    console.error('[clear:pubmed] NEXT_PUBLIC_SANITY_PROJECT_ID is required to delete the Sanity cache doc.')
+    process.exitCode = 1
+    return
+  }
+
+  if (!dataset) {
+    console.error('[clear:pubmed] NEXT_PUBLIC_SANITY_DATASET is required to delete the Sanity cache doc.')
+    process.exitCode = 1
+    return
+  }
 
   if (!token) {
     console.error('[clear:pubmed] SANITY_API_TOKEN is required to delete the Sanity cache doc.')
@@ -93,7 +105,6 @@ main().catch((err) => {
   console.error('[clear:pubmed] Unexpected error:', err)
   process.exitCode = 1
 })
-
 
 
 

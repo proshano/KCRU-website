@@ -3,7 +3,7 @@ import { client as sanityClient, writeClient as sanityWriteClient, sanityFetch, 
 import { generateLaySummary } from '@/lib/summaries'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
-const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN || ''
+const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN
 const CACHE_DOC_ID = 'pubmedCache'
 const CACHE_DOC_TYPE = 'pubmedCache'
 
@@ -17,11 +17,16 @@ export async function OPTIONS() {
  * DELETE - Remove a publication from the cache by PMID
  */
 export async function DELETE(request) {
-  if (AUTH_TOKEN) {
-    const token = extractBearerToken(request)
-    if (token !== AUTH_TOKEN) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
-    }
+  if (!AUTH_TOKEN) {
+    return NextResponse.json(
+      { ok: false, error: 'PUBMED_REFRESH_TOKEN not configured' },
+      { status: 500, headers: CORS_HEADERS }
+    )
+  }
+
+  const token = extractBearerToken(request)
+  if (token !== AUTH_TOKEN) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
   try {
@@ -75,13 +80,18 @@ export async function DELETE(request) {
  */
 export async function POST(request) {
   console.log('[pubmed/publication] POST request received')
-  
-  if (AUTH_TOKEN) {
-    const token = extractBearerToken(request)
-    if (token !== AUTH_TOKEN) {
-      console.log('[pubmed/publication] Unauthorized - token mismatch')
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
-    }
+
+  if (!AUTH_TOKEN) {
+    return NextResponse.json(
+      { ok: false, error: 'PUBMED_REFRESH_TOKEN not configured' },
+      { status: 500, headers: CORS_HEADERS }
+    )
+  }
+
+  const token = extractBearerToken(request)
+  if (token !== AUTH_TOKEN) {
+    console.log('[pubmed/publication] Unauthorized - token mismatch')
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
   try {
@@ -173,7 +183,6 @@ export async function POST(request) {
 
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
-
 
 
 

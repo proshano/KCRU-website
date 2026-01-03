@@ -7,21 +7,30 @@ const CANCEL_URL = process.env.SANITY_STUDIO_PUBMED_CANCEL_URL || 'http://localh
 const AUTH_TOKEN =
   process.env.SANITY_STUDIO_PUBMED_REFRESH_TOKEN ||
   process.env.SANITY_STUDIO_PUBMED_CANCEL_TOKEN ||
-  process.env.NEXT_PUBLIC_PUBMED_REFRESH_TOKEN ||
-  ''
+  process.env.NEXT_PUBLIC_PUBMED_REFRESH_TOKEN
 
 function PubmedCacheRefreshAction(props) {
   const toast = useToast()
   const [isRunning, setIsRunning] = useState(false)
 
   async function handleRefresh() {
+    if (!AUTH_TOKEN) {
+      toast.push({
+        status: 'error',
+        title: 'Missing token',
+        description: 'SANITY_STUDIO_PUBMED_REFRESH_TOKEN or SANITY_STUDIO_PUBMED_CANCEL_TOKEN is not configured.',
+      })
+      props.onComplete?.()
+      return
+    }
+
     setIsRunning(true)
     try {
       const res = await fetch(REFRESH_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+          Authorization: `Bearer ${AUTH_TOKEN}`,
         },
         body: JSON.stringify({ trigger: 'sanity-action' }),
       })
@@ -67,13 +76,23 @@ function PubmedCacheCancelAction(props) {
   const [isRunning, setIsRunning] = useState(false)
 
   async function handleCancel() {
+    if (!AUTH_TOKEN) {
+      toast.push({
+        status: 'error',
+        title: 'Missing token',
+        description: 'SANITY_STUDIO_PUBMED_REFRESH_TOKEN or SANITY_STUDIO_PUBMED_CANCEL_TOKEN is not configured.',
+      })
+      props.onComplete?.()
+      return
+    }
+
     setIsRunning(true)
     try {
       const res = await fetch(CANCEL_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+          Authorization: `Bearer ${AUTH_TOKEN}`,
         },
         body: JSON.stringify({ trigger: 'sanity-action' }),
       })

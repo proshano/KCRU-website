@@ -4,7 +4,7 @@ import path from 'path'
 import { writeClient } from '@/lib/sanity'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
-const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN || ''
+const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN
 const CACHE_PATH = path.join(process.cwd(), 'runtime', 'pubmed-cache.json')
 const CACHE_DOC_ID = 'pubmedCache'
 const CACHE_DOC_TYPE = 'pubmedCache'
@@ -16,11 +16,16 @@ export async function OPTIONS() {
 }
 
 export async function POST(request) {
-  if (AUTH_TOKEN) {
-    const token = extractBearerToken(request)
-    if (token !== AUTH_TOKEN) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
-    }
+  if (!AUTH_TOKEN) {
+    return NextResponse.json(
+      { ok: false, error: 'PUBMED_REFRESH_TOKEN not configured' },
+      { status: 500, headers: CORS_HEADERS }
+    )
+  }
+
+  const token = extractBearerToken(request)
+  if (token !== AUTH_TOKEN) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
   try {

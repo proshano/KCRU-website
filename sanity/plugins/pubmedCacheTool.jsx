@@ -11,8 +11,10 @@ const DOWNLOAD_URL = process.env.SANITY_STUDIO_PUBMED_DOWNLOAD_URL || `${BASE_UR
 const PUBLICATION_URL = `${BASE_URL}/api/pubmed/publication`
 const AUTH_TOKEN =
   process.env.SANITY_STUDIO_PUBMED_REFRESH_TOKEN ||
-  process.env.SANITY_STUDIO_PUBMED_CANCEL_TOKEN ||
-  ''
+  process.env.SANITY_STUDIO_PUBMED_CANCEL_TOKEN
+const STUDIO_PROJECT_ID = process.env.SANITY_STUDIO_PROJECT_ID
+const STUDIO_DATASET = process.env.SANITY_STUDIO_DATASET
+const hasStudioConfig = Boolean(STUDIO_PROJECT_ID && STUDIO_DATASET)
 
 // Cache staleness: 24 hours (same as lib/pubmedCache.js)
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000
@@ -38,11 +40,25 @@ function PubmedCacheTool({ tool }) {
   const [searching, setSearching] = useState(false)
   const [actionLoading, setActionLoading] = useState({}) // pmid -> 'delete' | 'regenerate' | null
 
+  const requireAuthToken = () => {
+    if (AUTH_TOKEN) return true
+    setMessage({
+      tone: 'critical',
+      text: 'SANITY_STUDIO_PUBMED_REFRESH_TOKEN or SANITY_STUDIO_PUBMED_CANCEL_TOKEN is not configured.',
+    })
+    return false
+  }
+
   const fetchStatus = useCallback(async () => {
+    if (!hasStudioConfig) {
+      setStatus(null)
+      setLoading(false)
+      return
+    }
     try {
       // We'll fetch the cache status from Sanity directly
-      const projectId = process.env.SANITY_STUDIO_PROJECT_ID || 't6eeltne'
-      const dataset = process.env.SANITY_STUDIO_DATASET || 'production'
+      const projectId = STUDIO_PROJECT_ID
+      const dataset = STUDIO_DATASET
       const query = encodeURIComponent(`*[_type == "pubmedCache" && _id == "pubmedCache"][0]{
         lastRefreshedAt,
         refreshInProgress,
@@ -73,20 +89,36 @@ function PubmedCacheTool({ tool }) {
   }, [])
 
   useEffect(() => {
+    if (!hasStudioConfig) {
+      setMessage({
+        tone: 'critical',
+        text: 'SANITY_STUDIO_PROJECT_ID and SANITY_STUDIO_DATASET are not configured.',
+      })
+      setLoading(false)
+      return
+    }
     fetchStatus()
     const interval = setInterval(fetchStatus, 30000) // refresh every 30s
     return () => clearInterval(interval)
   }, [fetchStatus])
 
   const handleSearch = useCallback(async () => {
+    if (!hasStudioConfig) {
+      setMessage({
+        tone: 'critical',
+        text: 'SANITY_STUDIO_PROJECT_ID and SANITY_STUDIO_DATASET are not configured.',
+      })
+      setSearchResults([])
+      return
+    }
     if (!searchQuery.trim()) {
       setSearchResults(null)
       return
     }
     setSearching(true)
     try {
-      const projectId = process.env.SANITY_STUDIO_PROJECT_ID || 't6eeltne'
-      const dataset = process.env.SANITY_STUDIO_DATASET || 'production'
+      const projectId = STUDIO_PROJECT_ID
+      const dataset = STUDIO_DATASET
       const searchTerm = searchQuery.trim().toLowerCase()
       // Fetch all publications and filter client-side for flexible search
       const query = encodeURIComponent(`*[_type == "pubmedCache"][0].publications[]{
@@ -119,6 +151,7 @@ function PubmedCacheTool({ tool }) {
   }, [searchQuery])
 
   const handleDeletePublication = async (pmid) => {
+    if (!requireAuthToken()) return
     if (!confirm(`Delete publication ${pmid} from cache?`)) return
     setActionLoading(prev => ({ ...prev, [pmid]: 'delete' }))
     try {
@@ -144,6 +177,7 @@ function PubmedCacheTool({ tool }) {
   }
 
   const handleRegenerateSummary = async (pmid) => {
+    if (!requireAuthToken()) return
     setActionLoading(prev => ({ ...prev, [pmid]: 'regenerate' }))
     try {
       const res = await fetch(PUBLICATION_URL, {
@@ -173,6 +207,7 @@ function PubmedCacheTool({ tool }) {
   }
 
   const handleRefresh = async () => {
+    if (!requireAuthToken()) return
     setRefreshing(true)
     setMessage(null)
     try {
@@ -199,6 +234,7 @@ function PubmedCacheTool({ tool }) {
   }
 
   const handleCancel = async () => {
+    if (!requireAuthToken()) return
     try {
       const res = await fetch(CANCEL_URL, {
         method: 'POST',
@@ -221,6 +257,7 @@ function PubmedCacheTool({ tool }) {
   }
 
   const handleUpload = async () => {
+    if (!requireAuthToken()) return
     const attemptUpload = async (force = false) => {
       const res = await fetch(UPLOAD_URL, {
         method: 'POST',
@@ -270,6 +307,7 @@ function PubmedCacheTool({ tool }) {
   }
 
   const handleDownload = async () => {
+    if (!requireAuthToken()) return
     setDownloading(true)
     setMessage(null)
     try {

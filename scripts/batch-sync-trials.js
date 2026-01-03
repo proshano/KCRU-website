@@ -10,13 +10,23 @@
 import { createClient } from '@sanity/client'
 import { syncTrialData } from '../lib/trialSync.js'
 
-const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 't6eeltne'
-const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production'
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
+const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET
 const token = process.env.SANITY_API_TOKEN
 const dryRun = process.env.DRY_RUN === 'true'
 const concurrency = Number(process.env.CONCURRENCY || 3)
 const delayMs = Number(process.env.DELAY_MS || 400)
 const generateSummary = process.env.GENERATE_SUMMARY !== 'false'
+
+if (!projectId) {
+  console.error('Error: NEXT_PUBLIC_SANITY_PROJECT_ID environment variable is required')
+  process.exit(1)
+}
+
+if (!dataset) {
+  console.error('Error: NEXT_PUBLIC_SANITY_DATASET environment variable is required')
+  process.exit(1)
+}
 
 if (!token) {
   console.error('Error: SANITY_API_TOKEN environment variable is required')

@@ -14,9 +14,19 @@ const CACHE_PATH = path.join(process.cwd(), 'runtime', 'pubmed-cache.json')
 const CACHE_DOC_ID = 'pubmedCache'
 const CACHE_DOC_TYPE = 'pubmedCache'
 
-const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 't6eeltne'
-const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production'
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
+const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET
 const token = process.env.SANITY_API_TOKEN
+
+if (!projectId) {
+  console.error('Error: NEXT_PUBLIC_SANITY_PROJECT_ID environment variable is required')
+  process.exit(1)
+}
+
+if (!dataset) {
+  console.error('Error: NEXT_PUBLIC_SANITY_DATASET environment variable is required')
+  process.exit(1)
+}
 
 if (!token) {
   console.error('Error: SANITY_API_TOKEN environment variable is required')

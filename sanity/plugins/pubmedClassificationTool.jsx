@@ -23,8 +23,7 @@ const PREVIEW_URL = process.env.SANITY_STUDIO_PUBMED_CLASSIFY_PREVIEW_URL || `${
 const RECLASSIFY_URL = process.env.SANITY_STUDIO_PUBMED_RECLASSIFY_URL || `${BASE_URL}/api/pubmed/reclassify`
 const AUTH_TOKEN =
   process.env.SANITY_STUDIO_PUBMED_REFRESH_TOKEN ||
-  process.env.SANITY_STUDIO_PUBMED_PREVIEW_TOKEN ||
-  ''
+  process.env.SANITY_STUDIO_PUBMED_PREVIEW_TOKEN
 
 const providerOptions = [
   { label: 'Default (settings)', value: '' },
@@ -72,6 +71,14 @@ function ClassificationTool() {
   }, [])
 
   const runPreview = async () => {
+    if (!AUTH_TOKEN) {
+      setPreviewMsg({
+        tone: 'critical',
+        text: 'SANITY_STUDIO_PUBMED_REFRESH_TOKEN or SANITY_STUDIO_PUBMED_PREVIEW_TOKEN is not configured.',
+      })
+      return
+    }
+
     setPreviewLoading(true)
     setPreviewMsg(null)
     setPreviewResult(null)
@@ -102,6 +109,14 @@ function ClassificationTool() {
   }
 
   const runReclassify = async () => {
+    if (!AUTH_TOKEN) {
+      setClassifyMsg({
+        tone: 'critical',
+        text: 'SANITY_STUDIO_PUBMED_REFRESH_TOKEN or SANITY_STUDIO_PUBMED_PREVIEW_TOKEN is not configured.',
+      })
+      return
+    }
+
     setClassifyLoading(true)
     setClassifyMsg(null)
     try {
