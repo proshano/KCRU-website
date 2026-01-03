@@ -9,12 +9,22 @@ import { pubmedClassificationTool } from './sanity/plugins/pubmedClassificationT
 import { studyUpdateSendAction } from './sanity/plugins/studyUpdateSendAction'
 import { seoRefreshAction } from './sanity/plugins/seoRefreshAction'
 
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
+const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET
+
+if (!projectId) {
+  throw new Error('Missing NEXT_PUBLIC_SANITY_PROJECT_ID. Set it in the environment.')
+}
+
+if (!dataset) {
+  throw new Error('Missing NEXT_PUBLIC_SANITY_DATASET. Set it in the environment.')
+}
+
 export default defineConfig({
   name: 'kcru-website',
   title: 'KCRU Website',
-  // Fallback values so Studio can start even if env vars aren't loaded
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 't6eeltne',
-  dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || 'production',
+  projectId,
+  dataset,
   plugins: [
     deskTool(),
     visionTool(),

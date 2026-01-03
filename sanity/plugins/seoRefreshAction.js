@@ -4,20 +4,30 @@ import { useToast } from '@sanity/ui'
 
 const NEXT_APP_URL = process.env.SANITY_STUDIO_NEXT_APP_URL || 'http://localhost:3000'
 const REFRESH_URL = process.env.SANITY_STUDIO_SEO_REFRESH_URL || `${NEXT_APP_URL}/api/seo/refresh`
-const AUTH_TOKEN = process.env.SANITY_STUDIO_SEO_REFRESH_TOKEN || ''
+const AUTH_TOKEN = process.env.SANITY_STUDIO_SEO_REFRESH_TOKEN
 
 function SeoRefreshAction(props) {
   const toast = useToast()
   const [isRunning, setIsRunning] = useState(false)
 
   async function handleRefresh() {
+    if (!AUTH_TOKEN) {
+      toast.push({
+        status: 'error',
+        title: 'Missing token',
+        description: 'SANITY_STUDIO_SEO_REFRESH_TOKEN is not configured.',
+      })
+      props.onComplete?.()
+      return
+    }
+
     setIsRunning(true)
     try {
       const res = await fetch(REFRESH_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+          Authorization: `Bearer ${AUTH_TOKEN}`,
         },
         body: JSON.stringify({ trigger: 'sanity-action' }),
       })

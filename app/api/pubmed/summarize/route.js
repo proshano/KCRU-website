@@ -5,7 +5,7 @@ import { generateMissingSummaries } from '@/lib/publications'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { isCronAuthorized } from '@/lib/cronUtils'
 
-const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN || ''
+const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN
 const CRON_SECRET = process.env.CRON_SECRET || ''
 
 // Max summaries to generate per cron run (default: 5 to stay within timeout)
@@ -43,11 +43,16 @@ export async function GET(request) {
 
 // POST handler for manual triggers
 export async function POST(request) {
-  if (AUTH_TOKEN) {
-    const token = extractBearerToken(request)
-    if (token !== AUTH_TOKEN) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
-    }
+  if (!AUTH_TOKEN) {
+    return NextResponse.json(
+      { ok: false, error: 'PUBMED_REFRESH_TOKEN not configured' },
+      { status: 500, headers: CORS_HEADERS }
+    )
+  }
+
+  const token = extractBearerToken(request)
+  if (token !== AUTH_TOKEN) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
   // Parse body for optional maxSummaries override

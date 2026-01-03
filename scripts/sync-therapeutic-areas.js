@@ -9,10 +9,20 @@
 import { createClient } from '@sanity/client'
 import { THERAPEUTIC_AREA_OPTIONS } from '../lib/communicationOptions.js'
 
-const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || 't6eeltne'
-const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production'
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
+const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET
 const token = process.env.SANITY_API_TOKEN
 const dryRun = process.env.DRY_RUN === 'true'
+
+if (!projectId) {
+  console.error('Error: NEXT_PUBLIC_SANITY_PROJECT_ID environment variable is required')
+  process.exit(1)
+}
+
+if (!dataset) {
+  console.error('Error: NEXT_PUBLIC_SANITY_DATASET environment variable is required')
+  process.exit(1)
+}
 
 if (!token) {
   console.error('Error: SANITY_API_TOKEN environment variable is required')

@@ -4,20 +4,30 @@ import { useToast } from '@sanity/ui'
 
 const SEND_URL =
   process.env.SANITY_STUDIO_STUDY_UPDATE_SEND_URL || 'http://localhost:3000/api/updates/study-email/dispatch'
-const AUTH_TOKEN = process.env.SANITY_STUDIO_STUDY_UPDATE_SEND_TOKEN || ''
+const AUTH_TOKEN = process.env.SANITY_STUDIO_STUDY_UPDATE_SEND_TOKEN
 
 function StudyUpdateSendAction(props) {
   const toast = useToast()
   const [isRunning, setIsRunning] = useState(false)
 
   async function handleSend() {
+    if (!AUTH_TOKEN) {
+      toast.push({
+        status: 'error',
+        title: 'Missing token',
+        description: 'SANITY_STUDIO_STUDY_UPDATE_SEND_TOKEN is not configured.',
+      })
+      props.onComplete?.()
+      return
+    }
+
     setIsRunning(true)
     try {
       const res = await fetch(SEND_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+          Authorization: `Bearer ${AUTH_TOKEN}`,
         },
         body: JSON.stringify({ trigger: 'sanity-action' }),
       })

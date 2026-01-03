@@ -5,7 +5,7 @@ import { classifyPublication } from '@/lib/summaries'
 import { DEFAULT_CLASSIFICATION_PROMPT } from '@/lib/classificationPrompt'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
-const AUTH_TOKEN = process.env.PUBMED_PREVIEW_TOKEN || process.env.PUBMED_REFRESH_TOKEN || ''
+const AUTH_TOKEN = process.env.PUBMED_PREVIEW_TOKEN || process.env.PUBMED_REFRESH_TOKEN
 
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
@@ -94,11 +94,16 @@ async function deleteClassifications(pmids = []) {
 }
 
 export async function POST(request) {
-  if (AUTH_TOKEN) {
-    const token = extractBearerToken(request)
-    if (token !== AUTH_TOKEN) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
-    }
+  if (!AUTH_TOKEN) {
+    return NextResponse.json(
+      { ok: false, error: 'PUBMED_PREVIEW_TOKEN or PUBMED_REFRESH_TOKEN not configured' },
+      { status: 500, headers: CORS_HEADERS }
+    )
+  }
+
+  const token = extractBearerToken(request)
+  if (token !== AUTH_TOKEN) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
   try {

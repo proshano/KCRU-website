@@ -7,7 +7,7 @@ import { getPublicationSeoSnapshot } from '@/lib/publicationsSeo'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { isCronAuthorized } from '@/lib/cronUtils'
 
-const AUTH_TOKEN = process.env.SEO_REFRESH_TOKEN || ''
+const AUTH_TOKEN = process.env.SEO_REFRESH_TOKEN
 const CRON_SECRET = process.env.CRON_SECRET || ''
 const CORS_HEADERS = buildCorsHeaders('GET, POST, OPTIONS')
 
@@ -160,11 +160,16 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  if (AUTH_TOKEN) {
-    const token = extractBearerToken(request)
-    if (token !== AUTH_TOKEN) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
-    }
+  if (!AUTH_TOKEN) {
+    return NextResponse.json(
+      { ok: false, error: 'SEO_REFRESH_TOKEN not configured' },
+      { status: 500, headers: CORS_HEADERS }
+    )
+  }
+
+  const token = extractBearerToken(request)
+  if (token !== AUTH_TOKEN) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
   return runRefresh({ source: 'manual' })

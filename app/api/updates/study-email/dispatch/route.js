@@ -10,7 +10,7 @@ const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL 
   /\/$/,
   ''
 )
-const AUTH_TOKEN = process.env.STUDY_UPDATE_SEND_TOKEN || ''
+const AUTH_TOKEN = process.env.STUDY_UPDATE_SEND_TOKEN
 const CRON_SECRET = process.env.CRON_SECRET || ''
 const CRON_TIMEZONE = process.env.CRON_TIMEZONE || 'America/New_York'
 const CRON_TARGET_HOUR = Number(process.env.STUDY_UPDATE_CRON_HOUR || 7)
@@ -249,11 +249,16 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  if (AUTH_TOKEN) {
-    const token = extractBearerToken(request)
-    if (token !== AUTH_TOKEN) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
-    }
+  if (!AUTH_TOKEN) {
+    return NextResponse.json(
+      { ok: false, error: 'STUDY_UPDATE_SEND_TOKEN not configured' },
+      { status: 500, headers: CORS_HEADERS }
+    )
+  }
+
+  const token = extractBearerToken(request)
+  if (token !== AUTH_TOKEN) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
   let body = {}

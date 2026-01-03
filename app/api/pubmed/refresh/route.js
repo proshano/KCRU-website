@@ -7,7 +7,7 @@ import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { getZonedParts, isCronAuthorized, isWithinCronWindow, sameLocalDate } from '@/lib/cronUtils'
 import { getSiteBaseUrl } from '@/lib/seo'
 
-const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN || ''
+const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN
 const CRON_SECRET = process.env.CRON_SECRET || ''
 
 // Vercel cron schedules are UTC-only. To run at 3am Eastern year-round (DST-aware),
@@ -106,11 +106,16 @@ export async function GET(request) {
 
 // POST handler for Studio/manual triggers
 export async function POST(request) {
-  if (AUTH_TOKEN) {
-    const token = extractBearerToken(request)
-    if (token !== AUTH_TOKEN) {
-      return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
-    }
+  if (!AUTH_TOKEN) {
+    return NextResponse.json(
+      { ok: false, error: 'PUBMED_REFRESH_TOKEN not configured' },
+      { status: 500, headers: CORS_HEADERS }
+    )
+  }
+
+  const token = extractBearerToken(request)
+  if (token !== AUTH_TOKEN) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
   return runRefresh({ isCron: false })
