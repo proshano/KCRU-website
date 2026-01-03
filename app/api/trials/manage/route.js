@@ -529,6 +529,12 @@ export async function POST(request) {
         { status: 400, headers: CORS_HEADERS }
       )
     }
+    if (!payload.principalInvestigatorId && !payload.principalInvestigatorName) {
+      return NextResponse.json(
+        { ok: false, error: 'Principal investigator is required.' },
+        { status: 400, headers: CORS_HEADERS }
+      )
+    }
 
     const duplicate = await findDuplicateNctId({ nctId: payload.nctId })
     if (duplicate) {
@@ -629,6 +635,12 @@ export async function PATCH(request) {
     if (!payload.title) {
       return NextResponse.json(
         { ok: false, error: 'Title is required.' },
+        { status: 400, headers: CORS_HEADERS }
+      )
+    }
+    if (!payload.principalInvestigatorId && !payload.principalInvestigatorName) {
+      return NextResponse.json(
+        { ok: false, error: 'Principal investigator is required.' },
         { status: 400, headers: CORS_HEADERS }
       )
     }

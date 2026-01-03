@@ -126,6 +126,12 @@ export async function PATCH(request) {
         { status: 400, headers: CORS_HEADERS }
       )
     }
+    if (!payload.principalInvestigatorId && !payload.principalInvestigatorName) {
+      return NextResponse.json(
+        { ok: false, error: 'Principal investigator is required.' },
+        { status: 400, headers: CORS_HEADERS }
+      )
+    }
 
     const submission = await sanityFetch(
       `*[_type == "studySubmission" && _id == $id][0]{ _id, status }`,
