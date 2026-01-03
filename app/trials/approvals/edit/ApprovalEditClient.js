@@ -127,6 +127,7 @@ export default function ApprovalEditClient() {
   const [submission, setSubmission] = useState(null)
   const [meta, setMeta] = useState({ areas: [], researchers: [] })
   const [form, setForm] = useState(EMPTY_FORM)
+  const [piOtherSelected, setPiOtherSelected] = useState(false)
   const [baselineSnapshot, setBaselineSnapshot] = useState(() => serializeDraft(EMPTY_FORM))
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -136,14 +137,35 @@ export default function ApprovalEditClient() {
   const [commsLoading, setCommsLoading] = useState(false)
   const [commsError, setCommsError] = useState('')
   const [commsSuccess, setCommsSuccess] = useState('')
+  const [piError, setPiError] = useState('')
   const inclusionCriteriaRefs = useRef([])
   const exclusionCriteriaRefs = useRef([])
   const criteriaFocusRef = useRef(null)
+  const piNameInputRef = useRef(null)
 
   const submissionId = searchParams.get('submissionId') || ''
   const formSnapshot = useMemo(() => serializeDraft(form), [form])
   const hasChanges = formSnapshot !== baselineSnapshot
-  const piSelectionValue = form.principalInvestigatorId || (form.principalInvestigatorName ? PI_OTHER_VALUE : '')
+  const piSelectionValue =
+    form.principalInvestigatorId || (piOtherSelected || form.principalInvestigatorName ? PI_OTHER_VALUE : '')
+
+  useEffect(() => {
+    if (piSelectionValue !== PI_OTHER_VALUE) return
+    const timeout = setTimeout(() => {
+      piNameInputRef.current?.focus()
+    }, 0)
+    return () => clearTimeout(timeout)
+  }, [piSelectionValue])
+
+  useEffect(() => {
+    if (form.principalInvestigatorId) {
+      setPiOtherSelected(false)
+      return
+    }
+    if (form.principalInvestigatorName) {
+      setPiOtherSelected(true)
+    }
+  }, [form.principalInvestigatorId, form.principalInvestigatorName])
 
   useEffect(() => {
     const queryToken = searchParams.get('token')
@@ -200,6 +222,7 @@ export default function ApprovalEditClient() {
       const nextForm = mergeDraft(data.submission?.payload || {})
       setForm(nextForm)
       setBaselineSnapshot(serializeDraft(nextForm))
+      setPiError('')
       setCommsError('')
       setCommsSuccess('')
     } catch (err) {
@@ -214,11 +237,16 @@ export default function ApprovalEditClient() {
   }, [token, submissionId, loadSubmission])
 
   function updateFormField(key, value) {
+    if (key === 'principalInvestigatorName') {
+      setPiError('')
+    }
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
   function updatePrincipalInvestigator(value) {
+    setPiError('')
     if (value === PI_OTHER_VALUE) {
+      setPiOtherSelected(true)
       setForm((prev) => ({
         ...prev,
         principalInvestigatorId: '',
@@ -226,6 +254,7 @@ export default function ApprovalEditClient() {
       }))
       return
     }
+    setPiOtherSelected(false)
     if (!value) {
       setForm((prev) => ({
         ...prev,
@@ -473,6 +502,11 @@ export default function ApprovalEditClient() {
     }
     if (!submissionId) {
       setError('Missing submission id.')
+      return false
+    }
+    const piName = form.principalInvestigatorName.trim()
+    if (!form.principalInvestigatorId && !piName) {
+      setPiError('Select a principal investigator or choose Other and enter a name.')
       return false
     }
     setSaving(true)
@@ -834,7 +868,9 @@ export default function ApprovalEditClient() {
                 id="approval-edit-pi"
                 value={piSelectionValue}
                 onChange={(e) => updatePrincipalInvestigator(e.target.value)}
-                className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
+                className={`w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 ${piError ? 'focus:ring-red-500 border-red-300' : 'focus:ring-purple'}`}
+                aria-invalid={piError ? 'true' : 'false'}
+                aria-describedby={piError ? 'approval-edit-pi-error' : undefined}
               >
                 <option value="">Select a PI</option>
                 {(meta.researchers || []).map((researcher) => (
@@ -853,12 +889,20 @@ export default function ApprovalEditClient() {
                     value={form.principalInvestigatorName}
                     onChange={(e) => updateFormField('principalInvestigatorName', e.target.value)}
                     placeholder="Enter PI name"
-                    className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
+                    className={`w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 ${piError ? 'focus:ring-red-500 border-red-300' : 'focus:ring-purple'}`}
+                    aria-invalid={piError ? 'true' : 'false'}
+                    aria-describedby={piError ? 'approval-edit-pi-error' : undefined}
+                    ref={piNameInputRef}
                   />
                   <p className="text-xs text-gray-500">
                     Use this when the PI is not in the researcher list.
                   </p>
                 </div>
+              )}
+              {piError && (
+                <p id="approval-edit-pi-error" className="text-xs text-red-600">
+                  {piError}
+                </p>
               )}
             </div>
           </section>
