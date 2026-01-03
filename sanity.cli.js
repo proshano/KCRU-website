@@ -1,14 +1,17 @@
 import { defineCliConfig } from 'sanity/cli'
+import { loadEnvFiles } from './sanity/env.js'
 
-const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
-const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET
+loadEnvFiles()
+
+const projectId = process.env.SANITY_STUDIO_PROJECT_ID
+const dataset = process.env.SANITY_STUDIO_DATASET
 
 if (!projectId) {
-  throw new Error('Missing NEXT_PUBLIC_SANITY_PROJECT_ID. Set it in the environment.')
+  throw new Error('Missing SANITY_STUDIO_PROJECT_ID. Set it in the environment.')
 }
 
 if (!dataset) {
-  throw new Error('Missing NEXT_PUBLIC_SANITY_DATASET. Set it in the environment.')
+  throw new Error('Missing SANITY_STUDIO_DATASET. Set it in the environment.')
 }
 
 // CLI config so `sanity deploy` knows which project/dataset to target.
