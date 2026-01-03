@@ -100,6 +100,7 @@ export default async function TrialDetailPage({ params }) {
     280
   )
   const keywords = (trial.therapeuticAreas || []).map(area => area?.name).filter(Boolean)
+  const piName = trial.principalInvestigator?.name || trial.principalInvestigatorName
 
   const trialSchema = {
     '@context': 'https://schema.org',
@@ -123,10 +124,10 @@ export default async function TrialDetailPage({ params }) {
       name: trial.ctGovData.sponsor
     }
   }
-  if (trial.principalInvestigator?.name) {
+  if (piName) {
     trialSchema.principalInvestigator = {
       '@type': 'Person',
-      name: trial.principalInvestigator.name
+      name: piName
     }
   }
   if (trial.ctGovData?.startDate) trialSchema.startDate = trial.ctGovData.startDate
@@ -168,8 +169,8 @@ export default async function TrialDetailPage({ params }) {
           {trial.ctGovData?.sponsor && (
             <span>Sponsor: {trial.ctGovData.sponsor}</span>
           )}
-          {trial.principalInvestigator?.name && (
-            <InvestigatorBadge researcher={trial.principalInvestigator} />
+          {piName && (
+            <InvestigatorBadge researcher={trial.principalInvestigator} name={piName} />
           )}
         </div>
       </header>
@@ -302,18 +303,31 @@ export default async function TrialDetailPage({ params }) {
   )
 }
 
-function InvestigatorBadge({ researcher }) {
-  const slugValue = researcher.slug?.current || researcher.slug
-  const href = slugValue ? `/team/${slugValue}` : '#'
-  
-  return (
+function InvestigatorBadge({ researcher, name }) {
+  const slugValue = researcher?.slug?.current || researcher?.slug
+  const href = slugValue ? `/team/${slugValue}` : null
+  const displayName = name || researcher?.name
+
+  if (!displayName) return null
+
+  const content = (
+    <>
+      <Avatar photo={researcher?.photo} name={displayName} />
+      <span className="text-purple font-medium text-sm">{displayName}</span>
+    </>
+  )
+
+  return href ? (
     <Link
       href={href}
       className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors bg-white rounded"
     >
-      <Avatar photo={researcher.photo} name={researcher.name} />
-      <span className="text-purple font-medium text-sm">{researcher.name}</span>
+      {content}
     </Link>
+  ) : (
+    <span className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 bg-white rounded">
+      {content}
+    </span>
   )
 }
 

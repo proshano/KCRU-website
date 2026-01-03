@@ -290,13 +290,14 @@ async function runRefresh({ source = 'manual' } = {}) {
 
     for (const trial of staleTrials) {
       const areaNames = (trial.therapeuticAreas || []).map((area) => area?.name).filter(Boolean)
+      const piName = trial.principalInvestigator?.name || trial.principalInvestigatorName
       const summaryBody = buildSummaryBody([
         trial.laySummary,
         trial.ctGovData?.briefSummary,
         trial.ctGovData?.officialTitle,
         trial.status && `Status: ${trial.status}`,
         areaNames.length ? `Areas: ${areaNames.join(', ')}` : '',
-        trial.principalInvestigator?.name ? `Principal investigator: ${trial.principalInvestigator.name}` : ''
+        piName ? `Principal investigator: ${piName}` : ''
       ])
 
       let description = normalizeDescription(summaryBody, SUMMARY_MAX_CHARS)

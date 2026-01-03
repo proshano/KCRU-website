@@ -32,6 +32,8 @@ const PHASE_OPTIONS = [
   { value: 'na', label: 'N/A' },
 ]
 
+const PI_OTHER_VALUE = '__other__'
+
 const EMPTY_FORM = {
   id: '',
   title: '',
@@ -57,6 +59,7 @@ const EMPTY_FORM = {
     displayPublicly: false,
   },
   principalInvestigatorId: '',
+  principalInvestigatorName: '',
   ctGovData: null,
 }
 
@@ -140,6 +143,7 @@ export default function ApprovalEditClient() {
   const submissionId = searchParams.get('submissionId') || ''
   const formSnapshot = useMemo(() => serializeDraft(form), [form])
   const hasChanges = formSnapshot !== baselineSnapshot
+  const piSelectionValue = form.principalInvestigatorId || (form.principalInvestigatorName ? PI_OTHER_VALUE : '')
 
   useEffect(() => {
     const queryToken = searchParams.get('token')
@@ -211,6 +215,30 @@ export default function ApprovalEditClient() {
 
   function updateFormField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function updatePrincipalInvestigator(value) {
+    if (value === PI_OTHER_VALUE) {
+      setForm((prev) => ({
+        ...prev,
+        principalInvestigatorId: '',
+        principalInvestigatorName: prev.principalInvestigatorName || '',
+      }))
+      return
+    }
+    if (!value) {
+      setForm((prev) => ({
+        ...prev,
+        principalInvestigatorId: '',
+        principalInvestigatorName: '',
+      }))
+      return
+    }
+    setForm((prev) => ({
+      ...prev,
+      principalInvestigatorId: value,
+      principalInvestigatorName: '',
+    }))
   }
 
   function updateContactField(key, value) {
@@ -751,9 +779,6 @@ export default function ApprovalEditClient() {
                   placeholder="Jane Doe"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
-                <p className="text-xs text-gray-500">
-                  Person who should receive participant questions.
-                </p>
               </div>
               <div className="space-y-1">
                 <label htmlFor="approval-edit-contact-role" className="text-sm font-medium">Contact role</label>
@@ -765,9 +790,6 @@ export default function ApprovalEditClient() {
                   placeholder="Study coordinator"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
-                <p className="text-xs text-gray-500">
-                  Job title shown on the public page.
-                </p>
               </div>
               <div className="space-y-1">
                 <label htmlFor="approval-edit-contact-email" className="text-sm font-medium">Contact email</label>
@@ -779,9 +801,6 @@ export default function ApprovalEditClient() {
                   placeholder="contact@lhsc.on.ca"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
-                <p className="text-xs text-gray-500">
-                  Email for participant inquiries.
-                </p>
               </div>
               <div className="space-y-1">
                 <label htmlFor="approval-edit-contact-phone" className="text-sm font-medium">Contact phone</label>
@@ -793,9 +812,6 @@ export default function ApprovalEditClient() {
                   placeholder="555-555-5555"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
-                <p className="text-xs text-gray-500">
-                  Phone number for participant questions.
-                </p>
               </div>
               <label className="flex items-center gap-3 text-sm text-gray-700 md:col-span-2">
                 <input
@@ -816,8 +832,8 @@ export default function ApprovalEditClient() {
               <label htmlFor="approval-edit-pi" className="text-sm font-medium">Principal investigator</label>
               <select
                 id="approval-edit-pi"
-                value={form.principalInvestigatorId}
-                onChange={(e) => updateFormField('principalInvestigatorId', e.target.value)}
+                value={piSelectionValue}
+                onChange={(e) => updatePrincipalInvestigator(e.target.value)}
                 className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
               >
                 <option value="">Select a PI</option>
@@ -826,7 +842,24 @@ export default function ApprovalEditClient() {
                     {researcher.name}
                   </option>
                 ))}
+                <option value={PI_OTHER_VALUE}>Other (not listed)</option>
               </select>
+              {piSelectionValue === PI_OTHER_VALUE && (
+                <div className="space-y-1">
+                  <label htmlFor="approval-edit-pi-name" className="text-sm font-medium">PI name</label>
+                  <input
+                    id="approval-edit-pi-name"
+                    type="text"
+                    value={form.principalInvestigatorName}
+                    onChange={(e) => updateFormField('principalInvestigatorName', e.target.value)}
+                    placeholder="Enter PI name"
+                    className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Use this when the PI is not in the researcher list.
+                  </p>
+                </div>
+              )}
             </div>
           </section>
 

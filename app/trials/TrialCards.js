@@ -75,6 +75,10 @@ function TrialItem({ trial }) {
   const hasDetailPage = !!slugValue
   const ctGovUrl = trial.nctId ? `https://clinicaltrials.gov/study/${trial.nctId}` : null
   const summaryText = trial.laySummary || ''
+  const pi = trial.principalInvestigator
+  const piName = pi?.name || trial.principalInvestigatorName
+  const piSlug = pi?.slug?.current || pi?.slug
+  const piHref = piSlug ? `/team/${piSlug}` : null
   const therapeuticLabels =
     trial.therapeuticAreas?.map((area) => getTherapeuticAreaLabel(area?.name)).filter(Boolean) || []
 
@@ -112,15 +116,22 @@ function TrialItem({ trial }) {
       </div>
 
       {/* PI badge */}
-      {trial.principalInvestigator?.name && (
+      {piName && (
         <div className="flex flex-wrap gap-2 text-sm">
-          <Link
-            href={`/team/${trial.principalInvestigator.slug?.current || trial.principalInvestigator.slug || ''}`}
-            className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors"
-          >
-            <Avatar photo={trial.principalInvestigator.photo} name={trial.principalInvestigator.name} />
-            <span className="text-purple font-medium">{trial.principalInvestigator.name}</span>
-          </Link>
+          {piHref ? (
+            <Link
+              href={piHref}
+              className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors"
+            >
+              <Avatar photo={pi?.photo} name={piName} />
+              <span className="text-purple font-medium">{piName}</span>
+            </Link>
+          ) : (
+            <span className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 text-purple font-medium">
+              <Avatar photo={pi?.photo} name={piName} />
+              {piName}
+            </span>
+          )}
         </div>
       )}
 

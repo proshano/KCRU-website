@@ -28,6 +28,8 @@ const PHASE_OPTIONS = [
   { value: 'na', label: 'N/A' },
 ]
 
+const PI_OTHER_VALUE = '__other__'
+
 const EMPTY_FORM = {
   id: '',
   title: '',
@@ -53,6 +55,7 @@ const EMPTY_FORM = {
     displayPublicly: false,
   },
   principalInvestigatorId: '',
+  principalInvestigatorName: '',
   ctGovData: null,
 }
 
@@ -127,6 +130,7 @@ function mapTrialToForm(trial) {
       displayPublicly: Boolean(trial?.localContact?.displayPublicly),
     },
     principalInvestigatorId: trial?.principalInvestigatorId || '',
+    principalInvestigatorName: trial?.principalInvestigatorName || '',
     ctGovData: null,
   }
 }
@@ -212,6 +216,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   const canSubmit = Boolean(token)
   const formSnapshot = useMemo(() => serializeDraft(form), [form])
   const hasChanges = formSnapshot !== baselineSnapshot
+  const piSelectionValue = form.principalInvestigatorId || (form.principalInvestigatorName ? PI_OTHER_VALUE : '')
 
   const handleSignOut = useCallback(() => {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY)
@@ -527,6 +532,30 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  function updatePrincipalInvestigator(value) {
+    if (value === PI_OTHER_VALUE) {
+      setForm((prev) => ({
+        ...prev,
+        principalInvestigatorId: '',
+        principalInvestigatorName: prev.principalInvestigatorName || '',
+      }))
+      return
+    }
+    if (!value) {
+      setForm((prev) => ({
+        ...prev,
+        principalInvestigatorId: '',
+        principalInvestigatorName: '',
+      }))
+      return
+    }
+    setForm((prev) => ({
+      ...prev,
+      principalInvestigatorId: value,
+      principalInvestigatorName: '',
+    }))
+  }
+
   function updateCriteriaItem(key, index, value) {
     setForm((prev) => {
       const existing = Array.isArray(prev[key]) ? prev[key] : []
@@ -825,6 +854,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
         featured: form.featured,
         localContact: form.localContact,
         principalInvestigatorId: form.principalInvestigatorId || '',
+        principalInvestigatorName: form.principalInvestigatorName || '',
         ctGovData: form.ctGovData || undefined,
       }
 
@@ -1439,9 +1469,6 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
                   placeholder="Jane Doe"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
-                <p className="text-xs text-gray-500">
-                  Person who should receive participant questions.
-                </p>
               </div>
               <div className="space-y-1">
                 <label htmlFor="study-manager-contact-role" className="text-sm font-medium">Contact role</label>
@@ -1453,9 +1480,6 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
                   placeholder="Study coordinator"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
-                <p className="text-xs text-gray-500">
-                  Job title shown on the public page.
-                </p>
               </div>
               <div className="space-y-1">
                 <label htmlFor="study-manager-contact-email" className="text-sm font-medium">Contact email</label>
@@ -1467,9 +1491,6 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
                   placeholder="contact@lhsc.on.ca"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
-                <p className="text-xs text-gray-500">
-                  Email for participant inquiries.
-                </p>
               </div>
               <div className="space-y-1">
                 <label htmlFor="study-manager-contact-phone" className="text-sm font-medium">Contact phone</label>
@@ -1481,9 +1502,6 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
                   placeholder="555-555-5555"
                   className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
                 />
-                <p className="text-xs text-gray-500">
-                  Phone number for participant questions.
-                </p>
               </div>
               <label className="flex items-center gap-3 text-sm text-gray-700 md:col-span-2">
                 <input
@@ -1504,8 +1522,8 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
               <label htmlFor="study-manager-pi" className="text-sm font-medium">Principal investigator</label>
               <select
                 id="study-manager-pi"
-                value={form.principalInvestigatorId}
-                onChange={(e) => updateFormField('principalInvestigatorId', e.target.value)}
+                value={piSelectionValue}
+                onChange={(e) => updatePrincipalInvestigator(e.target.value)}
                 className="w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 focus:ring-purple"
               >
                 <option value="">Select a PI</option>
@@ -1514,7 +1532,24 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
                     {researcher.name}
                   </option>
                 ))}
+                <option value={PI_OTHER_VALUE}>Other (not listed)</option>
               </select>
+              {piSelectionValue === PI_OTHER_VALUE && (
+                <div className="space-y-1">
+                  <label htmlFor="study-manager-pi-name" className="text-sm font-medium">PI name</label>
+                  <input
+                    id="study-manager-pi-name"
+                    type="text"
+                    value={form.principalInvestigatorName}
+                    onChange={(e) => updateFormField('principalInvestigatorName', e.target.value)}
+                    placeholder="Enter PI name"
+                    className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
+                  />
+                  <p className="text-xs text-gray-500">
+                    Use this when the PI is not in the researcher list.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

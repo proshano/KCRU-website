@@ -408,7 +408,7 @@ export default function ApprovalClient() {
               const therapeuticNames = (payload.therapeuticAreaIds || []).map((id) => areaMap.get(id) || id)
               const piName = payload.principalInvestigatorId
                 ? researcherMap.get(payload.principalInvestigatorId) || payload.principalInvestigatorId
-                : 'None'
+                : payload.principalInvestigatorName || 'None'
               const isReviewing = reviewingId === submission._id
               const isPending = submission.status === 'pending'
               return (

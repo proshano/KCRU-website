@@ -212,13 +212,14 @@ async function buildTrialsIndexMarkdown() {
     const slug = getSlugValue(trial.slug)
     const status = STATUS_LABELS[trial.status] || trial.status || 'Status TBD'
     const summary = normalizeDescription(trial.seo?.description || trial.laySummary || '', 240)
+    const piName = trial.principalInvestigator?.name || trial.principalInvestigatorName
 
     lines.push(`### ${trial.title}`)
     addKeyValue(lines, 'URL', `${baseUrl}/trials/${slug}`)
     addKeyValue(lines, 'Status', status)
     addKeyValue(lines, 'NCT ID', trial.nctId)
     addKeyValue(lines, 'Sponsor', trial.ctGovData?.sponsor)
-    addKeyValue(lines, 'Principal investigator', trial.principalInvestigator?.name)
+    addKeyValue(lines, 'Principal investigator', piName)
     if (summary) addKeyValue(lines, 'Summary', summary)
     addKeyValue(lines, 'ClinicalTrials.gov', trial.ctGovData?.url)
     lines.push('')
@@ -237,6 +238,7 @@ async function buildTrialDetailMarkdown(slug) {
     trial.laySummary || trial.ctGovData?.briefSummary || trial.seo?.description || '',
     400
   )
+  const piName = trial.principalInvestigator?.name || trial.principalInvestigatorName
 
   const lines = []
   lines.push(`# ${trial.title}`)
@@ -245,7 +247,7 @@ async function buildTrialDetailMarkdown(slug) {
   addKeyValue(lines, 'Status', status)
   addKeyValue(lines, 'NCT ID', trial.nctId)
   addKeyValue(lines, 'Sponsor', trial.ctGovData?.sponsor)
-  addKeyValue(lines, 'Principal investigator', trial.principalInvestigator?.name)
+  addKeyValue(lines, 'Principal investigator', piName)
   addKeyValue(lines, 'ClinicalTrials.gov', trial.ctGovData?.url)
   addKeyValue(lines, 'Study website', trial.sponsorWebsite)
   lines.push('')

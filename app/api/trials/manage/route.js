@@ -151,7 +151,7 @@ function buildApprovalEmail({
     ['Featured', formatBoolean(payload.featured)],
     ['Accepts referrals', formatBoolean(payload.acceptsReferrals)],
     ['Therapeutic areas', therapeuticAreaLabel],
-    ['Principal investigator', principalInvestigatorName || payload.principalInvestigatorId || 'None'],
+    ['Principal investigator', principalInvestigatorName || payload.principalInvestigatorName || payload.principalInvestigatorId || 'None'],
     ['Sponsor website', payload.sponsorWebsite || 'None'],
     ['Local contact', formatLocalContact(payload.localContact)],
     ['Inclusion criteria', inclusionLabel],
@@ -299,6 +299,7 @@ async function resolvePayloadReferences(payload) {
     ? payload.therapeuticAreaIds.filter(Boolean)
     : []
   const principalInvestigatorId = payload?.principalInvestigatorId || ''
+  const fallbackPiName = sanitizeString(payload?.principalInvestigatorName)
   const [areas, pi] = await Promise.all([
     areaIds.length
       ? sanityFetch(
@@ -325,7 +326,7 @@ async function resolvePayloadReferences(payload) {
 
   return {
     therapeuticAreaNames: areaIds.map((id) => areaMap.get(id) || id),
-    principalInvestigatorName: pi?.name || '',
+    principalInvestigatorName: pi?.name || fallbackPiName || '',
   }
 }
 
@@ -348,6 +349,7 @@ function buildTrialSummaryDoc(normalized, slugValue) {
     acceptsReferrals: normalized.acceptsReferrals,
     localContact: normalized.localContact || undefined,
     therapeuticAreas: buildReferences(normalized.therapeuticAreaIds),
+    principalInvestigatorName: normalized.principalInvestigatorName || undefined,
     principalInvestigator: normalized.principalInvestigatorId
       ? { _type: 'reference', _ref: normalized.principalInvestigatorId }
       : undefined,
@@ -465,7 +467,8 @@ export async function GET(request) {
           acceptsReferrals,
           localContact,
           "therapeuticAreaIds": therapeuticAreas[]._ref,
-          "principalInvestigatorId": principalInvestigator._ref
+          "principalInvestigatorId": principalInvestigator._ref,
+          principalInvestigatorName
         }
       `),
       sanityFetch(`

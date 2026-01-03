@@ -217,6 +217,13 @@ const trialSummary = {
       description: 'Local PI (linked to team profile)'
     },
     {
+      name: 'principalInvestigatorName',
+      title: 'Principal Investigator (Other)',
+      type: 'string',
+      group: 'localInfo',
+      description: 'Use when the PI is not in the team roster.'
+    },
+    {
       name: 'sponsorWebsite',
       title: 'Study website (if available)',
       type: 'url',

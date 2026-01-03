@@ -122,6 +122,7 @@ const studySubmission = {
           ]
         },
         { name: 'principalInvestigatorId', title: 'Principal Investigator', type: 'string' },
+        { name: 'principalInvestigatorName', title: 'Principal Investigator (Other)', type: 'string' },
         {
           name: 'ctGovData',
           title: 'ClinicalTrials.gov Data',
