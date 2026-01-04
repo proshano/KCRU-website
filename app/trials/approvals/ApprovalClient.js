@@ -48,8 +48,10 @@ export default function ApprovalClient() {
   const [token, setToken] = useState('')
   const [email, setEmail] = useState('')
   const [passcode, setPasscode] = useState('')
+  const [password, setPassword] = useState('')
   const [sendingCode, setSendingCode] = useState(false)
   const [verifyingCode, setVerifyingCode] = useState(false)
+  const [verifyingPassword, setVerifyingPassword] = useState(false)
   const [adminEmail, setAdminEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -150,6 +152,7 @@ export default function ApprovalClient() {
     setToken('')
     setEmail('')
     setPasscode('')
+    setPassword('')
     setSubmissions([])
     setSuccess('')
     setError('')
@@ -281,6 +284,36 @@ export default function ApprovalClient() {
     }
   }
 
+  async function signInWithPassword(event) {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+    if (!email || !password) {
+      setError('Enter your email and password.')
+      return
+    }
+    setVerifyingPassword(true)
+    try {
+      const res = await fetch('/api/admin/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, scope: 'approvals' }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setToken(data.token || '')
+      setSuccess('Signed in. Loading submissions...')
+      setPassword('')
+      setPasscode('')
+    } catch (err) {
+      setError(err.message || 'Failed to verify password.')
+    } finally {
+      setVerifyingPassword(false)
+    }
+  }
+
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-10 space-y-8">
       <header className="space-y-3">
@@ -310,7 +343,7 @@ export default function ApprovalClient() {
           <div>
             <h2 className="text-lg font-semibold">Approval access</h2>
             <p className="text-sm text-gray-500">
-              Use the secure approval link or request a passcode to sign in.
+              Use the secure approval link, request a passcode, or sign in with your admin password.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -354,6 +387,28 @@ export default function ApprovalClient() {
                 className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
               >
                 {verifyingCode ? 'Verifying...' : 'Verify passcode'}
+              </button>
+            </form>
+            <form className="space-y-2 md:col-span-2" onSubmit={signInWithPassword}>
+              <label htmlFor="approval-password" className="text-sm font-medium">Password</label>
+              <input
+                id="approval-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Admin password"
+                autoComplete="current-password"
+                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
+              />
+              <p className="text-xs text-gray-500">
+                Uses the email entered above.
+              </p>
+              <button
+                type="submit"
+                disabled={verifyingPassword || !email || !password}
+                className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
+              >
+                {verifyingPassword ? 'Signing in...' : 'Sign in'}
               </button>
             </form>
           </div>
