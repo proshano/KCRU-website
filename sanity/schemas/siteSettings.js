@@ -498,6 +498,33 @@ const siteSettings = {
       ]
     },
     {
+      name: 'updateEmailTesting',
+      title: 'Update Email Test Mode',
+      type: 'object',
+      description: 'Limit update and newsletter sends to a test allowlist.',
+      fields: [
+        {
+          name: 'enabled',
+          title: 'Enable test mode',
+          type: 'boolean',
+          description: 'When enabled, only the emails below will receive study updates and newsletters.',
+          initialValue: false
+        },
+        {
+          name: 'recipients',
+          title: 'Test recipient emails',
+          type: 'array',
+          of: [
+            {
+              type: 'string',
+              validation: Rule => Rule.regex(/^[^@\s]+@[^@\s]+\.[^@\s]+$/, { name: 'email' })
+            }
+          ],
+          description: 'Only these addresses will receive update emails while test mode is enabled.'
+        }
+      ]
+    },
+    {
       name: 'studyUpdates',
       title: 'Study Update Emails',
       type: 'object',

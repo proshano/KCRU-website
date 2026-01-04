@@ -6,6 +6,7 @@ import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { getScopedAdminSession } from '@/lib/adminSessions'
 import { ROLE_VALUES, SPECIALTY_VALUES, INTEREST_AREA_VALUES } from '@/lib/communicationOptions'
 import { normalizeList, sanitizeString } from '@/lib/inputUtils'
+import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
 
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
@@ -73,6 +74,19 @@ async function resolveSignature(explicitSignature) {
   )
 }
 
+async function fetchUpdateEmailTesting() {
+  const fetcher = writeClient.config().token ? writeClient.fetch.bind(writeClient) : sanityFetch
+  const settings = await fetcher(
+    `*[_type == "siteSettings"][0]{
+      updateEmailTesting{
+        enabled,
+        recipients
+      }
+    }`
+  )
+  return normalizeUpdateEmailTesting(settings?.updateEmailTesting)
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
 }
@@ -121,11 +135,25 @@ export async function POST(request) {
 
   try {
     const { query, params } = buildSubscriberQuery({ roles, specialties, interestAreas })
-    const subscribersRaw = await writeClient.fetch(query, params)
-    const subscribers = Array.isArray(subscribersRaw) ? subscribersRaw : []
+    const [subscribersRaw, testSettings] = await Promise.all([
+      writeClient.fetch(query, params),
+      fetchUpdateEmailTesting(),
+    ])
+    let subscribers = Array.isArray(subscribersRaw) ? subscribersRaw : []
+    if (testSettings.enabled) {
+      subscribers = filterSubscribersByTestEmails(subscribers, testSettings.recipients)
+    }
 
     if (dryRun) {
-      return NextResponse.json({ ok: true, count: subscribers.length }, { headers: CORS_HEADERS })
+      return NextResponse.json(
+        {
+          ok: true,
+          count: subscribers.length,
+          testMode: testSettings.enabled,
+          testRecipients: testSettings.recipients.length,
+        },
+        { headers: CORS_HEADERS }
+      )
     }
 
     const signature = await resolveSignature(body?.signature)
@@ -135,6 +163,10 @@ export async function POST(request) {
       sent: 0,
       skipped: 0,
       errors: 0,
+    }
+    if (testSettings.enabled) {
+      stats.testMode = true
+      stats.testRecipients = testSettings.recipients.length
     }
     const errors = []
     const nowIso = new Date().toISOString()

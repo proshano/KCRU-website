@@ -32,6 +32,11 @@ const DEFAULT_PUBLICATION_SETTINGS = {
   sendEmpty: false,
 }
 
+const DEFAULT_TEST_SETTINGS = {
+  enabled: false,
+  recipients: '',
+}
+
 const DEFAULT_CUSTOM_FILTERS = {
   roles: [],
   specialties: [],
@@ -50,6 +55,20 @@ function formatDate(value) {
 function formatCount(value) {
   const num = Number(value)
   return Number.isFinite(num) ? num : 0
+}
+
+function formatEmailList(value) {
+  if (!Array.isArray(value)) return ''
+  return value.filter(Boolean).join('\n')
+}
+
+function parseEmailListInput(value) {
+  const raw = String(value || '')
+    .split(/[\n,;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => item.toLowerCase())
+  return Array.from(new Set(raw))
 }
 
 export default function UpdatesAdminClient() {
@@ -78,6 +97,8 @@ export default function UpdatesAdminClient() {
     lastSentAt: null,
   })
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
+  const [testSettings, setTestSettings] = useState(DEFAULT_TEST_SETTINGS)
+  const [savingTestSettings, setSavingTestSettings] = useState(false)
   const [publicationStats, setPublicationStats] = useState({
     total: 0,
     active: 0,
@@ -146,6 +167,8 @@ export default function UpdatesAdminClient() {
     setAdminEmail('')
     setStats({ total: 0, active: 0, optedIn: 0, eligible: 0, lastSentAt: null })
     setSettings(DEFAULT_SETTINGS)
+    setTestSettings(DEFAULT_TEST_SETTINGS)
+    setSavingTestSettings(false)
     setPublicationStats({ total: 0, active: 0, optedIn: 0, eligible: 0, lastSentAt: null })
     setPublicationSettings(DEFAULT_PUBLICATION_SETTINGS)
     setPublicationLastSendResult(null)
@@ -194,6 +217,11 @@ export default function UpdatesAdminClient() {
         maxStudies: nextSettings.maxStudies ? String(nextSettings.maxStudies) : '',
         sendEmpty: Boolean(nextSettings.sendEmpty),
       })
+      const nextTestSettings = data.testSettings || {}
+      setTestSettings({
+        enabled: Boolean(nextTestSettings.enabled),
+        recipients: formatEmailList(nextTestSettings.recipients),
+      })
     } catch (err) {
       setError(err.message || 'Failed to load study update admin data.')
     } finally {
@@ -230,6 +258,12 @@ export default function UpdatesAdminClient() {
         maxPublications: nextSettings.maxPublications ? String(nextSettings.maxPublications) : '',
         sendEmpty: Boolean(nextSettings.sendEmpty),
       })
+      if (data.testSettings) {
+        setTestSettings({
+          enabled: Boolean(data.testSettings.enabled),
+          recipients: formatEmailList(data.testSettings.recipients),
+        })
+      }
       setCustomSignature((prev) => prev || nextSettings.signature || '')
     } catch (err) {
       setError(err.message || 'Failed to load publication newsletter data.')
@@ -401,6 +435,10 @@ export default function UpdatesAdminClient() {
     setSettings((prev) => ({ ...prev, [field]: value }))
   }
 
+  function updateTestSetting(field, value) {
+    setTestSettings((prev) => ({ ...prev, [field]: value }))
+  }
+
   function updatePublicationSetting(field, value) {
     setPublicationSettings((prev) => ({ ...prev, [field]: value }))
   }
@@ -443,11 +481,56 @@ export default function UpdatesAdminClient() {
         maxStudies: nextSettings.maxStudies ? String(nextSettings.maxStudies) : '',
         sendEmpty: Boolean(nextSettings.sendEmpty),
       })
+      if (data.testSettings) {
+        setTestSettings({
+          enabled: Boolean(data.testSettings.enabled),
+          recipients: formatEmailList(data.testSettings.recipients),
+        })
+      }
       setSuccess('Email settings saved.')
     } catch (err) {
       setError(err.message || 'Failed to save settings.')
     } finally {
       setSavingSettings(false)
+    }
+  }
+
+  async function saveTestSettings(event) {
+    event.preventDefault()
+    if (!token) return
+    setError('')
+    setSuccess('')
+    setSavingTestSettings(true)
+    try {
+      const recipients = parseEmailListInput(testSettings.recipients)
+      const payload = {
+        updateEmailTesting: {
+          enabled: Boolean(testSettings.enabled),
+          recipients,
+        },
+      }
+      const res = await fetch('/api/updates/admin', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      const nextTestSettings = data.testSettings || {}
+      setTestSettings({
+        enabled: Boolean(nextTestSettings.enabled),
+        recipients: formatEmailList(nextTestSettings.recipients),
+      })
+      setSuccess('Test settings saved.')
+    } catch (err) {
+      setError(err.message || 'Failed to save test settings.')
+    } finally {
+      setSavingTestSettings(false)
     }
   }
 
@@ -493,6 +576,12 @@ export default function UpdatesAdminClient() {
         maxPublications: nextSettings.maxPublications ? String(nextSettings.maxPublications) : '',
         sendEmpty: Boolean(nextSettings.sendEmpty),
       })
+      if (data.testSettings) {
+        setTestSettings({
+          enabled: Boolean(data.testSettings.enabled),
+          recipients: formatEmailList(data.testSettings.recipients),
+        })
+      }
       setCustomSignature((prev) => prev || nextSettings.signature || '')
       setSuccess('Publication newsletter settings saved.')
     } catch (err) {
@@ -609,6 +698,9 @@ export default function UpdatesAdminClient() {
       setCustomSending(false)
     }
   }
+
+  const testRecipientCount = parseEmailListInput(testSettings.recipients).length
+  const testRecipientLabel = testRecipientCount === 1 ? '1 recipient' : `${testRecipientCount} recipients`
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-10 space-y-8">
@@ -749,6 +841,52 @@ export default function UpdatesAdminClient() {
             </div>
           </div>
 
+          <section className="bg-amber-50 border border-amber-200 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-amber-900">Test mode</h3>
+              <p className="text-sm text-amber-900/70">
+                When enabled, study updates, publication newsletters, and custom newsletters only send to the emails
+                listed below.
+              </p>
+            </div>
+            <form className="space-y-3" onSubmit={saveTestSettings}>
+              <label className="inline-flex items-center gap-2 text-sm text-amber-900">
+                <input
+                  type="checkbox"
+                  checked={testSettings.enabled}
+                  onChange={(event) => updateTestSetting('enabled', event.target.checked)}
+                />
+                Enable test mode
+              </label>
+              <div>
+                <label htmlFor="updates-test-emails" className="text-sm font-medium text-amber-900">
+                  Test recipient emails
+                </label>
+                <textarea
+                  id="updates-test-emails"
+                  value={testSettings.recipients}
+                  onChange={(event) => updateTestSetting('recipients', event.target.value)}
+                  rows={3}
+                  placeholder="test@example.com"
+                  className="w-full border border-amber-200 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+                />
+                <p className="text-xs text-amber-800">
+                  One email per line or comma-separated. Current count: {testRecipientCount}
+                </p>
+                {testSettings.enabled && testRecipientCount === 0 && (
+                  <p className="text-xs text-red-600">Add at least one test email or nothing will send.</p>
+                )}
+              </div>
+              <button
+                type="submit"
+                disabled={savingTestSettings}
+                className="inline-flex items-center justify-center bg-amber-600 text-white px-4 py-2 rounded shadow hover:bg-amber-700 disabled:opacity-60"
+              >
+                {savingTestSettings ? 'Saving...' : 'Save test settings'}
+              </button>
+            </form>
+          </section>
+
           <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
             <div>
               <h3 className="text-lg font-semibold">Send study updates</h3>
@@ -774,6 +912,11 @@ export default function UpdatesAdminClient() {
                 {sendingForce ? 'Sending...' : 'Force send'}
               </button>
             </div>
+            {testSettings.enabled && (
+              <p className="text-sm text-amber-700">
+                Test mode is enabled. This send will go to {testRecipientLabel}.
+              </p>
+            )}
             {lastSendResult && (
               <p className={`text-sm ${lastSendResult.errors ? 'text-amber-700' : 'text-emerald-700'}`}>
                 {lastSendResult.force ? 'Force send' : 'Send now'} completed {formatDate(lastSendResult.at)}. {lastSendResult.summaryMessage}
@@ -928,6 +1071,11 @@ export default function UpdatesAdminClient() {
                 {sendingPublicationForce ? 'Sending...' : 'Force send'}
               </button>
             </div>
+            {testSettings.enabled && (
+              <p className="text-sm text-amber-700">
+                Test mode is enabled. This send will go to {testRecipientLabel}.
+              </p>
+            )}
             {publicationLastSendResult && (
               <p className={`text-sm ${publicationLastSendResult.errors ? 'text-amber-700' : 'text-emerald-700'}`}>
                 {publicationLastSendResult.force ? 'Force send' : 'Send now'} completed {formatDate(publicationLastSendResult.at)}. {publicationLastSendResult.summaryMessage}

@@ -3,6 +3,7 @@ import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
 import { getScopedAdminSession } from '@/lib/adminSessions'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
+import { normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
 
 const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
 
@@ -76,6 +77,10 @@ export async function GET(request) {
           windowDays,
           maxPublications,
           sendEmpty
+        },
+        updateEmailTesting{
+          enabled,
+          recipients
         }
       }`
     )
@@ -119,6 +124,7 @@ export async function GET(request) {
         adminEmail: session.email,
         stats: statsRaw || {},
         settings: normalizedSettings,
+        testSettings: normalizeUpdateEmailTesting(settingsRaw?.updateEmailTesting),
       },
       { headers: CORS_HEADERS }
     )
@@ -184,12 +190,20 @@ export async function PATCH(request) {
           windowDays,
           maxPublications,
           sendEmpty
+        },
+        updateEmailTesting{
+          enabled,
+          recipients
         }
       }`
     )
 
     return NextResponse.json(
-      { ok: true, settings: refreshed?.publicationNewsletter || {} },
+      {
+        ok: true,
+        settings: refreshed?.publicationNewsletter || {},
+        testSettings: normalizeUpdateEmailTesting(refreshed?.updateEmailTesting),
+      },
       { headers: CORS_HEADERS }
     )
   } catch (error) {
