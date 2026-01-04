@@ -5,6 +5,7 @@ import { buildStudyUpdateEmail } from '@/lib/studyUpdateEmailTemplate'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { getZonedParts, isCronAuthorized, isWithinCronWindow } from '@/lib/cronUtils'
 import { normalizeList } from '@/lib/inputUtils'
+import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
   /\/$/,
@@ -104,11 +105,18 @@ async function fetchStudyUpdateSettings() {
         signature,
         maxStudies,
         sendEmpty
+      },
+      updateEmailTesting{
+        enabled,
+        recipients
       }
     }
   `
   const settings = await fetcher(query)
-  return settings?.studyUpdates || {}
+  return {
+    settings: settings?.studyUpdates || {},
+    testing: settings?.updateEmailTesting || {},
+  }
 }
 
 async function fetchSubscribers({ monthStartIso, force }) {
@@ -147,15 +155,20 @@ async function runDispatch({ force = false } = {}) {
   const monthLabel = formatMonthLabel(now)
   const monthStartIso = getMonthStartIso()
 
-  const [studiesRaw, subscribersRaw, updateSettings] = await Promise.all([
+  const [studiesRaw, subscribersRaw, settingsPayload] = await Promise.all([
     fetchStudies(),
     fetchSubscribers({ monthStartIso, force }),
     fetchStudyUpdateSettings(),
   ])
 
   const studies = Array.isArray(studiesRaw) ? studiesRaw : []
-  const subscribers = Array.isArray(subscribersRaw) ? subscribersRaw : []
-  const maxStudies = Number.isFinite(Number(updateSettings?.maxStudies)) && Number(updateSettings?.maxStudies) > 0
+  const updateSettings = settingsPayload?.settings || {}
+  const testSettings = normalizeUpdateEmailTesting(settingsPayload?.testing)
+  let subscribers = Array.isArray(subscribersRaw) ? subscribersRaw : []
+  if (testSettings.enabled) {
+    subscribers = filterSubscribersByTestEmails(subscribers, testSettings.recipients)
+  }
+  const maxStudies = Number.isFinite(Number(updateSettings.maxStudies)) && Number(updateSettings.maxStudies) > 0
     ? Number(updateSettings.maxStudies)
     : MAX_STUDIES
   const sendEmpty = Boolean(updateSettings?.sendEmpty)
@@ -165,6 +178,10 @@ async function runDispatch({ force = false } = {}) {
     sent: 0,
     skipped: 0,
     errors: 0,
+  }
+  if (testSettings.enabled) {
+    stats.testMode = true
+    stats.testRecipients = testSettings.recipients.length
   }
   const errors = []
 

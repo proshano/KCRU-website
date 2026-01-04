@@ -7,6 +7,7 @@ import { getZonedParts, isCronAuthorized, isWithinCronWindow } from '@/lib/cronU
 import { readCache } from '@/lib/pubmedCache'
 import { getPublicationDate } from '@/lib/publicationUtils'
 import { mergeWithClassifications } from '@/lib/publications'
+import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
   /\/$/,
@@ -134,11 +135,18 @@ async function fetchNewsletterSettings() {
         windowDays,
         maxPublications,
         sendEmpty
+      },
+      updateEmailTesting{
+        enabled,
+        recipients
       }
     }
   `
   const settings = await fetcher(query)
-  return settings?.publicationNewsletter || {}
+  return {
+    settings: settings?.publicationNewsletter || {},
+    testing: settings?.updateEmailTesting || {},
+  }
 }
 
 async function fetchSubscribers({ cutoffIso, force, windowMode }) {
@@ -187,12 +195,14 @@ async function runDispatch({ force = false } = {}) {
 
   const now = new Date()
   const monthLabel = formatMonthLabel(now)
-  const settings = await fetchNewsletterSettings()
-  const windowMode = normalizeWindowMode(settings?.windowMode)
-  const windowDays = Number.isFinite(Number(settings?.windowDays)) && Number(settings?.windowDays) > 0
+  const settingsPayload = await fetchNewsletterSettings()
+  const settings = settingsPayload?.settings || {}
+  const testSettings = normalizeUpdateEmailTesting(settingsPayload?.testing)
+  const windowMode = normalizeWindowMode(settings.windowMode)
+  const windowDays = Number.isFinite(Number(settings.windowDays)) && Number(settings.windowDays) > 0
     ? Number(settings.windowDays)
     : DEFAULT_WINDOW_DAYS
-  const maxPublications = Number.isFinite(Number(settings?.maxPublications)) && Number(settings?.maxPublications) > 0
+  const maxPublications = Number.isFinite(Number(settings.maxPublications)) && Number(settings.maxPublications) > 0
     ? Number(settings.maxPublications)
     : DEFAULT_MAX_PUBLICATIONS
   const sendEmpty = Boolean(settings?.sendEmpty)
@@ -207,7 +217,10 @@ async function runDispatch({ force = false } = {}) {
     fetchResearchers(),
   ])
 
-  const subscribers = Array.isArray(subscribersRaw) ? subscribersRaw : []
+  let subscribers = Array.isArray(subscribersRaw) ? subscribersRaw : []
+  if (testSettings.enabled) {
+    subscribers = filterSubscribersByTestEmails(subscribers, testSettings.recipients)
+  }
   const researchers = Array.isArray(researchersRaw) ? researchersRaw : []
   const cachePublications = Array.isArray(cache?.publications) ? cache.publications : []
   const publicationsWithClassifications = await mergeWithClassifications(cachePublications)
@@ -225,6 +238,10 @@ async function runDispatch({ force = false } = {}) {
     sent: 0,
     skipped: 0,
     errors: 0,
+  }
+  if (testSettings.enabled) {
+    stats.testMode = true
+    stats.testRecipients = testSettings.recipients.length
   }
   const errors = []
 
