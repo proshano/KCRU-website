@@ -89,8 +89,9 @@ export async function GET(request) {
         `{
           "total": count(*[_type == "updateSubscriber"]),
           "active": count(*[_type == "updateSubscriber" && status == "active"]),
-          "optedIn": count(*[_type == "updateSubscriber" && status == "active" && "study_updates" in correspondencePreferences && defined(email)]),
-          "eligible": count(*[_type == "updateSubscriber" && status == "active" && "study_updates" in correspondencePreferences && defined(email) && (!defined(lastStudyUpdateSentAt) || lastStudyUpdateSentAt < $monthStartIso)]),
+          "optedIn": count(*[_type == "updateSubscriber" && status == "active" && "study_updates" in correspondencePreferences && defined(email) && suppressEmails != true]),
+          "eligible": count(*[_type == "updateSubscriber" && status == "active" && "study_updates" in correspondencePreferences && defined(email) && suppressEmails != true && (!defined(lastStudyUpdateSentAt) || lastStudyUpdateSentAt < $monthStartIso)]),
+          "suppressed": count(*[_type == "updateSubscriber" && suppressEmails == true]),
           "lastSentAt": *[_type == "updateSubscriber" && defined(lastStudyUpdateSentAt)] | order(lastStudyUpdateSentAt desc)[0].lastStudyUpdateSentAt
         }`,
         { monthStartIso }

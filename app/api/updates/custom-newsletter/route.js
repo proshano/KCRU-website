@@ -41,6 +41,7 @@ function buildSubscriberQuery({ roles, specialties, interestAreas }) {
       && status == "active"
       && "${NEWSLETTER_PREF}" in correspondencePreferences
       && defined(email)
+      && suppressEmails != true
       ${roleFilter}
       ${specialtyFilter}
       ${interestFilter}
@@ -153,6 +154,16 @@ export async function POST(request) {
           testRecipients: testSettings.recipients.length,
         },
         { headers: CORS_HEADERS }
+      )
+    }
+
+    if (!testSettings.enabled || testSettings.recipients.length === 0) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Update email sending is locked. Enable test mode and add at least one test recipient.',
+        },
+        { status: 409, headers: CORS_HEADERS }
       )
     }
 

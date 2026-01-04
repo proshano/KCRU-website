@@ -129,6 +129,7 @@ async function fetchSubscribers({ monthStartIso, force }) {
       && status == "active"
       && "${STUDY_UPDATES_PREF}" in correspondencePreferences
       && defined(email)
+      && suppressEmails != true
       ${monthFilter}
     ]{
       _id,
@@ -164,6 +165,13 @@ async function runDispatch({ force = false } = {}) {
   const studies = Array.isArray(studiesRaw) ? studiesRaw : []
   const updateSettings = settingsPayload?.settings || {}
   const testSettings = normalizeUpdateEmailTesting(settingsPayload?.testing)
+  if (!testSettings.enabled || testSettings.recipients.length === 0) {
+    return {
+      ok: false,
+      status: 409,
+      error: 'Update email sending is locked. Enable test mode and add at least one test recipient.',
+    }
+  }
   let subscribers = Array.isArray(subscribersRaw) ? subscribersRaw : []
   if (testSettings.enabled) {
     subscribers = filterSubscribersByTestEmails(subscribers, testSettings.recipients)

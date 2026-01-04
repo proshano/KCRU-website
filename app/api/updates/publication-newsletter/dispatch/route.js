@@ -159,6 +159,7 @@ async function fetchSubscribers({ cutoffIso, force, windowMode }) {
       && status == "active"
       && "${NEWSLETTER_PREF}" in correspondencePreferences
       && defined(email)
+      && suppressEmails != true
       ${windowFilter}
     ]{
       _id,
@@ -198,6 +199,13 @@ async function runDispatch({ force = false } = {}) {
   const settingsPayload = await fetchNewsletterSettings()
   const settings = settingsPayload?.settings || {}
   const testSettings = normalizeUpdateEmailTesting(settingsPayload?.testing)
+  if (!testSettings.enabled || testSettings.recipients.length === 0) {
+    return {
+      ok: false,
+      status: 409,
+      error: 'Update email sending is locked. Enable test mode and add at least one test recipient.',
+    }
+  }
   const windowMode = normalizeWindowMode(settings.windowMode)
   const windowDays = Number.isFinite(Number(settings.windowDays)) && Number(settings.windowDays) > 0
     ? Number(settings.windowDays)

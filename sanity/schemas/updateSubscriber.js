@@ -75,6 +75,13 @@ const updateSubscriber = {
       initialValue: 'active'
     },
     {
+      name: 'suppressEmails',
+      title: 'Suppress Emails',
+      type: 'boolean',
+      description: 'When enabled, this subscriber will not receive update emails.',
+      initialValue: false
+    },
+    {
       name: 'source',
       title: 'Source',
       type: 'string',

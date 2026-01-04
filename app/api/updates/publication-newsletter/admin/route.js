@@ -111,8 +111,9 @@ export async function GET(request) {
       `{
         "total": count(*[_type == "updateSubscriber"]),
         "active": count(*[_type == "updateSubscriber" && status == "active"]),
-        "optedIn": count(*[_type == "updateSubscriber" && status == "active" && "newsletter" in correspondencePreferences && defined(email)]),
-        "eligible": count(*[_type == "updateSubscriber" && status == "active" && "newsletter" in correspondencePreferences && defined(email)${eligibleFilter}]),
+        "optedIn": count(*[_type == "updateSubscriber" && status == "active" && "newsletter" in correspondencePreferences && defined(email) && suppressEmails != true]),
+        "eligible": count(*[_type == "updateSubscriber" && status == "active" && "newsletter" in correspondencePreferences && defined(email) && suppressEmails != true${eligibleFilter}]),
+        "suppressed": count(*[_type == "updateSubscriber" && suppressEmails == true]),
         "lastSentAt": *[_type == "updateSubscriber" && defined(lastPublicationNewsletterSentAt)] | order(lastPublicationNewsletterSentAt desc)[0].lastPublicationNewsletterSentAt
       }`,
       { cutoffIso }
