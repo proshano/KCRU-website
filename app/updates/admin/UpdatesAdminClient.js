@@ -94,6 +94,7 @@ export default function UpdatesAdminClient() {
     active: 0,
     optedIn: 0,
     eligible: 0,
+    suppressed: 0,
     lastSentAt: null,
   })
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
@@ -112,6 +113,9 @@ export default function UpdatesAdminClient() {
   const [sendingPublicationNow, setSendingPublicationNow] = useState(false)
   const [sendingPublicationForce, setSendingPublicationForce] = useState(false)
   const [publicationLastSendResult, setPublicationLastSendResult] = useState(null)
+  const [suppressionEmails, setSuppressionEmails] = useState('')
+  const [suppressingAll, setSuppressingAll] = useState(false)
+  const [unsuppressingList, setUnsuppressingList] = useState(false)
   const [customSubject, setCustomSubject] = useState('')
   const [customMessage, setCustomMessage] = useState('')
   const [customSignature, setCustomSignature] = useState('')
@@ -165,7 +169,7 @@ export default function UpdatesAdminClient() {
     setEmail('')
     setPasscode('')
     setAdminEmail('')
-    setStats({ total: 0, active: 0, optedIn: 0, eligible: 0, lastSentAt: null })
+    setStats({ total: 0, active: 0, optedIn: 0, eligible: 0, suppressed: 0, lastSentAt: null })
     setSettings(DEFAULT_SETTINGS)
     setTestSettings(DEFAULT_TEST_SETTINGS)
     setSavingTestSettings(false)
@@ -176,6 +180,9 @@ export default function UpdatesAdminClient() {
     setSavingPublicationSettings(false)
     setSendingPublicationNow(false)
     setSendingPublicationForce(false)
+    setSuppressionEmails('')
+    setSuppressingAll(false)
+    setUnsuppressingList(false)
     setCustomSubject('')
     setCustomMessage('')
     setCustomSignature('')
@@ -340,6 +347,11 @@ export default function UpdatesAdminClient() {
     setError('')
     setSuccess('')
     setLastSendResult(null)
+    const recipientCount = parseEmailListInput(testSettings.recipients).length
+    if (!testSettings.enabled || recipientCount === 0) {
+      setError('Sending is locked. Enable test mode and add at least one test recipient.')
+      return
+    }
     if (force) {
       setSendingForce(true)
     } else {
@@ -388,6 +400,11 @@ export default function UpdatesAdminClient() {
     setError('')
     setSuccess('')
     setPublicationLastSendResult(null)
+    const recipientCount = parseEmailListInput(testSettings.recipients).length
+    if (!testSettings.enabled || recipientCount === 0) {
+      setError('Sending is locked. Enable test mode and add at least one test recipient.')
+      return
+    }
     if (force) {
       setSendingPublicationForce(true)
     } else {
@@ -591,6 +608,73 @@ export default function UpdatesAdminClient() {
     }
   }
 
+  async function suppressAllSubscribers() {
+    if (!token) return
+    if (!window.confirm('Disable emails for every subscriber? This will suppress all update sends.')) {
+      return
+    }
+    setError('')
+    setSuccess('')
+    setSuppressingAll(true)
+    try {
+      const res = await fetch('/api/updates/admin/suppression', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action: 'suppress_all' }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setSuccess('All subscribers are now suppressed.')
+      await loadAdminData(token)
+      await loadPublicationAdminData(token)
+    } catch (err) {
+      setError(err.message || 'Failed to suppress subscribers.')
+    } finally {
+      setSuppressingAll(false)
+    }
+  }
+
+  async function unsuppressSubscribersByEmail() {
+    if (!token) return
+    const emails = parseEmailListInput(suppressionEmails)
+    if (!emails.length) {
+      setError('Enter at least one email to re-enable.')
+      return
+    }
+    if (!window.confirm(`Re-enable ${emails.length} subscriber(s)?`)) {
+      return
+    }
+    setError('')
+    setSuccess('')
+    setUnsuppressingList(true)
+    try {
+      const res = await fetch('/api/updates/admin/suppression', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action: 'unsuppress_emails', emails }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setSuccess(`Re-enable requested for ${emails.length} email(s).`)
+      await loadAdminData(token)
+      await loadPublicationAdminData(token)
+    } catch (err) {
+      setError(err.message || 'Failed to re-enable subscribers.')
+    } finally {
+      setUnsuppressingList(false)
+    }
+  }
+
   function toggleCustomFilter(key, value) {
     setCustomFilters((prev) => {
       const set = new Set(prev[key] || [])
@@ -656,6 +740,14 @@ export default function UpdatesAdminClient() {
   async function sendCustomNewsletter() {
     if (!token) return
     setCustomStatus({ type: 'idle', message: '' })
+    const recipientCount = parseEmailListInput(testSettings.recipients).length
+    if (!testSettings.enabled || recipientCount === 0) {
+      setCustomStatus({
+        type: 'error',
+        message: 'Sending is locked. Enable test mode and add at least one test recipient.',
+      })
+      return
+    }
     const subject = customSubject.trim()
     const message = customMessage.trim()
     if (!subject || !message) {
@@ -701,6 +793,7 @@ export default function UpdatesAdminClient() {
 
   const testRecipientCount = parseEmailListInput(testSettings.recipients).length
   const testRecipientLabel = testRecipientCount === 1 ? '1 recipient' : `${testRecipientCount} recipients`
+  const canSendUpdates = testSettings.enabled && testRecipientCount > 0
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-10 space-y-8">
@@ -795,6 +888,9 @@ export default function UpdatesAdminClient() {
               <p className="text-sm text-gray-500">
                 Eligible study update subscribers this month: {formatCount(stats.eligible)}
               </p>
+              <p className="text-sm text-gray-500">
+                Suppressed subscribers: {formatCount(stats.suppressed)}
+              </p>
               {adminEmail && <p className="text-sm text-gray-500">Signed in as {adminEmail}.</p>}
             </div>
             <div className="flex items-center gap-2">
@@ -846,7 +942,7 @@ export default function UpdatesAdminClient() {
               <h3 className="text-lg font-semibold text-amber-900">Test mode</h3>
               <p className="text-sm text-amber-900/70">
                 When enabled, study updates, publication newsletters, and custom newsletters only send to the emails
-                listed below.
+                listed below. Sending is blocked until test mode is enabled and at least one email is set.
               </p>
             </div>
             <form className="space-y-3" onSubmit={saveTestSettings}>
@@ -876,6 +972,9 @@ export default function UpdatesAdminClient() {
                 {testSettings.enabled && testRecipientCount === 0 && (
                   <p className="text-xs text-red-600">Add at least one test email or nothing will send.</p>
                 )}
+                {!canSendUpdates && (
+                  <p className="text-xs text-red-600">Sending is locked until test mode is enabled and saved.</p>
+                )}
               </div>
               <button
                 type="submit"
@@ -885,6 +984,50 @@ export default function UpdatesAdminClient() {
                 {savingTestSettings ? 'Saving...' : 'Save test settings'}
               </button>
             </form>
+          </section>
+
+          <section className="bg-rose-50 border border-rose-200 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-rose-900">Subscriber suppression</h3>
+              <p className="text-sm text-rose-900/70">
+                Disable all subscriber emails, then re-enable only the addresses you want to receive test sends.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={suppressAllSubscribers}
+                disabled={suppressingAll}
+                className="inline-flex items-center justify-center bg-rose-600 text-white px-4 py-2 rounded shadow hover:bg-rose-700 disabled:opacity-60"
+              >
+                {suppressingAll ? 'Disabling...' : 'Disable all subscribers'}
+              </button>
+              <p className="text-sm text-rose-900/70">
+                Currently suppressed: {formatCount(stats.suppressed)}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="suppression-emails" className="text-sm font-medium text-rose-900">
+                Re-enable specific emails
+              </label>
+              <textarea
+                id="suppression-emails"
+                value={suppressionEmails}
+                onChange={(event) => setSuppressionEmails(event.target.value)}
+                rows={3}
+                placeholder="test@example.com"
+                className="w-full border border-rose-200 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white"
+              />
+              <p className="text-xs text-rose-800">One email per line or comma-separated.</p>
+              <button
+                type="button"
+                onClick={unsuppressSubscribersByEmail}
+                disabled={unsuppressingList}
+                className="inline-flex items-center justify-center border border-rose-500 text-rose-700 px-4 py-2 rounded hover:bg-rose-100 disabled:opacity-60"
+              >
+                {unsuppressingList ? 'Re-enabling...' : 'Re-enable listed emails'}
+              </button>
+            </div>
           </section>
 
           <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
@@ -898,7 +1041,7 @@ export default function UpdatesAdminClient() {
               <button
                 type="button"
                 onClick={() => handleSend({ force: false })}
-                disabled={sendingNow}
+                disabled={sendingNow || !canSendUpdates}
                 className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
               >
                 {sendingNow ? 'Sending...' : 'Send now'}
@@ -906,7 +1049,7 @@ export default function UpdatesAdminClient() {
               <button
                 type="button"
                 onClick={() => handleSend({ force: true })}
-                disabled={sendingForce}
+                disabled={sendingForce || !canSendUpdates}
                 className="inline-flex items-center justify-center border border-red-500 text-red-600 px-4 py-2 rounded hover:bg-red-50 disabled:opacity-60"
               >
                 {sendingForce ? 'Sending...' : 'Force send'}
@@ -915,6 +1058,11 @@ export default function UpdatesAdminClient() {
             {testSettings.enabled && (
               <p className="text-sm text-amber-700">
                 Test mode is enabled. This send will go to {testRecipientLabel}.
+              </p>
+            )}
+            {!canSendUpdates && (
+              <p className="text-sm text-red-600">
+                Sending is locked. Enable test mode and add at least one test recipient.
               </p>
             )}
             {lastSendResult && (
@@ -1057,7 +1205,7 @@ export default function UpdatesAdminClient() {
               <button
                 type="button"
                 onClick={() => handlePublicationSend({ force: false })}
-                disabled={sendingPublicationNow}
+                disabled={sendingPublicationNow || !canSendUpdates}
                 className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
               >
                 {sendingPublicationNow ? 'Sending...' : 'Send now'}
@@ -1065,7 +1213,7 @@ export default function UpdatesAdminClient() {
               <button
                 type="button"
                 onClick={() => handlePublicationSend({ force: true })}
-                disabled={sendingPublicationForce}
+                disabled={sendingPublicationForce || !canSendUpdates}
                 className="inline-flex items-center justify-center border border-red-500 text-red-600 px-4 py-2 rounded hover:bg-red-50 disabled:opacity-60"
               >
                 {sendingPublicationForce ? 'Sending...' : 'Force send'}
@@ -1074,6 +1222,11 @@ export default function UpdatesAdminClient() {
             {testSettings.enabled && (
               <p className="text-sm text-amber-700">
                 Test mode is enabled. This send will go to {testRecipientLabel}.
+              </p>
+            )}
+            {!canSendUpdates && (
+              <p className="text-sm text-red-600">
+                Sending is locked. Enable test mode and add at least one test recipient.
               </p>
             )}
             {publicationLastSendResult && (
@@ -1316,12 +1469,17 @@ export default function UpdatesAdminClient() {
               <button
                 type="button"
                 onClick={sendCustomNewsletter}
-                disabled={customSending}
+                disabled={customSending || !canSendUpdates}
                 className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
               >
                 {customSending ? 'Sending...' : 'Send newsletter'}
               </button>
             </div>
+            {!canSendUpdates && (
+              <p className="text-sm text-red-600">
+                Sending is locked. Enable test mode and add at least one test recipient.
+              </p>
+            )}
             {customAudienceCount !== null && (
               <p className="text-sm text-gray-600">Current audience size: {formatCount(customAudienceCount)}</p>
             )}
