@@ -294,6 +294,28 @@ async function findDuplicateNctId({ nctId, excludeId }) {
   return duplicate || null
 }
 
+async function resolveTrialId(id) {
+  const cleaned = sanitizeString(id)
+  if (!cleaned) return ''
+  const baseId = cleaned.replace(/^drafts\./, '')
+  const draftId = baseId ? `drafts.${baseId}` : ''
+  const ids = Array.from(
+    new Set([cleaned, baseId, draftId].filter(Boolean))
+  )
+  const matches = await writeClient.fetch(
+    `*[_type == "trialSummary" && _id in $ids]{ _id }`,
+    { ids }
+  )
+  if (!Array.isArray(matches) || !matches.length) return ''
+  if (baseId && matches.some((doc) => doc?._id === baseId)) {
+    return baseId
+  }
+  if (draftId && matches.some((doc) => doc?._id === draftId)) {
+    return draftId
+  }
+  return matches[0]?._id || ''
+}
+
 async function resolvePayloadReferences(payload) {
   const areaIds = Array.isArray(payload?.therapeuticAreaIds)
     ? payload.therapeuticAreaIds.filter(Boolean)
@@ -655,21 +677,31 @@ export async function PATCH(request) {
 
     const bypassApprovals = await canBypassApprovals(session?.email)
     if (bypassApprovals) {
+      const resolvedId = await resolveTrialId(id)
+      if (!resolvedId) {
+        return NextResponse.json(
+          { ok: false, error: 'Study not found. Refresh the list and try again.' },
+          { status: 404, headers: CORS_HEADERS }
+        )
+      }
       let slugValue = null
       if (payload.slug || payload.title) {
         const baseSlug = slugify(payload.slug || payload.title)
         if (baseSlug) {
-          slugValue = await ensureUniqueSlug({ baseSlug, excludeId: id, sanityFetch })
+          slugValue = await ensureUniqueSlug({ baseSlug, excludeId: resolvedId, sanityFetch })
         }
       }
       const fields = buildPatchFields(payload, slugValue)
       const unset = buildUnsetFields(payload)
-      let patch = writeClient.patch(id).set(fields)
+      let patch = writeClient.patch(resolvedId).set(fields)
       if (unset.length) {
         patch = patch.unset(unset)
       }
       await patch.commit({ returnDocuments: false })
-      return NextResponse.json({ ok: true, studyId: id, directPublish: true }, { headers: CORS_HEADERS })
+      return NextResponse.json(
+        { ok: true, studyId: resolvedId, directPublish: true },
+        { headers: CORS_HEADERS }
+      )
     }
 
     const admins = await getApprovalAdmins()
