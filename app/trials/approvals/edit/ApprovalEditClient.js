@@ -798,7 +798,7 @@ export default function ApprovalEditClient() {
             <div>
               <h3 className="text-lg font-semibold">Local Contact & PI</h3>
               <p className="text-sm text-gray-500">
-                This is the main contact for participants. Only shown publicly if you enable it below.
+                This is the main contact for inquiries and referrals. Only shown publicly if you enable it below.
               </p>
             </div>
 
