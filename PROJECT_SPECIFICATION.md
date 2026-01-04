@@ -12,7 +12,7 @@ Build a modern web application for an independent academic clinical research uni
 | CMS | Sanity | Headless CMS with excellent editing UX for non-technical staff |
 | Hosting | Vercel | Seamless Next.js deployment, cron jobs, edge functions |
 | Styling | Tailwind CSS | Utility-first, consistent design system |
-| Email | Resend (or SendGrid) | Transactional email for inquiry forms |
+| Email | Resend | Transactional email for inquiry forms |
 
 ## Architecture Overview
 
@@ -1300,7 +1300,7 @@ SITE_URL=https://yoursite.com   # Required by OpenRouter for attribution
 **Flow:**
 1. Validate required fields
 2. Fetch coordinator email from Sanity using trialSlug
-3. Send email via Resend/SendGrid
+3. Send email via Resend
 4. Return success response
 
 **Coordinator email is never exposed to the client.**
@@ -1571,7 +1571,7 @@ SITE_URL=https://yourresearchunit.com
 5. Add environment variables in Vercel dashboard
 6. Deploy
 7. Configure custom domain (optional)
-8. Set up email provider (Resend/SendGrid)
+8. Set up email provider (Resend)
 9. Test inquiry form end-to-end
 10. Populate initial content in Sanity
 
