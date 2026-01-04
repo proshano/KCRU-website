@@ -211,6 +211,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   const lastSavedSnapshotRef = useRef('')
   const draftSavingRef = useRef(false)
   const saveDraftRef = useRef(null)
+  const formRef = useRef(null)
   const inclusionCriteriaRefs = useRef([])
   const exclusionCriteriaRefs = useRef([])
   const criteriaFocusRef = useRef(null)
@@ -1056,6 +1057,37 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     }
   }, [draftSaving, form, saveDraft])
 
+  useEffect(() => {
+    // Keep default values in sync so browsers like Safari don't flag saved forms as dirty.
+    if (hasChanges) return
+    const formElement = formRef.current
+    if (!formElement) return
+    const rafId = requestAnimationFrame(() => {
+      const elements = Array.from(formElement.elements)
+      elements.forEach((element) => {
+        if (element instanceof HTMLInputElement) {
+          if (element.type === 'checkbox' || element.type === 'radio') {
+            element.defaultChecked = element.checked
+            return
+          }
+          if (element.type === 'file') return
+          element.defaultValue = element.value
+          return
+        }
+        if (element instanceof HTMLTextAreaElement) {
+          element.defaultValue = element.value
+          return
+        }
+        if (element instanceof HTMLSelectElement) {
+          Array.from(element.options).forEach((option) => {
+            option.defaultSelected = option.selected
+          })
+        }
+      })
+    })
+    return () => cancelAnimationFrame(rafId)
+  }, [hasChanges, baselineSnapshot])
+
   const inclusionItems = Array.isArray(form.inclusionCriteria) ? form.inclusionCriteria : []
   const exclusionItems = Array.isArray(form.exclusionCriteria) ? form.exclusionCriteria : []
   const autosaveStatus = (() => {
@@ -1274,7 +1306,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
             </div>
           </div>
 
-          <form onSubmit={handleSave} className="space-y-6">
+          <form ref={formRef} onSubmit={handleSave} className="space-y-6">
             <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Study Details</h2>
@@ -1495,7 +1527,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
             <div>
               <h3 className="text-lg font-semibold">Local Contact & PI</h3>
               <p className="text-sm text-gray-500">
-                This is the main contact for participants. Only shown publicly if you enable it below.
+                This is the main contact for inquiries and referrals. Only shown publicly if you enable it below.
               </p>
             </div>
 
