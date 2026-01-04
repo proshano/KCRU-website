@@ -927,7 +927,13 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
             : 'New study submitted for approval.'
       )
       setDuplicateMatch(null)
-      setBaselineSnapshot(formSnapshot)
+      if (saveResult?.studyId && saveResult.studyId !== form.id) {
+        const nextForm = { ...form, id: saveResult.studyId }
+        setForm(nextForm)
+        setBaselineSnapshot(serializeDraft(nextForm))
+      } else {
+        setBaselineSnapshot(formSnapshot)
+      }
       await loadData()
       await deleteDraft({ silent: true })
     } catch (err) {
