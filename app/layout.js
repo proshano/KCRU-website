@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { sanityFetch, queries } from '@/lib/sanity'
 import { buildOpenGraph, buildOpenGraphImage, buildTwitterMetadata, getMetadataBase, getSiteBaseUrl, normalizeDescription, resolveSiteDescription, resolveSiteTitle } from '@/lib/seo'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import AltmetricScript from './components/AltmetricScript'
 import JsonLd from './components/JsonLd'
 import './globals.css'
@@ -181,6 +182,7 @@ export default async function RootLayout({ children }) {
             </div>
           </footer>
         </div>
+        <SpeedInsights />
       </body>
     </html>
   )
