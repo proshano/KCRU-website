@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { buildOutboundRedirectUrl } from '@/lib/outboundLinks'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
 import FeaturedStudy from './components/FeaturedStudy'
@@ -427,7 +428,8 @@ export default async function HomePage() {
             {[0, 1].map(loop => (
               tickerItems.map((pub, idx) => {
                 const investigatorsLabel = (pub.investigators || []).join(', ')
-                const pubUrl = pub?.url || (pub?.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/` : '#')
+                const rawPubUrl = pub?.url || (pub?.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/` : '#')
+                const pubUrl = buildOutboundRedirectUrl(rawPubUrl)
                 return (
                   <a
                     key={`${loop}-${pub.pmid || idx}`}
