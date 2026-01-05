@@ -45,11 +45,10 @@ function buildSubscriberQuery({ roles, specialties, interestAreas, legacyInteres
 
   const query = `
     *[_type == "updateSubscriber"
-      && (subscriptionStatus == "subscribed" || (!defined(subscriptionStatus) && status == "active"))
-      && (!defined(deliveryStatus) || deliveryStatus != "suppressed")
+      && subscriptionStatus == "subscribed"
+      && deliveryStatus != "suppressed"
       && "${NEWSLETTER_PREF}" in correspondencePreferences
       && defined(email)
-      && suppressEmails != true
       ${roleFilter}
       ${specialtyFilter}
       ${interestFilter}
@@ -57,10 +56,8 @@ function buildSubscriberQuery({ roles, specialties, interestAreas, legacyInteres
       _id,
       name,
       email,
-      status,
       subscriptionStatus,
       deliveryStatus,
-      suppressEmails,
       manageToken
     }
   `

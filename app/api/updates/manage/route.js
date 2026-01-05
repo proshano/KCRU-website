@@ -7,7 +7,6 @@ import {
   DELIVERY_STATUS_SUPPRESSED,
   SUBSCRIPTION_STATUS_SUBSCRIBED,
   SUBSCRIPTION_STATUS_UNSUBSCRIBED,
-  deriveLegacyStatus,
   resolveDeliveryStatus,
 } from '@/lib/updateSubscriberStatus'
 import {
@@ -30,10 +29,8 @@ async function getSubscriberByToken(token) {
       interestAreas,
       allTherapeuticAreas,
       correspondencePreferences,
-      status,
       subscriptionStatus,
-      deliveryStatus,
-      suppressEmails
+      deliveryStatus
     }`,
     { token }
   )
@@ -108,7 +105,6 @@ export async function POST(request) {
       .patch(subscriber._id)
       .set({
         subscriptionStatus: SUBSCRIPTION_STATUS_UNSUBSCRIBED,
-        status: SUBSCRIPTION_STATUS_UNSUBSCRIBED,
         updatedAt: now,
         unsubscribedAt: now
       })
@@ -174,10 +170,6 @@ export async function POST(request) {
   const nextDeliveryStatus =
     existingDeliveryStatus === DELIVERY_STATUS_SUPPRESSED ? DELIVERY_STATUS_SUPPRESSED : DELIVERY_STATUS_ACTIVE
   const nextSubscriptionStatus = SUBSCRIPTION_STATUS_SUBSCRIBED
-  const legacyStatus = deriveLegacyStatus({
-    subscriptionStatus: nextSubscriptionStatus,
-    deliveryStatus: nextDeliveryStatus,
-  })
 
   await writeClient
     .patch(subscriber._id)
@@ -191,7 +183,6 @@ export async function POST(request) {
       correspondencePreferences: normalizedCorrespondence,
       subscriptionStatus: nextSubscriptionStatus,
       deliveryStatus: nextDeliveryStatus,
-      status: legacyStatus,
       updatedAt: now,
       unsubscribedAt: null
     })
