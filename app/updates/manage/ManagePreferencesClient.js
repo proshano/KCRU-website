@@ -10,19 +10,35 @@ import {
   resolveSubscriptionStatus,
 } from '@/lib/updateSubscriberStatus'
 
+const STUDY_UPDATES_VALUE = 'study_updates'
+const ALL_AREAS_VALUE = 'all'
+const ROLE_WITH_STUDY_UPDATES = new Set([
+  'research_staff',
+  'physician',
+  'nurse_practitioner',
+  'physician_assistant',
+  'fellow_resident_specialty',
+  'nurse',
+  'clinical_coordinator',
+  'pharmacist'
+])
+
 export default function ManagePreferencesClient({
   roleOptions = [],
   specialtyOptions = [],
   interestAreaOptions = [],
+  practiceSiteOptions = [],
   correspondenceOptions = []
 }) {
   const searchParams = useSearchParams()
   const token = searchParams.get('token') || ''
+  const interestAreaValues = interestAreaOptions.map((area) => area.value)
 
   const [form, setForm] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState({ type: 'idle', message: '' })
+  const showPracticeSites = ROLE_WITH_STUDY_UPDATES.has(form?.role)
 
   useEffect(() => {
     let isMounted = true
@@ -54,6 +70,7 @@ export default function ManagePreferencesClient({
           email: subscriber.email || '',
           role: subscriber.role || '',
           specialty: subscriber.specialty || '',
+          practiceSites: subscriber.practiceSites || [],
           interestAreas,
           correspondencePreferences: subscriber.correspondencePreferences || ['study_updates', 'newsletter'],
           subscriptionStatus,
@@ -78,18 +95,22 @@ export default function ManagePreferencesClient({
     setForm((prev) => {
       if (!prev) return prev
       const set = new Set(prev.interestAreas)
+      if (value === ALL_AREAS_VALUE) {
+        if (set.has(ALL_AREAS_VALUE)) {
+          set.delete(ALL_AREAS_VALUE)
+          return { ...prev, interestAreas: Array.from(set) }
+        }
+        return { ...prev, interestAreas: interestAreaValues }
+      }
+
       if (set.has(value)) {
         set.delete(value)
       } else {
         set.add(value)
       }
 
-      if (set.has('all') && value !== 'all') {
-        set.delete('all')
-      }
-
-      if (value === 'all' && set.has('all')) {
-        return { ...prev, interestAreas: ['all'] }
+      if (set.has(ALL_AREAS_VALUE) && !set.has(value)) {
+        set.delete(ALL_AREAS_VALUE)
       }
 
       return { ...prev, interestAreas: Array.from(set) }
@@ -105,7 +126,24 @@ export default function ManagePreferencesClient({
       } else {
         set.add(value)
       }
-      return { ...prev, correspondencePreferences: Array.from(set) }
+      const next = { ...prev, correspondencePreferences: Array.from(set) }
+      if (!set.has(STUDY_UPDATES_VALUE)) {
+        next.interestAreas = []
+      }
+      return next
+    })
+  }
+
+  const togglePracticeSite = (value) => {
+    setForm((prev) => {
+      if (!prev) return prev
+      const set = new Set(prev.practiceSites || [])
+      if (set.has(value)) {
+        set.delete(value)
+      } else {
+        set.add(value)
+      }
+      return { ...prev, practiceSites: Array.from(set) }
     })
   }
 
@@ -120,16 +158,19 @@ export default function ManagePreferencesClient({
       return
     }
 
-    const allTherapeuticAreas = form.interestAreas.includes('all')
-    const selectedInterestAreas = allTherapeuticAreas ? [] : form.interestAreas
-
-    if (!allTherapeuticAreas && !selectedInterestAreas.length) {
-      setStatus({ type: 'error', message: 'Please select at least one interest area.' })
+    if (!form.correspondencePreferences.length) {
+      setStatus({ type: 'error', message: 'Please select at least one correspondence option.' })
       return
     }
 
-    if (!form.correspondencePreferences.length) {
-      setStatus({ type: 'error', message: 'Please select at least one correspondence option.' })
+    const wantsStudyUpdates = form.correspondencePreferences.includes(STUDY_UPDATES_VALUE)
+    const allTherapeuticAreas = wantsStudyUpdates && form.interestAreas.includes(ALL_AREAS_VALUE)
+    const selectedInterestAreas = wantsStudyUpdates
+      ? (allTherapeuticAreas ? [] : form.interestAreas)
+      : []
+
+    if (wantsStudyUpdates && !allTherapeuticAreas && !selectedInterestAreas.length) {
+      setStatus({ type: 'error', message: 'Please select at least one interest area.' })
       return
     }
 
@@ -145,6 +186,7 @@ export default function ManagePreferencesClient({
           name: form.name,
           role: form.role,
           specialty: form.specialty,
+          practiceSites: form.practiceSites,
           interestAreas: selectedInterestAreas,
           allTherapeuticAreas,
           correspondencePreferences: form.correspondencePreferences
@@ -252,7 +294,18 @@ export default function ManagePreferencesClient({
           <select
             className="w-full rounded-md border border-black/10 px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-purple/50 bg-white"
             value={form.role}
-            onChange={(event) => setForm((prev) => ({ ...prev, role: event.target.value }))}
+            onChange={(event) => {
+              const nextRole = event.target.value
+              setForm((prev) => {
+                if (!prev) return prev
+                const shouldShow = ROLE_WITH_STUDY_UPDATES.has(nextRole)
+                return {
+                  ...prev,
+                  role: nextRole,
+                  practiceSites: shouldShow ? prev.practiceSites : []
+                }
+              })
+            }}
             required
           >
             <option value="" disabled>
@@ -319,6 +372,25 @@ export default function ManagePreferencesClient({
             ))}
           </div>
         </div>
+
+        {practiceSiteOptions.length > 0 && showPracticeSites && (
+          <div className="space-y-2">
+            <label className="block text-base font-semibold text-[#333]">Location of practice</label>
+            <div className="grid gap-3 sm:grid-cols-2 sm:gap-x-8">
+              {practiceSiteOptions.map((site) => (
+                <label key={site.value} className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 shrink-0"
+                    checked={form.practiceSites.includes(site.value)}
+                    onChange={() => togglePracticeSite(site.value)}
+                  />
+                  <span className="leading-snug">{site.title}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         {status.type === 'error' && <p className="text-sm text-red-600">{status.message}</p>}
         {status.type === 'success' && <p className="text-sm text-green-700">{status.message}</p>}

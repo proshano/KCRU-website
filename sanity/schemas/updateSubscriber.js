@@ -55,6 +55,13 @@ const updateSubscriber = {
       options: { list: SPECIALTY_OPTIONS }
     },
     {
+      name: 'practiceSites',
+      title: 'Location of practice',
+      type: 'array',
+      of: [{ type: 'reference', to: [{ type: 'site' }] }],
+      options: { filter: 'active == true' }
+    },
+    {
       name: 'allTherapeuticAreas',
       title: 'All Therapeutic Areas',
       type: 'boolean',
@@ -68,6 +75,9 @@ const updateSubscriber = {
       options: { filter: 'active == true' },
       validation: (Rule) =>
         Rule.custom((value, context) => {
+          const wantsStudyUpdates = Array.isArray(context?.document?.correspondencePreferences)
+            && context.document.correspondencePreferences.includes('study_updates')
+          if (!wantsStudyUpdates) return true
           if (context?.document?.allTherapeuticAreas) return true
           if (!Array.isArray(value) || value.length === 0) {
             return 'Select at least one interest area or enable all areas.'

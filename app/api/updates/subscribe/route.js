@@ -22,6 +22,7 @@ import {
   fetchTherapeuticAreas,
   resolveTherapeuticAreaIds,
 } from '@/lib/therapeuticAreas'
+import { fetchSites, resolveSiteIds } from '@/lib/sites'
 
 const MIN_FORM_TIME_MS = 800
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
@@ -72,6 +73,7 @@ async function upsertSubscriber({
   email,
   role,
   specialty,
+  practiceSites,
   interestAreas,
   allTherapeuticAreas,
   correspondencePreferences,
@@ -114,6 +116,7 @@ async function upsertSubscriber({
         email,
         role,
         specialty: specialty || null,
+        practiceSites,
         interestAreas,
         allTherapeuticAreas,
         correspondencePreferences,
@@ -139,6 +142,7 @@ async function upsertSubscriber({
     email,
     role,
     specialty: specialty || null,
+    practiceSites,
     interestAreas,
     allTherapeuticAreas,
     correspondencePreferences,
@@ -176,6 +180,7 @@ export async function POST(request) {
     email,
     role,
     specialty,
+    practiceSites,
     interestAreas,
     correspondencePreferences,
     recaptchaToken,
@@ -213,24 +218,43 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Please select a valid specialty.' }, { status: 400 })
   }
 
-  const areas = await fetchTherapeuticAreas()
-  if (!areas.length) {
-    return NextResponse.json({ error: 'Therapeutic areas are not configured.' }, { status: 500 })
-  }
-
-  const rawInterestAreas = Array.isArray(interestAreas) ? interestAreas : []
-  const allTherapeuticAreas = Boolean(body?.allTherapeuticAreas) || rawInterestAreas.includes(ALL_THERAPEUTIC_AREAS_VALUE)
-  const resolvedInterestAreaIds = allTherapeuticAreas
-    ? []
-    : resolveTherapeuticAreaIds(rawInterestAreas, areas)
-
-  if (!allTherapeuticAreas && !resolvedInterestAreaIds.length) {
-    return NextResponse.json({ error: 'Please select at least one interest area.' }, { status: 400 })
-  }
-
   const normalizedCorrespondence = normalizeCorrespondence(correspondencePreferences, CORRESPONDENCE_VALUES)
   if (!normalizedCorrespondence.length) {
     return NextResponse.json({ error: 'Please select at least one correspondence option.' }, { status: 400 })
+  }
+
+  const rawPracticeSites = Array.isArray(practiceSites) ? practiceSites : []
+  let resolvedPracticeSiteIds = []
+
+  if (rawPracticeSites.length) {
+    const sites = await fetchSites()
+    if (!sites.length) {
+      return NextResponse.json({ error: 'Research sites are not configured.' }, { status: 500 })
+    }
+    resolvedPracticeSiteIds = resolveSiteIds(rawPracticeSites, sites)
+    if (!resolvedPracticeSiteIds.length) {
+      return NextResponse.json({ error: 'Please select a valid location of practice.' }, { status: 400 })
+    }
+  }
+
+  const wantsStudyUpdates = normalizedCorrespondence.includes('study_updates')
+  let resolvedInterestAreaIds = []
+  let allTherapeuticAreas = false
+
+  if (wantsStudyUpdates) {
+    const areas = await fetchTherapeuticAreas()
+    if (!areas.length) {
+      return NextResponse.json({ error: 'Therapeutic areas are not configured.' }, { status: 500 })
+    }
+
+    const rawInterestAreas = Array.isArray(interestAreas) ? interestAreas : []
+    allTherapeuticAreas =
+      Boolean(body?.allTherapeuticAreas) || rawInterestAreas.includes(ALL_THERAPEUTIC_AREAS_VALUE)
+    resolvedInterestAreaIds = allTherapeuticAreas ? [] : resolveTherapeuticAreaIds(rawInterestAreas, areas)
+
+    if (!allTherapeuticAreas && !resolvedInterestAreaIds.length) {
+      return NextResponse.json({ error: 'Please select at least one interest area.' }, { status: 400 })
+    }
   }
 
   const recaptchaResult = await verifyRecaptcha(recaptchaToken)
@@ -244,6 +268,7 @@ export async function POST(request) {
       email: trimmedEmail,
       role: normalizedRole,
       specialty: normalizedSpecialty,
+      practiceSites: buildReferenceList(resolvedPracticeSiteIds),
       interestAreas: buildReferenceList(resolvedInterestAreaIds),
       allTherapeuticAreas,
       correspondencePreferences: normalizedCorrespondence,
