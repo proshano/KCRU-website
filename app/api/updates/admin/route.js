@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { sanityFetch, writeClient } from '@/lib/sanity'
+import { sanityFetch, writeClient, queries } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
 import { getScopedAdminSession } from '@/lib/adminSessions'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
@@ -9,6 +9,10 @@ import { normalizeTestEmailList, normalizeUpdateEmailTesting } from '@/lib/updat
 const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
 
 const CRON_TIMEZONE = process.env.CRON_TIMEZONE || 'America/New_York'
+const SUBSCRIBED_FILTER = '(subscriptionStatus == "subscribed" || (!defined(subscriptionStatus) && status == "active"))'
+const DELIVERABLE_FILTER =
+  `${SUBSCRIBED_FILTER} && (!defined(deliveryStatus) || deliveryStatus != "suppressed")` +
+  ' && status != "suppressed" && status != "unsubscribed" && suppressEmails != true'
 
 function hasOwn(value, key) {
   return Object.prototype.hasOwnProperty.call(value || {}, key)
@@ -84,14 +88,14 @@ export async function GET(request) {
       ? (query, params) => writeClient.fetch(query, params)
       : sanityFetch
 
-    const [statsRaw, settingsRaw] = await Promise.all([
+    const [statsRaw, settingsRaw, areasRaw] = await Promise.all([
       fetcher(
         `{
           "total": count(*[_type == "updateSubscriber"]),
-          "active": count(*[_type == "updateSubscriber" && status == "active"]),
-          "optedIn": count(*[_type == "updateSubscriber" && status == "active" && "study_updates" in correspondencePreferences && defined(email) && suppressEmails != true]),
-          "eligible": count(*[_type == "updateSubscriber" && status == "active" && "study_updates" in correspondencePreferences && defined(email) && suppressEmails != true && (!defined(lastStudyUpdateSentAt) || lastStudyUpdateSentAt < $monthStartIso)]),
-          "suppressed": count(*[_type == "updateSubscriber" && suppressEmails == true]),
+          "active": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER}]),
+          "optedIn": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER} && "study_updates" in correspondencePreferences && defined(email)]),
+          "eligible": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER} && "study_updates" in correspondencePreferences && defined(email) && (!defined(lastStudyUpdateSentAt) || lastStudyUpdateSentAt < $monthStartIso)]),
+          "suppressed": count(*[_type == "updateSubscriber" && (deliveryStatus == "suppressed" || status == "suppressed" || suppressEmails == true)]),
           "lastSentAt": *[_type == "updateSubscriber" && defined(lastStudyUpdateSentAt)] | order(lastStudyUpdateSentAt desc)[0].lastStudyUpdateSentAt
         }`,
         { monthStartIso }
@@ -113,6 +117,7 @@ export async function GET(request) {
           }
         }`
       ),
+      fetcher(queries.therapeuticAreasMinimal),
     ])
 
     return NextResponse.json(
@@ -122,6 +127,7 @@ export async function GET(request) {
         stats: statsRaw || {},
         settings: settingsRaw?.studyUpdates || {},
         testSettings: normalizeUpdateEmailTesting(settingsRaw?.updateEmailTesting),
+        therapeuticAreas: areasRaw || [],
       },
       { headers: CORS_HEADERS }
     )

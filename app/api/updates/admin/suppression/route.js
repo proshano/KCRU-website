@@ -3,6 +3,7 @@ import { writeClient } from '@/lib/sanity'
 import { getScopedAdminSession } from '@/lib/adminSessions'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { normalizeTestEmailList } from '@/lib/updateEmailTesting'
+import { DELIVERY_STATUS_ACTIVE, DELIVERY_STATUS_SUPPRESSED } from '@/lib/updateSubscriberStatus'
 
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
@@ -47,8 +48,9 @@ export async function POST(request) {
       await writeClient.mutate([
         {
           patch: {
-            query: '*[_type == "updateSubscriber"]',
-            set: { suppressEmails: true, updatedAt: now },
+            query: '*[_type == "updateSubscriber" && subscriptionStatus != "unsubscribed" && status != "unsubscribed"]',
+            set: { deliveryStatus: DELIVERY_STATUS_SUPPRESSED, status: DELIVERY_STATUS_SUPPRESSED, updatedAt: now },
+            unset: ['suppressEmails'],
           },
         },
       ])
@@ -59,8 +61,10 @@ export async function POST(request) {
       await writeClient.mutate([
         {
           patch: {
-            query: '*[_type == "updateSubscriber"]',
-            set: { suppressEmails: false, updatedAt: now },
+            query:
+              '*[_type == "updateSubscriber" && subscriptionStatus != "unsubscribed" && status != "unsubscribed" && (deliveryStatus == "suppressed" || status == "suppressed" || suppressEmails == true)]',
+            set: { deliveryStatus: DELIVERY_STATUS_ACTIVE, status: DELIVERY_STATUS_ACTIVE, updatedAt: now },
+            unset: ['suppressEmails'],
           },
         },
       ])
@@ -78,9 +82,11 @@ export async function POST(request) {
       await writeClient.mutate([
         {
           patch: {
-            query: '*[_type == "updateSubscriber" && lower(email) in $emails]',
+            query:
+              '*[_type == "updateSubscriber" && lower(email) in $emails && subscriptionStatus != "unsubscribed" && status != "unsubscribed"]',
             params: { emails },
-            set: { suppressEmails: false, updatedAt: now },
+            set: { deliveryStatus: DELIVERY_STATUS_ACTIVE, status: DELIVERY_STATUS_ACTIVE, updatedAt: now },
+            unset: ['suppressEmails'],
           },
         },
       ])

@@ -1,12 +1,27 @@
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { writeClient } from '@/lib/sanity'
-import { ROLE_VALUES, SPECIALTY_VALUES, INTEREST_AREA_VALUES, CORRESPONDENCE_VALUES } from '@/lib/communicationOptions'
+import { ROLE_VALUES, SPECIALTY_VALUES, CORRESPONDENCE_VALUES } from '@/lib/communicationOptions'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escapeHtml'
 import { getClientIp } from '@/lib/httpUtils'
-import { sanitizeString, normalizeCorrespondence, normalizeInterestAreas } from '@/lib/inputUtils'
+import { sanitizeString, normalizeCorrespondence } from '@/lib/inputUtils'
 import { verifyRecaptcha } from '@/lib/recaptcha'
+import {
+  DELIVERY_STATUS_ACTIVE,
+  DELIVERY_STATUS_SUPPRESSED,
+  SUBSCRIPTION_STATUS_SUBSCRIBED,
+  SUBSCRIPTION_STATUS_UNSUBSCRIBED,
+  deriveLegacyStatus,
+  resolveDeliveryStatus,
+  resolveSubscriptionStatus,
+} from '@/lib/updateSubscriberStatus'
+import {
+  ALL_THERAPEUTIC_AREAS_VALUE,
+  buildReferenceList,
+  fetchTherapeuticAreas,
+  resolveTherapeuticAreaIds,
+} from '@/lib/therapeuticAreas'
 
 const MIN_FORM_TIME_MS = 800
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
@@ -58,6 +73,7 @@ async function upsertSubscriber({
   role,
   specialty,
   interestAreas,
+  allTherapeuticAreas,
   correspondencePreferences,
   headers,
   recaptchaData
@@ -68,13 +84,29 @@ async function upsertSubscriber({
 
   const emailLower = email.toLowerCase()
   const existing = await writeClient.fetch(
-    `*[_type == "updateSubscriber" && lower(email) == $emailLower][0]{ _id, manageToken, status, source }`,
+    `*[_type == "updateSubscriber" && lower(email) == $emailLower][0]{
+      _id,
+      manageToken,
+      status,
+      subscriptionStatus,
+      deliveryStatus,
+      suppressEmails,
+      source
+    }`,
     { emailLower }
   )
 
   const now = new Date().toISOString()
   if (existing?._id) {
     const manageToken = existing.manageToken || randomUUID()
+    const existingDeliveryStatus = resolveDeliveryStatus(existing)
+    const nextDeliveryStatus =
+      existingDeliveryStatus === DELIVERY_STATUS_SUPPRESSED ? DELIVERY_STATUS_SUPPRESSED : DELIVERY_STATUS_ACTIVE
+    const nextSubscriptionStatus = SUBSCRIPTION_STATUS_SUBSCRIBED
+    const legacyStatus = deriveLegacyStatus({
+      subscriptionStatus: nextSubscriptionStatus,
+      deliveryStatus: nextDeliveryStatus,
+    })
     let patch = writeClient
       .patch(existing._id)
       .set({
@@ -83,13 +115,16 @@ async function upsertSubscriber({
         role,
         specialty: specialty || null,
         interestAreas,
+        allTherapeuticAreas,
         correspondencePreferences,
-        status: 'active',
+        subscriptionStatus: nextSubscriptionStatus,
+        deliveryStatus: nextDeliveryStatus,
+        status: legacyStatus,
         updatedAt: now,
         ...(existing.manageToken ? {} : { manageToken })
       })
 
-    if (existing.status === 'unsubscribed') {
+    if (resolveSubscriptionStatus(existing) === SUBSCRIPTION_STATUS_UNSUBSCRIBED) {
       patch = patch.unset(['unsubscribedAt'])
     }
 
@@ -105,8 +140,11 @@ async function upsertSubscriber({
     role,
     specialty: specialty || null,
     interestAreas,
+    allTherapeuticAreas,
     correspondencePreferences,
-    status: 'active',
+    subscriptionStatus: SUBSCRIPTION_STATUS_SUBSCRIBED,
+    deliveryStatus: DELIVERY_STATUS_ACTIVE,
+    status: DELIVERY_STATUS_ACTIVE,
     source: 'self',
     manageToken,
     createdAt: now,
@@ -175,8 +213,18 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Please select a valid specialty.' }, { status: 400 })
   }
 
-  const normalizedInterestAreas = normalizeInterestAreas(interestAreas, INTEREST_AREA_VALUES)
-  if (!normalizedInterestAreas.length) {
+  const areas = await fetchTherapeuticAreas()
+  if (!areas.length) {
+    return NextResponse.json({ error: 'Therapeutic areas are not configured.' }, { status: 500 })
+  }
+
+  const rawInterestAreas = Array.isArray(interestAreas) ? interestAreas : []
+  const allTherapeuticAreas = Boolean(body?.allTherapeuticAreas) || rawInterestAreas.includes(ALL_THERAPEUTIC_AREAS_VALUE)
+  const resolvedInterestAreaIds = allTherapeuticAreas
+    ? []
+    : resolveTherapeuticAreaIds(rawInterestAreas, areas)
+
+  if (!allTherapeuticAreas && !resolvedInterestAreaIds.length) {
     return NextResponse.json({ error: 'Please select at least one interest area.' }, { status: 400 })
   }
 
@@ -196,7 +244,8 @@ export async function POST(request) {
       email: trimmedEmail,
       role: normalizedRole,
       specialty: normalizedSpecialty,
-      interestAreas: normalizedInterestAreas,
+      interestAreas: buildReferenceList(resolvedInterestAreaIds),
+      allTherapeuticAreas,
       correspondencePreferences: normalizedCorrespondence,
       headers,
       recaptchaData: recaptchaResult.data

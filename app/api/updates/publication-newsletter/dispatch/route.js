@@ -8,6 +8,7 @@ import { readCache } from '@/lib/pubmedCache'
 import { getPublicationDate } from '@/lib/publicationUtils'
 import { mergeWithClassifications } from '@/lib/publications'
 import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
+import { isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
   /\/$/,
@@ -156,7 +157,8 @@ async function fetchSubscribers({ cutoffIso, force, windowMode }) {
     : ''
   const query = `
     *[_type == "updateSubscriber"
-      && status == "active"
+      && (subscriptionStatus == "subscribed" || (!defined(subscriptionStatus) && status == "active"))
+      && (!defined(deliveryStatus) || deliveryStatus != "suppressed")
       && "${NEWSLETTER_PREF}" in correspondencePreferences
       && defined(email)
       && suppressEmails != true
@@ -165,6 +167,10 @@ async function fetchSubscribers({ cutoffIso, force, windowMode }) {
       _id,
       name,
       email,
+      status,
+      subscriptionStatus,
+      deliveryStatus,
+      suppressEmails,
       manageToken,
       lastPublicationNewsletterSentAt
     }
@@ -254,6 +260,10 @@ async function runDispatch({ force = false } = {}) {
   const errors = []
 
   for (const subscriber of subscribers) {
+    if (!isSubscriberDeliverable(subscriber)) {
+      stats.skipped += 1
+      continue
+    }
     const startDate = getStartDate({ subscriber, now, windowMode, windowDays })
     const rangeLabel = formatRangeLabel(startDate, now) || monthLabel
     const relevant = filterPublicationsByDate(publications, startDate)

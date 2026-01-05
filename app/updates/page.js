@@ -1,6 +1,7 @@
-import { ROLE_OPTIONS, SPECIALTY_OPTIONS, INTEREST_AREA_OPTIONS, CORRESPONDENCE_OPTIONS } from '@/lib/communicationOptions'
+import { ROLE_OPTIONS, SPECIALTY_OPTIONS, CORRESPONDENCE_OPTIONS } from '@/lib/communicationOptions'
 import { sanityFetch, queries } from '@/lib/sanity'
 import { buildOpenGraph, buildTwitterMetadata, normalizeDescription } from '@/lib/seo'
+import { buildTherapeuticAreaOptions, fetchTherapeuticAreas } from '@/lib/therapeuticAreas'
 import UpdatesSignupForm from './UpdatesSignupForm'
 
 export const revalidate = 3600
@@ -37,6 +38,8 @@ export async function generateMetadata() {
 
 export default async function UpdatesPage() {
   const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''
+  const areas = await fetchTherapeuticAreas()
+  const interestAreaOptions = buildTherapeuticAreaOptions(areas)
 
   return (
     <main className="max-w-[1200px] mx-auto px-6 md:px-12 py-12">
@@ -52,7 +55,7 @@ export default async function UpdatesPage() {
           <UpdatesSignupForm
             roleOptions={ROLE_OPTIONS}
             specialtyOptions={SPECIALTY_OPTIONS}
-            interestAreaOptions={INTEREST_AREA_OPTIONS}
+            interestAreaOptions={interestAreaOptions}
             correspondenceOptions={CORRESPONDENCE_OPTIONS}
             recaptchaSiteKey={recaptchaSiteKey}
           />

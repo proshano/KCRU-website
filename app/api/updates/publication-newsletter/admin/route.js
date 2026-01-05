@@ -9,6 +9,10 @@ const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
 
 const DEFAULT_WINDOW_DAYS = Number(process.env.PUBLICATION_NEWSLETTER_WINDOW_DAYS || 30)
 const DEFAULT_MAX_PUBLICATIONS = Number(process.env.PUBLICATION_NEWSLETTER_MAX_PUBLICATIONS || 8)
+const SUBSCRIBED_FILTER = '(subscriptionStatus == "subscribed" || (!defined(subscriptionStatus) && status == "active"))'
+const DELIVERABLE_FILTER =
+  `${SUBSCRIBED_FILTER} && (!defined(deliveryStatus) || deliveryStatus != "suppressed")` +
+  ' && status != "suppressed" && status != "unsubscribed" && suppressEmails != true'
 
 async function getSession(token) {
   return getScopedAdminSession(token, { scope: 'updates' })
@@ -110,10 +114,10 @@ export async function GET(request) {
     const statsRaw = await fetcher(
       `{
         "total": count(*[_type == "updateSubscriber"]),
-        "active": count(*[_type == "updateSubscriber" && status == "active"]),
-        "optedIn": count(*[_type == "updateSubscriber" && status == "active" && "newsletter" in correspondencePreferences && defined(email) && suppressEmails != true]),
-        "eligible": count(*[_type == "updateSubscriber" && status == "active" && "newsletter" in correspondencePreferences && defined(email) && suppressEmails != true${eligibleFilter}]),
-        "suppressed": count(*[_type == "updateSubscriber" && suppressEmails == true]),
+        "active": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER}]),
+        "optedIn": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER} && "newsletter" in correspondencePreferences && defined(email)]),
+        "eligible": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER} && "newsletter" in correspondencePreferences && defined(email)${eligibleFilter}]),
+        "suppressed": count(*[_type == "updateSubscriber" && (deliveryStatus == "suppressed" || status == "suppressed" || suppressEmails == true)]),
         "lastSentAt": *[_type == "updateSubscriber" && defined(lastPublicationNewsletterSentAt)] | order(lastPublicationNewsletterSentAt desc)[0].lastPublicationNewsletterSentAt
       }`,
       { cutoffIso }

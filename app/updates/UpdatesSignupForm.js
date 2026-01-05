@@ -108,7 +108,10 @@ export default function UpdatesSignupForm({
       return
     }
 
-    if (!form.interestAreas.length) {
+    const allTherapeuticAreas = form.interestAreas.includes('all')
+    const selectedInterestAreas = allTherapeuticAreas ? [] : form.interestAreas
+
+    if (!allTherapeuticAreas && !selectedInterestAreas.length) {
       setStatus({ type: 'error', message: 'Please select at least one interest area.' })
       return
     }
@@ -131,7 +134,8 @@ export default function UpdatesSignupForm({
           email,
           role: form.role,
           specialty: form.specialty,
-          interestAreas: form.interestAreas,
+          interestAreas: selectedInterestAreas,
+          allTherapeuticAreas,
           correspondencePreferences: form.correspondencePreferences,
           recaptchaToken,
           honeypot,
