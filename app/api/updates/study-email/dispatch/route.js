@@ -133,9 +133,8 @@ async function fetchSubscribers({ monthStartIso, force }) {
     : ' && (!defined(lastStudyUpdateSentAt) || lastStudyUpdateSentAt < $monthStartIso)'
   const query = `
     *[_type == "updateSubscriber"
-      && (subscriptionStatus == "subscribed" || (!defined(subscriptionStatus) && status == "active"))
-      && (!defined(deliveryStatus) || deliveryStatus != "suppressed")
-      && suppressEmails != true
+      && subscriptionStatus == "subscribed"
+      && deliveryStatus != "suppressed"
       && "${STUDY_UPDATES_PREF}" in correspondencePreferences
       && defined(email)
       ${monthFilter}
@@ -143,10 +142,8 @@ async function fetchSubscribers({ monthStartIso, force }) {
       _id,
       name,
       email,
-      status,
       subscriptionStatus,
       deliveryStatus,
-      suppressEmails,
       interestAreas,
       allTherapeuticAreas,
       manageToken,

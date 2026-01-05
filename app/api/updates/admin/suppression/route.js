@@ -48,9 +48,8 @@ export async function POST(request) {
       await writeClient.mutate([
         {
           patch: {
-            query: '*[_type == "updateSubscriber" && subscriptionStatus != "unsubscribed" && status != "unsubscribed"]',
-            set: { deliveryStatus: DELIVERY_STATUS_SUPPRESSED, status: DELIVERY_STATUS_SUPPRESSED, updatedAt: now },
-            unset: ['suppressEmails'],
+            query: '*[_type == "updateSubscriber" && subscriptionStatus != "unsubscribed"]',
+            set: { deliveryStatus: DELIVERY_STATUS_SUPPRESSED, updatedAt: now },
           },
         },
       ])
@@ -62,9 +61,8 @@ export async function POST(request) {
         {
           patch: {
             query:
-              '*[_type == "updateSubscriber" && subscriptionStatus != "unsubscribed" && status != "unsubscribed" && (deliveryStatus == "suppressed" || status == "suppressed" || suppressEmails == true)]',
-            set: { deliveryStatus: DELIVERY_STATUS_ACTIVE, status: DELIVERY_STATUS_ACTIVE, updatedAt: now },
-            unset: ['suppressEmails'],
+              '*[_type == "updateSubscriber" && subscriptionStatus != "unsubscribed" && deliveryStatus == "suppressed"]',
+            set: { deliveryStatus: DELIVERY_STATUS_ACTIVE, updatedAt: now },
           },
         },
       ])
@@ -83,10 +81,9 @@ export async function POST(request) {
         {
           patch: {
             query:
-              '*[_type == "updateSubscriber" && lower(email) in $emails && subscriptionStatus != "unsubscribed" && status != "unsubscribed"]',
+              '*[_type == "updateSubscriber" && lower(email) in $emails && subscriptionStatus != "unsubscribed"]',
             params: { emails },
-            set: { deliveryStatus: DELIVERY_STATUS_ACTIVE, status: DELIVERY_STATUS_ACTIVE, updatedAt: now },
-            unset: ['suppressEmails'],
+            set: { deliveryStatus: DELIVERY_STATUS_ACTIVE, updatedAt: now },
           },
         },
       ])

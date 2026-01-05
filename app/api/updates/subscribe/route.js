@@ -12,7 +12,6 @@ import {
   DELIVERY_STATUS_SUPPRESSED,
   SUBSCRIPTION_STATUS_SUBSCRIBED,
   SUBSCRIPTION_STATUS_UNSUBSCRIBED,
-  deriveLegacyStatus,
   resolveDeliveryStatus,
   resolveSubscriptionStatus,
 } from '@/lib/updateSubscriberStatus'
@@ -89,10 +88,8 @@ async function upsertSubscriber({
     `*[_type == "updateSubscriber" && lower(email) == $emailLower][0]{
       _id,
       manageToken,
-      status,
       subscriptionStatus,
       deliveryStatus,
-      suppressEmails,
       source
     }`,
     { emailLower }
@@ -105,10 +102,6 @@ async function upsertSubscriber({
     const nextDeliveryStatus =
       existingDeliveryStatus === DELIVERY_STATUS_SUPPRESSED ? DELIVERY_STATUS_SUPPRESSED : DELIVERY_STATUS_ACTIVE
     const nextSubscriptionStatus = SUBSCRIPTION_STATUS_SUBSCRIBED
-    const legacyStatus = deriveLegacyStatus({
-      subscriptionStatus: nextSubscriptionStatus,
-      deliveryStatus: nextDeliveryStatus,
-    })
     let patch = writeClient
       .patch(existing._id)
       .set({
@@ -122,7 +115,6 @@ async function upsertSubscriber({
         correspondencePreferences,
         subscriptionStatus: nextSubscriptionStatus,
         deliveryStatus: nextDeliveryStatus,
-        status: legacyStatus,
         updatedAt: now,
         ...(existing.manageToken ? {} : { manageToken })
       })
@@ -148,7 +140,6 @@ async function upsertSubscriber({
     correspondencePreferences,
     subscriptionStatus: SUBSCRIPTION_STATUS_SUBSCRIBED,
     deliveryStatus: DELIVERY_STATUS_ACTIVE,
-    status: DELIVERY_STATUS_ACTIVE,
     source: 'self',
     manageToken,
     createdAt: now,

@@ -9,10 +9,8 @@ import { normalizeTestEmailList, normalizeUpdateEmailTesting } from '@/lib/updat
 const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
 
 const CRON_TIMEZONE = process.env.CRON_TIMEZONE || 'America/New_York'
-const SUBSCRIBED_FILTER = '(subscriptionStatus == "subscribed" || (!defined(subscriptionStatus) && status == "active"))'
-const DELIVERABLE_FILTER =
-  `${SUBSCRIBED_FILTER} && (!defined(deliveryStatus) || deliveryStatus != "suppressed")` +
-  ' && status != "suppressed" && status != "unsubscribed" && suppressEmails != true'
+const SUBSCRIBED_FILTER = 'subscriptionStatus == "subscribed"'
+const DELIVERABLE_FILTER = `${SUBSCRIBED_FILTER} && deliveryStatus != "suppressed"`
 
 function hasOwn(value, key) {
   return Object.prototype.hasOwnProperty.call(value || {}, key)
@@ -95,7 +93,7 @@ export async function GET(request) {
           "active": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER}]),
           "optedIn": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER} && "study_updates" in correspondencePreferences && defined(email)]),
           "eligible": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER} && "study_updates" in correspondencePreferences && defined(email) && (!defined(lastStudyUpdateSentAt) || lastStudyUpdateSentAt < $monthStartIso)]),
-          "suppressed": count(*[_type == "updateSubscriber" && (deliveryStatus == "suppressed" || status == "suppressed" || suppressEmails == true)]),
+          "suppressed": count(*[_type == "updateSubscriber" && deliveryStatus == "suppressed"]),
           "lastSentAt": *[_type == "updateSubscriber" && defined(lastStudyUpdateSentAt)] | order(lastStudyUpdateSentAt desc)[0].lastStudyUpdateSentAt
         }`,
         { monthStartIso }

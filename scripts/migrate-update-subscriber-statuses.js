@@ -12,7 +12,6 @@ import {
   DELIVERY_STATUS_SUPPRESSED,
   SUBSCRIPTION_STATUS_SUBSCRIBED,
   SUBSCRIPTION_STATUS_UNSUBSCRIBED,
-  deriveLegacyStatus,
 } from '../lib/updateSubscriberStatus.js'
 
 const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID
@@ -79,8 +78,8 @@ function computeDeliveryStatus(doc) {
 function computeUpdate(doc) {
   const subscriptionStatus = computeSubscriptionStatus(doc)
   const deliveryStatus = computeDeliveryStatus(doc)
-  const legacyStatus = deriveLegacyStatus({ subscriptionStatus, deliveryStatus })
   const changes = {}
+  const unset = []
 
   if (doc?.subscriptionStatus !== subscriptionStatus) {
     changes.subscriptionStatus = subscriptionStatus
@@ -88,15 +87,18 @@ function computeUpdate(doc) {
   if (doc?.deliveryStatus !== deliveryStatus) {
     changes.deliveryStatus = deliveryStatus
   }
-  if (doc?.status !== legacyStatus) {
-    changes.status = legacyStatus
+  if (typeof doc?.status !== 'undefined') {
+    unset.push('status')
+  }
+  if (typeof doc?.suppressEmails !== 'undefined') {
+    unset.push('suppressEmails')
   }
 
   return {
     changes,
     subscriptionStatus,
     deliveryStatus,
-    legacyStatus,
+    unset,
   }
 }
 
@@ -123,8 +125,8 @@ async function main() {
   const now = new Date().toISOString()
 
   for (const row of rows) {
-    const { changes, subscriptionStatus, deliveryStatus, legacyStatus } = computeUpdate(row)
-    if (!Object.keys(changes).length) {
+    const { changes, subscriptionStatus, deliveryStatus, unset } = computeUpdate(row)
+    if (!Object.keys(changes).length && unset.length === 0) {
       skippedCount += 1
       continue
     }
@@ -133,16 +135,20 @@ async function main() {
     if (dryRun) {
       console.log(
         `[dry-run] ${row._id} (${row.email || 'no email'}) -> ` +
-          `subscriptionStatus=${subscriptionStatus}, deliveryStatus=${deliveryStatus}, status=${legacyStatus}`
+          `subscriptionStatus=${subscriptionStatus}, deliveryStatus=${deliveryStatus}, unset=${unset.join(',') || 'none'}`
       )
       continue
     }
 
     try {
-      await client
-        .patch(row._id)
-        .set({ ...changes, updatedAt: now })
-        .commit({ returnDocuments: false })
+      let patch = client.patch(row._id)
+      if (Object.keys(changes).length) {
+        patch = patch.set({ ...changes, updatedAt: now })
+      }
+      if (unset.length) {
+        patch = patch.unset(unset)
+      }
+      await patch.commit({ returnDocuments: false })
       console.log(`[migrate] updated ${row._id} (${row.email || 'no email'})`)
     } catch (err) {
       console.error(`[migrate] failed ${row._id}: ${err.message}`)

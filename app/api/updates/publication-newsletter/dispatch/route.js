@@ -157,20 +157,17 @@ async function fetchSubscribers({ cutoffIso, force, windowMode }) {
     : ''
   const query = `
     *[_type == "updateSubscriber"
-      && (subscriptionStatus == "subscribed" || (!defined(subscriptionStatus) && status == "active"))
-      && (!defined(deliveryStatus) || deliveryStatus != "suppressed")
+      && subscriptionStatus == "subscribed"
+      && deliveryStatus != "suppressed"
       && "${NEWSLETTER_PREF}" in correspondencePreferences
       && defined(email)
-      && suppressEmails != true
       ${windowFilter}
     ]{
       _id,
       name,
       email,
-      status,
       subscriptionStatus,
       deliveryStatus,
-      suppressEmails,
       manageToken,
       lastPublicationNewsletterSentAt
     }
