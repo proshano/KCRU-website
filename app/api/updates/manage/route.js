@@ -16,6 +16,7 @@ import {
   fetchTherapeuticAreas,
   resolveTherapeuticAreaIds,
 } from '@/lib/therapeuticAreas'
+import { fetchSites, resolveSiteIds } from '@/lib/sites'
 
 async function getSubscriberByToken(token) {
   return writeClient.fetch(
@@ -25,6 +26,7 @@ async function getSubscriberByToken(token) {
       email,
       role,
       specialty,
+      practiceSites,
       interestAreas,
       allTherapeuticAreas,
       correspondencePreferences,
@@ -45,7 +47,11 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Missing token.' }, { status: 400 })
   }
 
-  const [subscriber, areas] = await Promise.all([getSubscriberByToken(token), fetchTherapeuticAreas()])
+  const [subscriber, areas, sites] = await Promise.all([
+    getSubscriberByToken(token),
+    fetchTherapeuticAreas(),
+    fetchSites()
+  ])
   if (!subscriber?._id) {
     return NextResponse.json({ error: 'Subscription not found.' }, { status: 404 })
   }
@@ -55,6 +61,9 @@ export async function GET(request) {
   const resolvedInterestAreas = resolveTherapeuticAreaIds(rawInterestAreas, areas)
   const allTherapeuticAreas = Boolean(subscriber?.allTherapeuticAreas) || legacyAll
   const interestAreas = allTherapeuticAreas ? [ALL_THERAPEUTIC_AREAS_VALUE] : resolvedInterestAreas
+  const rawPracticeSites = Array.isArray(subscriber?.practiceSites) ? subscriber.practiceSites : []
+  const practiceSiteIds = rawPracticeSites.map((site) => site?._ref || site?._id || site).filter(Boolean)
+  const practiceSites = resolveSiteIds(practiceSiteIds, sites)
 
   return NextResponse.json({
     ok: true,
@@ -62,6 +71,7 @@ export async function GET(request) {
       ...subscriber,
       interestAreas,
       allTherapeuticAreas,
+      practiceSites,
     },
   })
 }
@@ -75,7 +85,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 })
   }
 
-  const { token, action, role, specialty, interestAreas, correspondencePreferences, name } = body || {}
+  const { token, action, role, specialty, practiceSites, interestAreas, correspondencePreferences, name } = body || {}
   const trimmedToken = sanitizeString(token)
 
   if (!trimmedToken) {
@@ -121,24 +131,43 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Please select a valid specialty.' }, { status: 400 })
   }
 
-  const areas = await fetchTherapeuticAreas()
-  if (!areas.length) {
-    return NextResponse.json({ error: 'Therapeutic areas are not configured.' }, { status: 500 })
-  }
-
-  const rawInterestAreas = Array.isArray(interestAreas) ? interestAreas : []
-  const allTherapeuticAreas = Boolean(body?.allTherapeuticAreas) || rawInterestAreas.includes(ALL_THERAPEUTIC_AREAS_VALUE)
-  const resolvedInterestAreaIds = allTherapeuticAreas
-    ? []
-    : resolveTherapeuticAreaIds(rawInterestAreas, areas)
-
-  if (!allTherapeuticAreas && !resolvedInterestAreaIds.length) {
-    return NextResponse.json({ error: 'Please select at least one interest area.' }, { status: 400 })
-  }
-
   const normalizedCorrespondence = normalizeCorrespondence(correspondencePreferences, CORRESPONDENCE_VALUES)
   if (!normalizedCorrespondence.length) {
     return NextResponse.json({ error: 'Please select at least one correspondence option.' }, { status: 400 })
+  }
+
+  const rawPracticeSites = Array.isArray(practiceSites) ? practiceSites : []
+  let resolvedPracticeSiteIds = []
+
+  if (rawPracticeSites.length) {
+    const sites = await fetchSites()
+    if (!sites.length) {
+      return NextResponse.json({ error: 'Research sites are not configured.' }, { status: 500 })
+    }
+    resolvedPracticeSiteIds = resolveSiteIds(rawPracticeSites, sites)
+    if (!resolvedPracticeSiteIds.length) {
+      return NextResponse.json({ error: 'Please select a valid location of practice.' }, { status: 400 })
+    }
+  }
+
+  const wantsStudyUpdates = normalizedCorrespondence.includes('study_updates')
+  let resolvedInterestAreaIds = []
+  let allTherapeuticAreas = false
+
+  if (wantsStudyUpdates) {
+    const areas = await fetchTherapeuticAreas()
+    if (!areas.length) {
+      return NextResponse.json({ error: 'Therapeutic areas are not configured.' }, { status: 500 })
+    }
+
+    const rawInterestAreas = Array.isArray(interestAreas) ? interestAreas : []
+    allTherapeuticAreas =
+      Boolean(body?.allTherapeuticAreas) || rawInterestAreas.includes(ALL_THERAPEUTIC_AREAS_VALUE)
+    resolvedInterestAreaIds = allTherapeuticAreas ? [] : resolveTherapeuticAreaIds(rawInterestAreas, areas)
+
+    if (!allTherapeuticAreas && !resolvedInterestAreaIds.length) {
+      return NextResponse.json({ error: 'Please select at least one interest area.' }, { status: 400 })
+    }
   }
   const trimmedName = sanitizeString(name)
   const existingDeliveryStatus = resolveDeliveryStatus(subscriber)
@@ -156,6 +185,7 @@ export async function POST(request) {
       name: trimmedName,
       role: normalizedRole,
       specialty: normalizedSpecialty || null,
+      practiceSites: buildReferenceList(resolvedPracticeSiteIds),
       interestAreas: buildReferenceList(resolvedInterestAreaIds),
       allTherapeuticAreas,
       correspondencePreferences: normalizedCorrespondence,
