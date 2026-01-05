@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { INTEREST_AREA_OPTIONS, ROLE_OPTIONS, SPECIALTY_OPTIONS } from '@/lib/communicationOptions'
+import { ROLE_OPTIONS, SPECIALTY_OPTIONS } from '@/lib/communicationOptions'
 
 const TOKEN_STORAGE_KEY = 'kcru-admin-token'
 const EMAIL_STORAGE_KEY = 'kcru-admin-email'
@@ -71,6 +71,26 @@ function parseEmailListInput(value) {
   return Array.from(new Set(raw))
 }
 
+function formatInterestAreaTitle(area) {
+  const name = String(area?.name || '').trim()
+  if (!name) return ''
+  if (area?.shortLabel) {
+    return `${area.shortLabel} - ${name}`
+  }
+  return name
+}
+
+function buildInterestAreaOptions(areas) {
+  const options = (areas || [])
+    .map((area) => {
+      const title = formatInterestAreaTitle(area)
+      if (!title || !area?._id) return null
+      return { value: area._id, title }
+    })
+    .filter(Boolean)
+  return [{ value: 'all', title: 'All areas' }, ...options]
+}
+
 export default function UpdatesAdminClient() {
   const pathname = usePathname()
   const prefersAdmin = pathname.startsWith('/admin')
@@ -126,6 +146,7 @@ export default function UpdatesAdminClient() {
   const [customSending, setCustomSending] = useState(false)
   const [customPreviewing, setCustomPreviewing] = useState(false)
   const [customStatus, setCustomStatus] = useState({ type: 'idle', message: '' })
+  const [interestAreaOptions, setInterestAreaOptions] = useState([])
 
   useEffect(() => {
     let storedToken = sessionStorage.getItem(TOKEN_STORAGE_KEY)
@@ -194,6 +215,7 @@ export default function UpdatesAdminClient() {
     setCustomSending(false)
     setCustomPreviewing(false)
     setCustomStatus({ type: 'idle', message: '' })
+    setInterestAreaOptions([])
     setError('')
     setSuccess('')
     setLastSendResult(null)
@@ -217,6 +239,7 @@ export default function UpdatesAdminClient() {
       }
       setAdminEmail(data.adminEmail || '')
       setStats(data.stats || {})
+      setInterestAreaOptions(buildInterestAreaOptions(data.therapeuticAreas || []))
       const nextSettings = data.settings || {}
       setSettings({
         subjectTemplate: nextSettings.subjectTemplate || '',
@@ -1498,7 +1521,7 @@ export default function UpdatesAdminClient() {
               <div>
                 <p className="text-sm font-medium">Filter by interest area</p>
                 <div className="grid gap-2 sm:grid-cols-2 text-sm">
-                  {INTEREST_AREA_OPTIONS.map((option) => (
+                  {interestAreaOptions.map((option) => (
                     <label key={`interest-${option.value}`} className="flex items-start gap-2">
                       <input
                         type="checkbox"

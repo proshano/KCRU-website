@@ -6,9 +6,6 @@
  */
 
 import AutoSlugInput from '../components/AutoSlugInput'
-import { ROLE_OPTIONS, THERAPEUTIC_AREA_OPTIONS } from '../../lib/communicationOptions'
-
-const AREA_LABELS = new Map(THERAPEUTIC_AREA_OPTIONS.map((area) => [area.value, area.title]))
 
 const therapeuticArea = {
   name: 'therapeuticArea',
@@ -19,9 +16,6 @@ const therapeuticArea = {
       name: 'name',
       title: 'Therapeutic Area',
       type: 'string',
-      options: {
-        list: THERAPEUTIC_AREA_OPTIONS
-      },
       validation: Rule => Rule.required(),
       description: 'Canonical label used for study tags and filters.'
     },
@@ -60,16 +54,6 @@ const therapeuticArea = {
       description: 'Hex color for badges (e.g., "#5d2ea5")'
     },
     {
-      name: 'targetRoles',
-      title: 'Target Roles',
-      type: 'array',
-      of: [{ type: 'string' }],
-      options: {
-        list: ROLE_OPTIONS
-      },
-      description: 'Which roles should receive emails about trials in this area?'
-    },
-    {
       name: 'order',
       title: 'Display Order',
       type: 'number',
@@ -91,9 +75,8 @@ const therapeuticArea = {
       active: 'active'
     },
     prepare({ title, shortLabel, icon, active }) {
-      const label = AREA_LABELS.get(title) || title
       return {
-        title: `${icon || ''} ${label}`,
+        title: `${icon || ''} ${title || ''}`.trim(),
         subtitle: `${shortLabel || ''} ${active === false ? '(inactive)' : ''}`
       }
     }

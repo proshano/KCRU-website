@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import {
+  DELIVERY_STATUS_SUPPRESSED,
+  SUBSCRIPTION_STATUS_SUBSCRIBED,
+  SUBSCRIPTION_STATUS_UNSUBSCRIBED,
+  resolveDeliveryStatus,
+  resolveSubscriptionStatus,
+} from '@/lib/updateSubscriberStatus'
 
 export default function ManagePreferencesClient({
   roleOptions = [],
@@ -36,14 +43,21 @@ export default function ManagePreferencesClient({
 
         if (!isMounted) return
 
+        const subscriber = data.subscriber || {}
+        const subscriptionStatus = resolveSubscriptionStatus(subscriber)
+        const deliveryStatus = resolveDeliveryStatus(subscriber)
+
+        const interestAreas = subscriber.allTherapeuticAreas ? ['all'] : (subscriber.interestAreas || [])
+
         setForm({
-          name: data.subscriber?.name || '',
-          email: data.subscriber?.email || '',
-          role: data.subscriber?.role || '',
-          specialty: data.subscriber?.specialty || '',
-          interestAreas: data.subscriber?.interestAreas || [],
-          correspondencePreferences: data.subscriber?.correspondencePreferences || ['study_updates', 'newsletter'],
-          status: data.subscriber?.status || 'active'
+          name: subscriber.name || '',
+          email: subscriber.email || '',
+          role: subscriber.role || '',
+          specialty: subscriber.specialty || '',
+          interestAreas,
+          correspondencePreferences: subscriber.correspondencePreferences || ['study_updates', 'newsletter'],
+          subscriptionStatus,
+          deliveryStatus
         })
       } catch (error) {
         if (!isMounted) return
@@ -106,7 +120,10 @@ export default function ManagePreferencesClient({
       return
     }
 
-    if (!form.interestAreas.length) {
+    const allTherapeuticAreas = form.interestAreas.includes('all')
+    const selectedInterestAreas = allTherapeuticAreas ? [] : form.interestAreas
+
+    if (!allTherapeuticAreas && !selectedInterestAreas.length) {
       setStatus({ type: 'error', message: 'Please select at least one interest area.' })
       return
     }
@@ -128,7 +145,8 @@ export default function ManagePreferencesClient({
           name: form.name,
           role: form.role,
           specialty: form.specialty,
-          interestAreas: form.interestAreas,
+          interestAreas: selectedInterestAreas,
+          allTherapeuticAreas,
           correspondencePreferences: form.correspondencePreferences
         })
       })
@@ -138,7 +156,14 @@ export default function ManagePreferencesClient({
         throw new Error(data?.error || 'Unable to save preferences.')
       }
 
-      setForm((prev) => ({ ...prev, status: 'active' }))
+      setForm((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          subscriptionStatus: data.subscriptionStatus || SUBSCRIPTION_STATUS_SUBSCRIBED,
+          deliveryStatus: data.deliveryStatus || prev.deliveryStatus
+        }
+      })
       setStatus({ type: 'success', message: 'Preferences saved.' })
     } catch (error) {
       setStatus({ type: 'error', message: error.message || 'Unable to save preferences.' })
@@ -165,7 +190,14 @@ export default function ManagePreferencesClient({
         throw new Error(data?.error || 'Unable to unsubscribe.')
       }
 
-      setForm((prev) => (prev ? { ...prev, status: 'unsubscribed' } : prev))
+      setForm((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          subscriptionStatus: data.subscriptionStatus || SUBSCRIPTION_STATUS_UNSUBSCRIBED,
+          deliveryStatus: data.deliveryStatus || prev.deliveryStatus
+        }
+      })
       setStatus({ type: 'success', message: 'You have been unsubscribed.' })
     } catch (error) {
       setStatus({ type: 'error', message: error.message || 'Unable to unsubscribe.' })
@@ -309,11 +341,17 @@ export default function ManagePreferencesClient({
           </button>
         </div>
 
-        {form.status === 'unsubscribed' && (
+        {form.subscriptionStatus === SUBSCRIPTION_STATUS_UNSUBSCRIBED && (
           <p className="text-xs text-[#777]">
             Your email is currently unsubscribed. Save preferences to resubscribe.
           </p>
         )}
+        {form.subscriptionStatus === SUBSCRIPTION_STATUS_SUBSCRIBED &&
+          form.deliveryStatus === DELIVERY_STATUS_SUPPRESSED && (
+            <p className="text-xs text-[#777]">
+              Your email is currently suppressed by the team. Updates will resume once re-enabled.
+            </p>
+          )}
       </form>
     </div>
   )

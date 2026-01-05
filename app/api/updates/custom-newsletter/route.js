@@ -4,9 +4,16 @@ import { sendEmail } from '@/lib/email'
 import { buildCustomNewsletterEmail } from '@/lib/customNewsletterEmailTemplate'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { getScopedAdminSession } from '@/lib/adminSessions'
-import { ROLE_VALUES, SPECIALTY_VALUES, INTEREST_AREA_VALUES } from '@/lib/communicationOptions'
+import { ROLE_VALUES, SPECIALTY_VALUES } from '@/lib/communicationOptions'
 import { normalizeList, sanitizeString } from '@/lib/inputUtils'
 import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
+import { isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
+import {
+  ALL_THERAPEUTIC_AREAS_VALUE,
+  fetchTherapeuticAreas,
+  resolveTherapeuticAreaIds,
+  resolveTherapeuticAreaLegacyValues,
+} from '@/lib/therapeuticAreas'
 
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
@@ -29,16 +36,17 @@ function buildManageUrl(token) {
   return `${SITE_BASE_URL}/updates/manage?token=${encodeURIComponent(token)}`
 }
 
-function buildSubscriberQuery({ roles, specialties, interestAreas }) {
+function buildSubscriberQuery({ roles, specialties, interestAreas, legacyInterestAreas }) {
   const roleFilter = roles.length ? ' && role in $roles' : ''
   const specialtyFilter = specialties.length ? ' && specialty in $specialties' : ''
   const interestFilter = interestAreas.length
-    ? ' && (count(interestAreas[@ in $interestAreas]) > 0 || "all" in interestAreas)'
+    ? ' && (allTherapeuticAreas == true || "all" in interestAreas || count(interestAreas[_ref in $interestAreas]) > 0 || count(interestAreas[@ in $legacyInterestAreas]) > 0)'
     : ''
 
   const query = `
     *[_type == "updateSubscriber"
-      && status == "active"
+      && (subscriptionStatus == "subscribed" || (!defined(subscriptionStatus) && status == "active"))
+      && (!defined(deliveryStatus) || deliveryStatus != "suppressed")
       && "${NEWSLETTER_PREF}" in correspondencePreferences
       && defined(email)
       && suppressEmails != true
@@ -49,11 +57,15 @@ function buildSubscriberQuery({ roles, specialties, interestAreas }) {
       _id,
       name,
       email,
+      status,
+      subscriptionStatus,
+      deliveryStatus,
+      suppressEmails,
       manageToken
     }
   `
 
-  return { query, params: { roles, specialties, interestAreas } }
+  return { query, params: { roles, specialties, interestAreas, legacyInterestAreas } }
 }
 
 async function resolveSignature(explicitSignature) {
@@ -120,9 +132,21 @@ export async function POST(request) {
 
   const roles = normalizeFilterList(filters?.roles, ROLE_VALUES)
   const specialties = normalizeFilterList(filters?.specialties, SPECIALTY_VALUES)
-  let interestAreas = normalizeFilterList(filters?.interestAreas, INTEREST_AREA_VALUES)
-  if (interestAreas.includes('all')) {
-    interestAreas = []
+  const areas = await fetchTherapeuticAreas()
+  const rawInterestAreas = normalizeList(filters?.interestAreas || [])
+  const allTherapeuticAreas = rawInterestAreas.includes(ALL_THERAPEUTIC_AREAS_VALUE)
+  const interestAreas = allTherapeuticAreas
+    ? []
+    : resolveTherapeuticAreaIds(rawInterestAreas, areas)
+  const legacyInterestAreas = interestAreas.length
+    ? resolveTherapeuticAreaLegacyValues(interestAreas, areas)
+    : []
+
+  if (!allTherapeuticAreas && rawInterestAreas.length && !interestAreas.length) {
+    return NextResponse.json(
+      { ok: false, error: 'Please select at least one valid interest area.' },
+      { status: 400, headers: CORS_HEADERS }
+    )
   }
 
   if (!dryRun) {
@@ -135,7 +159,12 @@ export async function POST(request) {
   }
 
   try {
-    const { query, params } = buildSubscriberQuery({ roles, specialties, interestAreas })
+    const { query, params } = buildSubscriberQuery({
+      roles,
+      specialties,
+      interestAreas,
+      legacyInterestAreas,
+    })
     const [subscribersRaw, testSettings] = await Promise.all([
       writeClient.fetch(query, params),
       fetchUpdateEmailTesting(),
@@ -144,12 +173,13 @@ export async function POST(request) {
     if (testSettings.enabled) {
       subscribers = filterSubscribersByTestEmails(subscribers, testSettings.recipients)
     }
+    const deliverableSubscribers = subscribers.filter((subscriber) => isSubscriberDeliverable(subscriber))
 
     if (dryRun) {
       return NextResponse.json(
         {
           ok: true,
-          count: subscribers.length,
+          count: deliverableSubscribers.length,
           testMode: testSettings.enabled,
           testRecipients: testSettings.recipients.length,
         },
@@ -170,7 +200,7 @@ export async function POST(request) {
     const signature = await resolveSignature(body?.signature)
 
     const stats = {
-      total: subscribers.length,
+      total: deliverableSubscribers.length,
       sent: 0,
       skipped: 0,
       errors: 0,
@@ -182,7 +212,7 @@ export async function POST(request) {
     const errors = []
     const nowIso = new Date().toISOString()
 
-    for (const subscriber of subscribers) {
+    for (const subscriber of deliverableSubscribers) {
       const manageUrl = buildManageUrl(subscriber?.manageToken)
       const email = buildCustomNewsletterEmail({
         subscriber,

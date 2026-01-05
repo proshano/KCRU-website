@@ -1,16 +1,19 @@
-import { ROLE_OPTIONS, SPECIALTY_OPTIONS, INTEREST_AREA_OPTIONS, CORRESPONDENCE_OPTIONS } from '../../lib/communicationOptions'
+import { ROLE_OPTIONS, SPECIALTY_OPTIONS, CORRESPONDENCE_OPTIONS } from '../../lib/communicationOptions'
 
-const STATUS_OPTIONS = [
-  { title: 'Active', value: 'active' },
+const SUBSCRIPTION_STATUS_OPTIONS = [
+  { title: 'Subscribed', value: 'subscribed' },
   { title: 'Unsubscribed', value: 'unsubscribed' }
+]
+
+const DELIVERY_STATUS_OPTIONS = [
+  { title: 'Active', value: 'active' },
+  { title: 'Suppressed', value: 'suppressed' }
 ]
 
 const SOURCE_OPTIONS = [
   { title: 'Self signup', value: 'self' },
   { title: 'Admin entry', value: 'admin' }
 ]
-
-const INTEREST_LABELS = new Map(INTEREST_AREA_OPTIONS.map((item) => [item.value, item.title]))
 
 function createToken() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
@@ -19,7 +22,7 @@ function createToken() {
 
 function formatList(values = []) {
   if (!Array.isArray(values) || values.length === 0) return 'No preferences'
-  return values.map((value) => INTEREST_LABELS.get(value) || value).join(', ')
+  return values.map((value) => value || '').filter(Boolean).join(', ')
 }
 
 const updateSubscriber = {
@@ -52,12 +55,25 @@ const updateSubscriber = {
       options: { list: SPECIALTY_OPTIONS }
     },
     {
+      name: 'allTherapeuticAreas',
+      title: 'All Therapeutic Areas',
+      type: 'boolean',
+      description: 'If enabled, the subscriber receives updates for all therapeutic areas.'
+    },
+    {
       name: 'interestAreas',
       title: 'Therapeutic/Interest Areas',
       type: 'array',
-      of: [{ type: 'string' }],
-      options: { list: INTEREST_AREA_OPTIONS },
-      validation: (Rule) => Rule.required().min(1)
+      of: [{ type: 'reference', to: [{ type: 'therapeuticArea' }] }],
+      options: { filter: 'active == true' },
+      validation: (Rule) =>
+        Rule.custom((value, context) => {
+          if (context?.document?.allTherapeuticAreas) return true
+          if (!Array.isArray(value) || value.length === 0) {
+            return 'Select at least one interest area or enable all areas.'
+          }
+          return true
+        })
     },
     {
       name: 'correspondencePreferences',
@@ -68,18 +84,21 @@ const updateSubscriber = {
       validation: (Rule) => Rule.required().min(1)
     },
     {
-      name: 'status',
-      title: 'Status',
+      name: 'subscriptionStatus',
+      title: 'Subscription Status',
       type: 'string',
-      options: { list: STATUS_OPTIONS },
-      initialValue: 'active'
+      options: { list: SUBSCRIPTION_STATUS_OPTIONS },
+      initialValue: 'subscribed',
+      validation: (Rule) => Rule.required()
     },
     {
-      name: 'suppressEmails',
-      title: 'Suppress Emails',
-      type: 'boolean',
-      description: 'When enabled, this subscriber will not receive update emails.',
-      initialValue: false
+      name: 'deliveryStatus',
+      title: 'Delivery Status',
+      type: 'string',
+      options: { list: DELIVERY_STATUS_OPTIONS },
+      initialValue: 'active',
+      validation: (Rule) => Rule.required(),
+      hidden: ({ parent }) => parent?.subscriptionStatus === 'unsubscribed'
     },
     {
       name: 'source',
@@ -156,16 +175,23 @@ const updateSubscriber = {
     select: {
       name: 'name',
       email: 'email',
-      status: 'status',
-      interestAreas: 'interestAreas',
+      subscriptionStatus: 'subscriptionStatus',
+      deliveryStatus: 'deliveryStatus',
+      interestAreas: 'interestAreas[]->name',
+      allTherapeuticAreas: 'allTherapeuticAreas',
       updatedAt: 'updatedAt'
     },
-    prepare({ name, email, status, interestAreas, updatedAt }) {
+    prepare({ name, email, subscriptionStatus, deliveryStatus, interestAreas, allTherapeuticAreas, updatedAt }) {
       const title = name || email || 'Unnamed subscriber'
       const date = updatedAt ? new Date(updatedAt).toLocaleDateString() : 'never updated'
+      const statusLabel =
+        subscriptionStatus === 'unsubscribed'
+          ? 'unsubscribed'
+          : deliveryStatus || subscriptionStatus || 'unknown'
+      const interestLabel = allTherapeuticAreas ? 'All areas' : formatList(interestAreas)
       return {
         title,
-        subtitle: `${email || 'no email'} • ${status || 'unknown'} • ${formatList(interestAreas)} • ${date}`
+        subtitle: `${email || 'no email'} • ${statusLabel} • ${interestLabel} • ${date}`
       }
     }
   },

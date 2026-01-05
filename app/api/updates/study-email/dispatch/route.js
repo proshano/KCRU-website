@@ -4,8 +4,13 @@ import { sendEmail } from '@/lib/email'
 import { buildStudyUpdateEmail } from '@/lib/studyUpdateEmailTemplate'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { getZonedParts, isCronAuthorized, isWithinCronWindow } from '@/lib/cronUtils'
-import { normalizeList } from '@/lib/inputUtils'
 import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
+import { isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
+import {
+  ALL_THERAPEUTIC_AREAS_VALUE,
+  fetchTherapeuticAreas,
+  resolveTherapeuticAreaIds,
+} from '@/lib/therapeuticAreas'
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
   /\/$/,
@@ -20,7 +25,6 @@ const MAX_STUDIES = Number(process.env.STUDY_UPDATE_MAX_STUDIES || 4)
 const STUDY_UPDATES_PREF = 'study_updates'
 
 const CORS_HEADERS = buildCorsHeaders('GET, POST, OPTIONS')
-
 function shouldRunNow() {
   const now = new Date()
   const parts = getZonedParts(now, CRON_TIMEZONE)
@@ -48,7 +52,7 @@ function formatMonthLabel(date) {
   }).format(date)
 }
 
-function pickStudiesForSubscriber(studies, subscriber) {
+function pickStudiesForSubscriber(studies, subscriber, areas) {
   const eligibleStudies = Array.isArray(studies)
     ? studies.filter(
         (study) =>
@@ -56,13 +60,16 @@ function pickStudiesForSubscriber(studies, subscriber) {
           Boolean(study?.acceptsReferrals)
       )
     : []
-  const interestAreas = normalizeList(subscriber?.interestAreas)
-  if (!interestAreas.length) return []
-  if (interestAreas.includes('all')) return eligibleStudies
-  const interestSet = new Set(interestAreas)
+  const rawInterestAreas = Array.isArray(subscriber?.interestAreas) ? subscriber.interestAreas : []
+  const allTherapeuticAreas =
+    Boolean(subscriber?.allTherapeuticAreas) || rawInterestAreas.includes(ALL_THERAPEUTIC_AREAS_VALUE)
+  if (allTherapeuticAreas) return eligibleStudies
+  const interestAreaIds = resolveTherapeuticAreaIds(rawInterestAreas, areas)
+  if (!interestAreaIds.length) return []
+  const interestSet = new Set(interestAreaIds)
   return eligibleStudies.filter((study) =>
-    Array.isArray(study?.therapeuticAreas)
-      ? study.therapeuticAreas.some((area) => interestSet.has(area?.name))
+    Array.isArray(study?.therapeuticAreaIds)
+      ? study.therapeuticAreaIds.some((id) => interestSet.has(id))
       : false
   )
 }
@@ -87,7 +94,7 @@ async function fetchStudies() {
       localContact { email },
       principalInvestigator-> { name },
       principalInvestigatorName,
-      therapeuticAreas[]-> { name }
+      "therapeuticAreaIds": therapeuticAreas[]._ref
     }
   `
   return fetcher(query)
@@ -126,16 +133,22 @@ async function fetchSubscribers({ monthStartIso, force }) {
     : ' && (!defined(lastStudyUpdateSentAt) || lastStudyUpdateSentAt < $monthStartIso)'
   const query = `
     *[_type == "updateSubscriber"
-      && status == "active"
+      && (subscriptionStatus == "subscribed" || (!defined(subscriptionStatus) && status == "active"))
+      && (!defined(deliveryStatus) || deliveryStatus != "suppressed")
+      && suppressEmails != true
       && "${STUDY_UPDATES_PREF}" in correspondencePreferences
       && defined(email)
-      && suppressEmails != true
       ${monthFilter}
     ]{
       _id,
       name,
       email,
+      status,
+      subscriptionStatus,
+      deliveryStatus,
+      suppressEmails,
       interestAreas,
+      allTherapeuticAreas,
       manageToken,
       lastStudyUpdateSentAt
     }
@@ -156,13 +169,15 @@ async function runDispatch({ force = false } = {}) {
   const monthLabel = formatMonthLabel(now)
   const monthStartIso = getMonthStartIso()
 
-  const [studiesRaw, subscribersRaw, settingsPayload] = await Promise.all([
+  const [studiesRaw, subscribersRaw, settingsPayload, areasRaw] = await Promise.all([
     fetchStudies(),
     fetchSubscribers({ monthStartIso, force }),
     fetchStudyUpdateSettings(),
+    fetchTherapeuticAreas(),
   ])
 
   const studies = Array.isArray(studiesRaw) ? studiesRaw : []
+  const areas = Array.isArray(areasRaw) ? areasRaw : []
   const updateSettings = settingsPayload?.settings || {}
   const testSettings = normalizeUpdateEmailTesting(settingsPayload?.testing)
   if (!testSettings.enabled || testSettings.recipients.length === 0) {
@@ -194,7 +209,11 @@ async function runDispatch({ force = false } = {}) {
   const errors = []
 
   for (const subscriber of subscribers) {
-    const relevant = pickStudiesForSubscriber(studies, subscriber)
+    if (!isSubscriberDeliverable(subscriber)) {
+      stats.skipped += 1
+      continue
+    }
+    const relevant = pickStudiesForSubscriber(studies, subscriber, areas)
     const topStudies = relevant.slice(0, maxStudies)
     if (!topStudies.length && !sendEmpty) {
       stats.skipped += 1
