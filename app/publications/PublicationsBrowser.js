@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { buildOutboundRedirectUrl } from '@/lib/outboundLinks'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 import { urlFor } from '@/lib/sanity'
 import { findResearchersForPublication } from '@/lib/publicationUtils'
@@ -426,10 +427,14 @@ function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled, onTa
 }
 
 function PublicationItem({ pub, researchers, provenance, altmetricEnabled, onTagClick, activeFilter }) {
-  const shareButtons = getShareButtons(pub)
+  const shareButtons = getShareButtons(pub).map((btn) => ({
+    ...btn,
+    url: buildOutboundRedirectUrl(btn.url),
+  }))
   const matchedResearchers = findResearchersForPublication(pub, researchers, provenance)
   const hasAltmetricId = Boolean(pub?.doi || pub?.pmid)
   const showAltmetric = altmetricEnabled && hasAltmetricId
+  const publicationHref = buildOutboundRedirectUrl(pub.url || `https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/`)
 
   return (
     <article className="p-6 space-y-3 bg-white border border-black/[0.05] shadow-sm rounded">
@@ -437,7 +442,7 @@ function PublicationItem({ pub, researchers, provenance, altmetricEnabled, onTag
         <div className="flex-1 min-w-[240px] space-y-1">
           <h3 className="text-lg font-semibold leading-snug">
             <a
-              href={pub.url || `https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/`}
+              href={publicationHref}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[#1a1a1a] hover:text-purple transition-colors"

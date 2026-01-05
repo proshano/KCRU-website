@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { buildOutboundRedirectUrl } from '@/lib/outboundLinks'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
 import PublicationsBrowser from '@/app/publications/PublicationsBrowser'
@@ -205,27 +206,52 @@ export default async function TeamMemberPage({ params }) {
             </div>
             <div className="flex flex-wrap gap-3 text-sm font-medium">
               {profile.googleScholar && (
-                <a className="text-purple hover:underline" href={profile.googleScholar} target="_blank" rel="noopener noreferrer">
+                <a
+                  className="text-purple hover:underline"
+                  href={buildOutboundRedirectUrl(profile.googleScholar)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   Google Scholar
                 </a>
               )}
               {profile.github && (
-                <a className="text-purple hover:underline" href={profile.github} target="_blank" rel="noopener noreferrer">
+                <a
+                  className="text-purple hover:underline"
+                  href={buildOutboundRedirectUrl(profile.github)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   GitHub
                 </a>
               )}
               {profile.linkedin && (
-                <a className="text-purple hover:underline" href={profile.linkedin} target="_blank" rel="noopener noreferrer">
+                <a
+                  className="text-purple hover:underline"
+                  href={buildOutboundRedirectUrl(profile.linkedin)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   LinkedIn
                 </a>
               )}
               {profile.orcid && (
-                <a className="text-purple hover:underline" href={`https://orcid.org/${profile.orcid.replace('https://orcid.org/', '')}`} target="_blank" rel="noopener noreferrer">
+                <a
+                  className="text-purple hover:underline"
+                  href={buildOutboundRedirectUrl(`https://orcid.org/${profile.orcid.replace('https://orcid.org/', '')}`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   ORCID
                 </a>
               )}
               {profile.twitter && (
-                <a className="text-purple hover:underline" href={`https://twitter.com/${profile.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer">
+                <a
+                  className="text-purple hover:underline"
+                  href={buildOutboundRedirectUrl(`https://twitter.com/${profile.twitter.replace('@', '')}`)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   X / Twitter
                 </a>
               )}
