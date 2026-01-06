@@ -3,6 +3,7 @@ import { writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
 import { getAdminAccess, getAdminEmails, getAdminScopeLabel, verifyAdminPasscode } from '@/lib/adminSessions'
 import { buildCorsHeaders } from '@/lib/httpUtils'
+import { getSanityWriteErrorMessage } from '@/lib/sanityErrors'
 
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
@@ -57,7 +58,13 @@ export async function POST(request) {
   } catch (error) {
     console.error('[approvals-verify] failed', error)
     return NextResponse.json(
-      { ok: false, error: error?.message || 'Failed to verify passcode.' },
+      {
+        ok: false,
+        error: getSanityWriteErrorMessage(error, {
+          fallback: 'Failed to verify passcode.',
+          context: 'Admin sign-in',
+        }),
+      },
       { status: 500, headers: CORS_HEADERS }
     )
   }

@@ -9,6 +9,7 @@ import {
   verifyAdminPassword,
 } from '@/lib/adminSessions'
 import { buildCorsHeaders } from '@/lib/httpUtils'
+import { getSanityWriteErrorMessage } from '@/lib/sanityErrors'
 
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
@@ -63,7 +64,13 @@ export async function POST(request) {
   } catch (error) {
     console.error('[admin-password] failed', error)
     return NextResponse.json(
-      { ok: false, error: error?.message || 'Failed to verify password.' },
+      {
+        ok: false,
+        error: getSanityWriteErrorMessage(error, {
+          fallback: 'Failed to verify password.',
+          context: 'Admin sign-in',
+        }),
+      },
       { status: 500, headers: CORS_HEADERS }
     )
   }

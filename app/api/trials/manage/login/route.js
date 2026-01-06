@@ -4,6 +4,7 @@ import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
 import { sanitizeString } from '@/lib/studySubmissions'
 import { buildCorsHeaders } from '@/lib/httpUtils'
+import { getSanityWriteErrorMessage } from '@/lib/sanityErrors'
 
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
@@ -106,7 +107,12 @@ export async function POST(request) {
   } catch (error) {
     console.error('[manage-login] failed', error)
     return NextResponse.json(
-      { ok: false, error: error?.message || 'Failed to send passcode.' },
+      {
+        ok: false,
+        error: getSanityWriteErrorMessage(error, {
+          fallback: 'Failed to send passcode.',
+        }),
+      },
       { status: 500, headers: CORS_HEADERS }
     )
   }
