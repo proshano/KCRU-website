@@ -60,6 +60,14 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - `app/api/admin/login/route.js` and `app/api/admin/verify/route.js` accept a `scope` to limit access (`approvals`, `updates`, or `any`).
 - `app/api/admin/access/route.js` returns the current session's access flags for the admin hub.
 
+## Authentication
+- NextAuth (Auth.js v4) with Azure AD lives in `lib/auth.js` and is exposed via `app/api/auth/[...nextauth]/route.js`.
+- Maintenance mode still uses `app/api/auth/route.js` for the `site-auth` cookie; NextAuth endpoints remain under `/api/auth/*`.
+- The login flow is in `app/login/page.js`, with a protected example at `app/protected/page.js`.
+- Client session context is provided by `app/components/AuthSessionProvider.js` in `app/layout.js`.
+- Access is allowlisted in Sanity: `siteSettings.studyApprovals.coordinatorEmails` (coordinators) plus `siteSettings.studyApprovals.admins` and `siteSettings.studyUpdates.admins` (admins). Sign-in is restricted to the allowlist and `studyApprovals.coordinatorDomain`.
+- Role flags are stored on `session.user.access` (`admin`, `approvals`, `updates`, `coordinator`) and enforced in API routes via `lib/authAccess.js`.
+
 ## Aliases & File Types
 - `@/` path aliases are defined in `jsconfig.json` and `tsconfig.json`.
 - Project mixes JS/TS; keep a feature's files consistent when editing.

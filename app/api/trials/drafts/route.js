@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
 import { getScopedAdminSession } from '@/lib/adminSessions'
+import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
 const CORS_HEADERS = buildCorsHeaders('GET, POST, DELETE, OPTIONS')
@@ -18,6 +19,14 @@ async function getCoordinatorSession(token) {
 }
 
 async function getManageSession(request) {
+  const sessionAccess = await getSessionAccess()
+  if (sessionAccess) {
+    if (hasRequiredAccess(sessionAccess.access, { coordinator: true })) {
+      return { session: { email: sessionAccess.email }, status: 200 }
+    }
+    return { session: null, error: 'Not authorized for study management.', status: 403 }
+  }
+
   const token = extractBearerToken(request)
   if (!token) {
     return { session: null, error: 'Unauthorized', status: 401 }

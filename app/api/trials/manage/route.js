@@ -11,6 +11,7 @@ import {
   buildReferences,
 } from '@/lib/studySubmissions'
 import { createAdminTokenSession, getScopedAdminSession, isAdminEmail } from '@/lib/adminSessions'
+import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 import { escapeHtml } from '@/lib/escapeHtml'
 import { buildCorsHeaders, extractBearerToken, getClientIp } from '@/lib/httpUtils'
@@ -91,9 +92,10 @@ async function getApprovalAdmins() {
   return []
 }
 
-async function canBypassApprovals(email) {
-  if (!email) return false
-  return isAdminEmail(email, 'approvals')
+async function canBypassApprovals(session) {
+  if (session?.access?.approvals) return true
+  if (!session?.email) return false
+  return isAdminEmail(session.email, 'approvals')
 }
 
 async function createApprovalSessionLink(email) {
@@ -432,6 +434,14 @@ async function getCoordinatorSession(token) {
 }
 
 async function getManageSession(request) {
+  const sessionAccess = await getSessionAccess()
+  if (sessionAccess) {
+    if (hasRequiredAccess(sessionAccess.access, { coordinator: true })) {
+      return { session: { email: sessionAccess.email, access: sessionAccess.access }, status: 200 }
+    }
+    return { session: null, error: 'Not authorized for study management.', status: 403 }
+  }
+
   const token = extractBearerToken(request)
   if (!token) {
     return { session: null, error: 'Unauthorized', status: 401 }
@@ -468,7 +478,7 @@ export async function GET(request) {
   }
 
   try {
-    const bypassApprovals = await canBypassApprovals(session?.email)
+    const bypassApprovals = await canBypassApprovals(session)
     const [trialsRaw, areasRaw, researchersRaw] = await Promise.all([
       sanityFetch(`
         *[_type == "trialSummary"] | order(status asc, title asc) {
@@ -566,7 +576,7 @@ export async function POST(request) {
       )
     }
 
-    const bypassApprovals = await canBypassApprovals(session?.email)
+    const bypassApprovals = await canBypassApprovals(session)
     if (bypassApprovals) {
       const baseSlug = slugify(payload.slug || payload.title)
       if (!baseSlug) {
@@ -675,7 +685,7 @@ export async function PATCH(request) {
       )
     }
 
-    const bypassApprovals = await canBypassApprovals(session?.email)
+    const bypassApprovals = await canBypassApprovals(session)
     if (bypassApprovals) {
       const resolvedId = await resolveTrialId(id)
       if (!resolvedId) {

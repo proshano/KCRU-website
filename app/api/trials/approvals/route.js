@@ -2,12 +2,22 @@ import { NextResponse } from 'next/server'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
 import { getScopedAdminSession } from '@/lib/adminSessions'
+import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { handleRejectedSubmission, reviewSubmission } from '@/lib/studyApprovals'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
 const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
 
-async function getSession(token) {
+async function getSession(request) {
+  const sessionAccess = await getSessionAccess()
+  if (sessionAccess) {
+    if (hasRequiredAccess(sessionAccess.access, { approvals: true })) {
+      return { session: { email: sessionAccess.email }, status: 200 }
+    }
+    return { session: null, error: 'Not authorized for study approvals.', status: 403 }
+  }
+
+  const token = extractBearerToken(request)
   return getScopedAdminSession(token, { scope: 'approvals' })
 }
 
@@ -16,8 +26,7 @@ export async function OPTIONS() {
 }
 
 export async function GET(request) {
-  const token = extractBearerToken(request)
-  const { session, error, status } = await getSession(token)
+  const { session, error, status } = await getSession(request)
   if (!session) {
     return NextResponse.json({ ok: false, error }, { status, headers: CORS_HEADERS })
   }
@@ -95,8 +104,7 @@ export async function GET(request) {
 }
 
 export async function PATCH(request) {
-  const token = extractBearerToken(request)
-  const { session, error, status } = await getSession(token)
+  const { session, error, status } = await getSession(request)
   if (!session) {
     return NextResponse.json({ ok: false, error }, { status, headers: CORS_HEADERS })
   }

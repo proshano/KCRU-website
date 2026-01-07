@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getScopedAdminSession } from '@/lib/adminSessions'
+import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
@@ -10,7 +11,16 @@ const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL 
 )
 const DISPATCH_URL = `${SITE_BASE_URL}/api/updates/publication-newsletter/dispatch`
 
-async function getSession(token) {
+async function getSession(request) {
+  const sessionAccess = await getSessionAccess()
+  if (sessionAccess) {
+    if (hasRequiredAccess(sessionAccess.access, { updates: true })) {
+      return { session: { email: sessionAccess.email }, status: 200 }
+    }
+    return { session: null, error: 'Not authorized for study updates.', status: 403 }
+  }
+
+  const token = extractBearerToken(request)
   return getScopedAdminSession(token, { scope: 'updates' })
 }
 
@@ -19,8 +29,7 @@ export async function OPTIONS() {
 }
 
 export async function POST(request) {
-  const token = extractBearerToken(request)
-  const { session, error, status } = await getSession(token)
+  const { session, error, status } = await getSession(request)
   if (!session) {
     return NextResponse.json({ ok: false, error }, { status, headers: CORS_HEADERS })
   }

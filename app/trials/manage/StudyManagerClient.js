@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
+import AuthButtons from '@/app/components/AuthButtons'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 const STATUS_OPTIONS = [
@@ -60,9 +62,7 @@ const EMPTY_FORM = {
 }
 
 const TOKEN_STORAGE_KEY = 'kcru-study-session'
-const EMAIL_STORAGE_KEY = 'kcru-study-email'
 const ADMIN_TOKEN_STORAGE_KEY = 'kcru-admin-token'
-const ADMIN_EMAIL_STORAGE_KEY = 'kcru-admin-email'
 const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
 const AUTOSAVE_DEBOUNCE_MS = 10000
 
@@ -179,11 +179,7 @@ function statusLabel(status) {
 
 export default function StudyManagerClient({ adminMode = false } = {}) {
   const [token, setToken] = useState('')
-  const [email, setEmail] = useState('')
-  const [passcode, setPasscode] = useState('')
   const [canBypassApprovals, setCanBypassApprovals] = useState(false)
-  const [sendingCode, setSendingCode] = useState(false)
-  const [verifyingCode, setVerifyingCode] = useState(false)
   const [loading, setLoading] = useState(false)
   const [syncLoading, setSyncLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -216,8 +212,14 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   const exclusionCriteriaRefs = useRef([])
   const criteriaFocusRef = useRef(null)
   const piNameInputRef = useRef(null)
-  const canViewManager = Boolean(token) || DEV_PREVIEW_MODE
-  const canSubmit = Boolean(token)
+  const { data: session, status: sessionStatus } = useSession()
+  const hasSessionAccess = Boolean(
+    adminMode ? session?.user?.access?.admin : session?.user?.access?.coordinator
+  )
+  const hasAuth = Boolean(token) || hasSessionAccess
+  const isSessionLoading = sessionStatus === 'loading'
+  const canViewManager = hasAuth || DEV_PREVIEW_MODE
+  const canSubmit = hasAuth
   const formSnapshot = useMemo(() => serializeDraft(form), [form])
   const hasChanges = formSnapshot !== baselineSnapshot
   const piSelectionValue =
@@ -243,10 +245,8 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
 
   const handleSignOut = useCallback(() => {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY)
-    sessionStorage.removeItem(EMAIL_STORAGE_KEY)
     if (adminMode) {
       sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY)
-      sessionStorage.removeItem(ADMIN_EMAIL_STORAGE_KEY)
     }
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current)
@@ -274,23 +274,15 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   useEffect(() => {
     if (adminMode) {
       const storedAdminToken = sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY)
-      const storedAdminEmail = sessionStorage.getItem(ADMIN_EMAIL_STORAGE_KEY)
       if (storedAdminToken) {
         setToken(storedAdminToken)
-      }
-      if (storedAdminEmail) {
-        setEmail(storedAdminEmail)
       }
       return
     }
 
     const stored = sessionStorage.getItem(TOKEN_STORAGE_KEY)
-    const storedEmail = sessionStorage.getItem(EMAIL_STORAGE_KEY)
     if (stored) {
       setToken(stored)
-    }
-    if (storedEmail) {
-      setEmail(storedEmail)
     }
   }, [adminMode])
 
@@ -302,15 +294,6 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
       sessionStorage.removeItem(TOKEN_STORAGE_KEY)
     }
   }, [token, adminMode])
-
-  useEffect(() => {
-    if (adminMode) return
-    if (email) {
-      sessionStorage.setItem(EMAIL_STORAGE_KEY, email)
-    } else {
-      sessionStorage.removeItem(EMAIL_STORAGE_KEY)
-    }
-  }, [email, adminMode])
 
   useEffect(() => {
     draftSavingRef.current = draftSaving
@@ -362,7 +345,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   const loadData = useCallback(async () => {
     setError('')
     setSuccess('')
-    if (!token && !DEV_PREVIEW_MODE) {
+    if (!hasAuth && !DEV_PREVIEW_MODE) {
       setError('Sign in to load studies.')
       return null
     }
@@ -391,10 +374,10 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     } finally {
       setLoading(false)
     }
-  }, [token, handleSignOut])
+  }, [token, hasAuth, handleSignOut])
 
   const loadDraft = useCallback(async () => {
-    if (!token) return
+    if (!hasAuth) return
     setDraftLoading(true)
     setDraftError('')
     try {
@@ -414,81 +397,19 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     } finally {
       setDraftLoading(false)
     }
-  }, [token, handleSignOut])
+  }, [token, hasAuth, handleSignOut])
 
   useEffect(() => {
-    if (token || DEV_PREVIEW_MODE) {
+    if (hasAuth || DEV_PREVIEW_MODE) {
       loadData()
     }
-    if (token) {
+    if (hasAuth) {
       setDraft(null)
       loadDraft()
     } else {
       setDraft(null)
     }
-  }, [token, loadData, loadDraft])
-
-  async function sendPasscode(event) {
-    event.preventDefault()
-    setError('')
-    setSuccess('')
-    if (!email) {
-      setError('Enter your email.')
-      return
-    }
-    setSendingCode(true)
-    try {
-      const res = await fetch('/api/trials/manage/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) {
-        if (res.status === 401) {
-          handleSignOut()
-        }
-        throw new Error(data?.error || `Request failed (${res.status})`)
-      }
-      setSuccess('Passcode sent. Check your email.')
-    } catch (err) {
-      setError(err.message || 'Failed to send passcode.')
-    } finally {
-      setSendingCode(false)
-    }
-  }
-
-  async function verifyPasscode(event) {
-    event.preventDefault()
-    setError('')
-    setSuccess('')
-    if (!email || !passcode) {
-      setError('Enter your email and passcode.')
-      return
-    }
-    setVerifyingCode(true)
-    try {
-      const res = await fetch('/api/trials/manage/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: passcode }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) {
-        if (res.status === 401) {
-          handleSignOut()
-        }
-        throw new Error(data?.error || `Request failed (${res.status})`)
-      }
-      setToken(data.token || '')
-      setSuccess('Signed in. Loading studies...')
-      setPasscode('')
-    } catch (err) {
-      setError(err.message || 'Failed to verify passcode.')
-    } finally {
-      setVerifyingCode(false)
-    }
-  }
+  }, [token, hasAuth, loadData, loadDraft])
 
   function handleSelectStudy(trial) {
     setError('')
@@ -814,7 +735,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   }
 
   async function deleteDraft({ silent } = {}) {
-    if (!token) {
+    if (!hasAuth) {
       setDraft(null)
       return
     }
@@ -852,7 +773,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     setError('')
     setSuccess('')
     setDuplicateMatch(null)
-    if (!token) {
+    if (!hasAuth) {
       setError('Sign in to submit studies.')
       return
     }
@@ -945,7 +866,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   }
 
   const scheduleAutosave = useCallback(({ data, snapshot } = {}) => {
-    if (!token) return
+    if (!hasAuth) return
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current)
     }
@@ -953,7 +874,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     const nextData = data || form
     const nextSnapshot = snapshot || serializeDraft(nextData)
     autosaveTimeoutRef.current = setTimeout(() => {
-      if (!token) return
+      if (!hasAuth) return
       if (draftSavingRef.current) {
         autosavePendingRef.current = true
         return
@@ -962,10 +883,10 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
         saveDraftRef.current({ data: nextData, snapshot: nextSnapshot })
       }
     }, AUTOSAVE_DEBOUNCE_MS)
-  }, [token, form])
+  }, [hasAuth, form])
 
   const saveDraft = useCallback(async ({ data, snapshot } = {}) => {
-    if (!token) {
+    if (!hasAuth) {
       return
     }
     const draftData = data || form
@@ -1003,7 +924,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
       setDraftSaving(false)
       setDraftAction('')
     }
-  }, [token, form, handleSignOut, scheduleAutosave])
+  }, [token, hasAuth, form, handleSignOut, scheduleAutosave])
 
   useEffect(() => {
     saveDraftRef.current = saveDraft
@@ -1101,10 +1022,8 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   const autosaveStatusClass = draftError ? 'text-xs text-red-600' : 'text-xs text-gray-500'
   const portalLabel = adminMode ? 'Admin Portal' : 'Coordinator Portal'
   const accessNote = adminMode
-    ? 'Sign in through the Admin Hub to manage studies.'
-    : 'Sign in with your lhsc.on.ca email to receive a passcode.'
-  const showCoordinatorLogin = !token && !adminMode
-  const showAdminSigninHint = !token && adminMode
+    ? 'Sign in with your LHSC Microsoft account to manage studies.'
+    : 'Sign in with your LHSC Microsoft account to submit or update studies.'
   const workflowNote = canBypassApprovals
     ? 'Publish and edit studies. Changes go live immediately for approval admins.'
     : 'Submit or edit studies. Submissions are sent to an approval admin before changes go live.'
@@ -1140,14 +1059,14 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
             <p className="text-sm text-gray-500">
               {accessNote}
             </p>
-            {token && (
+            {hasAuth && (
               <p className="text-sm text-gray-500">
-                Signed in as {email || 'coordinator'}
+                Signed in as {session?.user?.email || 'authorized user'}
                 {canBypassApprovals ? ' (approval admin).' : '.'}
               </p>
             )}
           </div>
-          {token && (
+          {hasAuth && (
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -1157,70 +1076,25 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
               >
                 {loading ? 'Refreshing...' : 'Refresh'}
               </button>
-              <button
-                type="button"
-                onClick={handleSignOut}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                Sign out
-              </button>
+              <AuthButtons
+                signInCallbackUrl={adminMode ? '/admin/studies' : '/trials/manage'}
+                signOutCallbackUrl="/login"
+              />
             </div>
           )}
         </div>
 
-        {showCoordinatorLogin && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <form className="space-y-2" onSubmit={sendPasscode}>
-              <label htmlFor="study-manager-email" className="text-sm font-medium">Work email</label>
-              <input
-                id="study-manager-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@lhsc.on.ca"
-                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-              />
-              <p className="text-xs text-gray-500">
-                Use your LHSC email. We will send a one-time 6-digit code.
-              </p>
-              <button
-                type="submit"
-                disabled={sendingCode || !email}
-                className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
-              >
-                {sendingCode ? 'Sending...' : 'Send passcode'}
-              </button>
-            </form>
-            <form className="space-y-2" onSubmit={verifyPasscode}>
-              <label htmlFor="study-manager-passcode" className="text-sm font-medium">Passcode</label>
-              <input
-                id="study-manager-passcode"
-                type="text"
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
-                placeholder="6-digit code"
-                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono"
-              />
-              <p className="text-xs text-gray-500">
-                Enter the 6-digit code from your email.
-              </p>
-              <button
-                type="submit"
-                disabled={verifyingCode || !email || !passcode}
-                className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
-              >
-                {verifyingCode ? 'Verifying...' : 'Verify passcode'}
-              </button>
-            </form>
-          </div>
+        {isSessionLoading && (
+          <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm animate-pulse h-24" />
         )}
 
-        {showAdminSigninHint && (
-          <div className="text-sm text-gray-600">
-            <p className="mb-2">Sign in through the Admin Hub to access study management tools.</p>
-            <Link href="/admin" className="text-purple font-medium hover:text-purple/80">
-              Go to Admin Hub
-            </Link>
+        {!hasAuth && !isSessionLoading && (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-500">Sign in to access the study manager.</p>
+            <AuthButtons
+              signInCallbackUrl={adminMode ? '/admin/studies' : '/trials/manage'}
+              signOutCallbackUrl="/login"
+            />
           </div>
         )}
 
