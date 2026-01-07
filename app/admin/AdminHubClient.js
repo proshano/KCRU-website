@@ -49,7 +49,7 @@ export default function AdminHubClient() {
         <p className="text-sm font-semibold text-purple uppercase tracking-wide">Admin Portal</p>
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Admin Hub</h1>
         <p className="text-gray-600 max-w-2xl">
-          Sign in with your LHSC Microsoft account to access admin tools.
+          Sign in with your LHSC account to access admin tools.
         </p>
       </header>
 
@@ -62,7 +62,7 @@ export default function AdminHubClient() {
           <div>
             <h2 className="text-lg font-semibold">Admin access</h2>
             <p className="text-sm text-gray-500">
-              Use your Microsoft account to continue.
+              Use your LHSC account to continue.
             </p>
           </div>
           <AuthButtons signInCallbackUrl="/admin" signOutCallbackUrl="/login" />

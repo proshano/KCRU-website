@@ -4,7 +4,7 @@ import { signIn, signOut, useSession } from 'next-auth/react'
 
 export default function AuthButtons({
   className = '',
-  signInCallbackUrl = '/protected',
+  signInCallbackUrl = '/',
   signOutCallbackUrl = '/'
 }) {
   const { data: session, status } = useSession()
@@ -34,7 +34,7 @@ export default function AuthButtons({
             onClick={() => signIn('azure-ad', { callbackUrl: signInCallbackUrl })}
             disabled={isLoading}
           >
-            Sign in with Microsoft
+            Sign in with LHSC
           </button>
       )}
     </div>
