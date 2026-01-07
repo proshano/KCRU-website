@@ -480,8 +480,20 @@ const siteSettings = {
           name: 'coordinatorDomain',
           title: 'Coordinator Email Domain',
           type: 'string',
-          description: 'Only emails at this domain can submit studies (e.g., lhsc.on.ca).',
+          description: 'Only emails at this domain can sign in (e.g., lhsc.on.ca).',
           initialValue: 'lhsc.on.ca'
+        },
+        {
+          name: 'coordinatorEmails',
+          title: 'Coordinator Emails',
+          type: 'array',
+          of: [{ type: 'string' }],
+          description: 'Allowlisted coordinator emails that can access the study manager.',
+          validation: Rule =>
+            Rule.custom((items = []) => {
+              const invalid = (items || []).find((item) => item && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(item))
+              return invalid ? 'Provide valid email addresses.' : true
+            })
         },
         {
           name: 'admins',

@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import AuthButtons from '@/app/components/AuthButtons'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 const TOKEN_STORAGE_KEY = 'kcru-admin-token'
-const EMAIL_STORAGE_KEY = 'kcru-admin-email'
 const LEGACY_TOKEN_KEYS = ['kcru-approval-token', 'kcru-updates-admin-token']
-const LEGACY_EMAIL_KEYS = ['kcru-approval-email', 'kcru-updates-admin-email']
 
 function formatList(items) {
   if (!items || !items.length) return 'None'
@@ -46,12 +46,6 @@ export default function ApprovalClient() {
   const approvalsEditPath = `${approvalsPath}/edit`
   const updatesPath = prefersAdmin ? '/admin/updates' : '/updates/admin'
   const [token, setToken] = useState('')
-  const [email, setEmail] = useState('')
-  const [passcode, setPasscode] = useState('')
-  const [password, setPassword] = useState('')
-  const [sendingCode, setSendingCode] = useState(false)
-  const [verifyingCode, setVerifyingCode] = useState(false)
-  const [verifyingPassword, setVerifyingPassword] = useState(false)
   const [adminEmail, setAdminEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -60,6 +54,10 @@ export default function ApprovalClient() {
   const [meta, setMeta] = useState({ areas: [], researchers: [] })
   const [reviewingId, setReviewingId] = useState('')
   const [reviewingAction, setReviewingAction] = useState('')
+  const { data: session, status: sessionStatus } = useSession()
+  const hasSessionAccess = Boolean(session?.user?.access?.admin)
+  const isAuthorized = hasSessionAccess || Boolean(token)
+  const isSessionLoading = sessionStatus === 'loading'
 
   useEffect(() => {
     const queryToken = searchParams.get('token')
@@ -98,14 +96,6 @@ export default function ApprovalClient() {
       }
     }
     if (stored) setToken(stored)
-    let storedEmail = sessionStorage.getItem(EMAIL_STORAGE_KEY)
-    if (!storedEmail) {
-      storedEmail = LEGACY_EMAIL_KEYS.map((key) => sessionStorage.getItem(key)).find(Boolean) || ''
-      if (storedEmail) {
-        sessionStorage.setItem(EMAIL_STORAGE_KEY, storedEmail)
-      }
-    }
-    if (storedEmail) setEmail(storedEmail)
   }, [approvalsPath, router, searchParams])
 
   useEffect(() => {
@@ -115,14 +105,6 @@ export default function ApprovalClient() {
       sessionStorage.removeItem(TOKEN_STORAGE_KEY)
     }
   }, [token])
-
-  useEffect(() => {
-    if (email) {
-      sessionStorage.setItem(EMAIL_STORAGE_KEY, email)
-    } else {
-      sessionStorage.removeItem(EMAIL_STORAGE_KEY)
-    }
-  }, [email])
 
   const areaMap = useMemo(() => {
     return new Map(
@@ -146,13 +128,8 @@ export default function ApprovalClient() {
 
   const handleLogout = useCallback(() => {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY)
-    sessionStorage.removeItem(EMAIL_STORAGE_KEY)
     LEGACY_TOKEN_KEYS.forEach((key) => sessionStorage.removeItem(key))
-    LEGACY_EMAIL_KEYS.forEach((key) => sessionStorage.removeItem(key))
     setToken('')
-    setEmail('')
-    setPasscode('')
-    setPassword('')
     setSubmissions([])
     setSuccess('')
     setError('')
@@ -160,13 +137,13 @@ export default function ApprovalClient() {
   }, [])
 
   const loadSubmissions = useCallback(async (activeToken = token) => {
-    if (!activeToken) return
+    if (!activeToken && !hasSessionAccess) return
     setLoading(true)
     setError('')
     setSuccess('')
     try {
       const res = await fetch('/api/trials/approvals', {
-        headers: { Authorization: `Bearer ${activeToken}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -187,14 +164,14 @@ export default function ApprovalClient() {
     } finally {
       setLoading(false)
     }
-  }, [token, handleLogout])
+  }, [token, handleLogout, hasSessionAccess])
 
   useEffect(() => {
-    if (token) loadSubmissions(token)
-  }, [token, loadSubmissions])
+    if (token || hasSessionAccess) loadSubmissions(token)
+  }, [token, hasSessionAccess, loadSubmissions])
 
   async function handleDecision(submissionId, decision) {
-    if (!token) return
+    if (!isAuthorized) return
     setError('')
     setSuccess('')
     setReviewingId(submissionId)
@@ -204,7 +181,7 @@ export default function ApprovalClient() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ submissionId, decision }),
       })
@@ -228,92 +205,6 @@ export default function ApprovalClient() {
     }
   }
 
-  async function sendPasscode(event) {
-    event.preventDefault()
-    setError('')
-    setSuccess('')
-    if (!email) {
-      setError('Enter your email.')
-      return
-    }
-    setSendingCode(true)
-    try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, scope: 'approvals' }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || `Request failed (${res.status})`)
-      }
-      setSuccess('Passcode sent. Check your email.')
-    } catch (err) {
-      setError(err.message || 'Failed to send passcode.')
-    } finally {
-      setSendingCode(false)
-    }
-  }
-
-  async function verifyPasscode(event) {
-    event.preventDefault()
-    setError('')
-    setSuccess('')
-    if (!email || !passcode) {
-      setError('Enter your email and passcode.')
-      return
-    }
-    setVerifyingCode(true)
-    try {
-      const res = await fetch('/api/admin/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: passcode, scope: 'approvals' }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || `Request failed (${res.status})`)
-      }
-      setToken(data.token || '')
-      setSuccess('Signed in. Loading submissions...')
-      setPasscode('')
-    } catch (err) {
-      setError(err.message || 'Failed to verify passcode.')
-    } finally {
-      setVerifyingCode(false)
-    }
-  }
-
-  async function signInWithPassword(event) {
-    event.preventDefault()
-    setError('')
-    setSuccess('')
-    if (!email || !password) {
-      setError('Enter your email and password.')
-      return
-    }
-    setVerifyingPassword(true)
-    try {
-      const res = await fetch('/api/admin/password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, scope: 'approvals' }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || `Request failed (${res.status})`)
-      }
-      setToken(data.token || '')
-      setSuccess('Signed in. Loading submissions...')
-      setPassword('')
-      setPasscode('')
-    } catch (err) {
-      setError(err.message || 'Failed to verify password.')
-    } finally {
-      setVerifyingPassword(false)
-    }
-  }
-
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-10 space-y-8">
       <header className="space-y-3">
@@ -322,7 +213,7 @@ export default function ApprovalClient() {
         <p className="text-gray-600 max-w-2xl">
           Review study submissions from coordinators. Approving a submission updates the live studies list.
         </p>
-        {token && (
+        {isAuthorized && (
           <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
             <span className="text-xs uppercase tracking-wide text-gray-400">Admin links</span>
             <Link href="/admin" className="hover:text-gray-700">
@@ -338,90 +229,23 @@ export default function ApprovalClient() {
         )}
       </header>
 
-      {!token && (
+      {isSessionLoading && (
+        <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm animate-pulse h-32" />
+      )}
+
+      {!isAuthorized && !isSessionLoading && (
         <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4 max-w-xl">
           <div>
             <h2 className="text-lg font-semibold">Approval access</h2>
             <p className="text-sm text-gray-500">
-              Use the secure approval link, request a passcode, or sign in with your admin password.
+              Sign in with your Microsoft account to review submissions.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <form className="space-y-2" onSubmit={sendPasscode}>
-              <label htmlFor="approval-email" className="text-sm font-medium">Work email</label>
-              <input
-                id="approval-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@lhsc.on.ca"
-                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-              />
-              <p className="text-xs text-gray-500">
-                We will send a one-time 6-digit code.
-              </p>
-              <button
-                type="submit"
-                disabled={sendingCode || !email}
-                className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
-              >
-                {sendingCode ? 'Sending...' : 'Send passcode'}
-              </button>
-            </form>
-            <form className="space-y-2" onSubmit={verifyPasscode}>
-              <label htmlFor="approval-passcode" className="text-sm font-medium">Passcode</label>
-              <input
-                id="approval-passcode"
-                type="text"
-                value={passcode}
-                onChange={(e) => setPasscode(e.target.value)}
-                placeholder="6-digit code"
-                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono"
-              />
-              <p className="text-xs text-gray-500">
-                Enter the 6-digit code from your email.
-              </p>
-              <button
-                type="submit"
-                disabled={verifyingCode || !email || !passcode}
-                className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
-              >
-                {verifyingCode ? 'Verifying...' : 'Verify passcode'}
-              </button>
-            </form>
-            <form className="space-y-2 md:col-span-2" onSubmit={signInWithPassword}>
-              <label htmlFor="approval-password" className="text-sm font-medium">Password</label>
-              <input
-                id="approval-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Admin password"
-                autoComplete="current-password"
-                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-              />
-              <p className="text-xs text-gray-500">
-                Uses the email entered above.
-              </p>
-              <button
-                type="submit"
-                disabled={verifyingPassword || !email || !password}
-                className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
-              >
-                {verifyingPassword ? 'Signing in...' : 'Sign in'}
-              </button>
-            </form>
-          </div>
-          {(error || success) && (
-            <div className="text-sm">
-              {error && <p className="text-red-600">{error}</p>}
-              {success && <p className="text-emerald-700">{success}</p>}
-            </div>
-          )}
+          <AuthButtons signInCallbackUrl={approvalsPath} signOutCallbackUrl="/login" />
         </section>
       )}
 
-      {token && (
+      {isAuthorized && (
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -429,7 +253,11 @@ export default function ApprovalClient() {
               <p className="text-sm text-gray-500">
                 {pendingCount} pending approvals · {submissions.length} latest submissions
               </p>
-              {adminEmail && <p className="text-sm text-gray-500">Signed in as {adminEmail}.</p>}
+              {(adminEmail || session?.user?.email) && (
+                <p className="text-sm text-gray-500">
+                  Signed in as {adminEmail || session?.user?.email}.
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -440,13 +268,7 @@ export default function ApprovalClient() {
               >
                 {loading ? 'Refreshing...' : 'Refresh'}
               </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="inline-flex items-center justify-center text-sm text-gray-500 hover:text-gray-700"
-              >
-                Sign out
-              </button>
+              <AuthButtons signInCallbackUrl={approvalsPath} signOutCallbackUrl="/login" />
             </div>
           </div>
 

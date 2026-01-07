@@ -3,6 +3,7 @@ import { sanityFetch, queries } from '@/lib/sanity'
 import { generateTrialCommunications } from '@/lib/summaries'
 import { sanitizeString } from '@/lib/studySubmissions'
 import { getScopedAdminSession } from '@/lib/adminSessions'
+import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
@@ -57,6 +58,11 @@ async function getApprovalSession(token) {
 }
 
 async function requireSession(request) {
+  const sessionAccess = await getSessionAccess()
+  if (sessionAccess && hasRequiredAccess(sessionAccess.access, { coordinator: true })) {
+    return null
+  }
+
   const token = extractBearerToken(request)
   const [coordinator, approval] = await Promise.all([
     getCoordinatorSession(token),

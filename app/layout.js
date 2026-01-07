@@ -4,6 +4,7 @@ import { buildOpenGraph, buildOpenGraphImage, buildTwitterMetadata, getMetadataB
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import AltmetricScript from './components/AltmetricScript'
+import AuthSessionProvider from './components/AuthSessionProvider'
 import JsonLd from './components/JsonLd'
 import './globals.css'
 
@@ -132,59 +133,61 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        {altmetricEnabled && <AltmetricScript />}
-        <JsonLd data={organizationSchema} />
-        <JsonLd data={websiteSchema} />
-        <div className="min-h-screen flex flex-col">
-          {/* Purple accent bar */}
-          <div className="bg-purple h-10"></div>
+        <AuthSessionProvider>
+          {altmetricEnabled && <AltmetricScript />}
+          <JsonLd data={organizationSchema} />
+          <JsonLd data={websiteSchema} />
+          <div className="min-h-screen flex flex-col">
+            {/* Purple accent bar */}
+            <div className="bg-purple h-10"></div>
 
-          {/* Navigation */}
-          <nav className="sticky top-0 z-50 bg-background border-b border-black/[0.06] px-6 md:px-12 py-5">
-            <div className="max-w-[1400px] mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <Link href="/" className="font-bold text-base tracking-tight text-[#444]">
-                {settings?.unitName || 'London Kidney Clinical Research'}
-              </Link>
-              <div className="flex flex-wrap gap-4 text-sm font-medium text-[#444] md:gap-9 md:text-base">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="nav-link"
+            {/* Navigation */}
+            <nav className="sticky top-0 z-50 bg-background border-b border-black/[0.06] px-6 md:px-12 py-5">
+              <div className="max-w-[1400px] mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <Link href="/" className="font-bold text-base tracking-tight text-[#444]">
+                  {settings?.unitName || 'London Kidney Clinical Research'}
+                </Link>
+                <div className="flex flex-wrap gap-4 text-sm font-medium text-[#444] md:gap-9 md:text-base">
+                  {navLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="nav-link"
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </nav>
+
+            {/* Main content */}
+            <main className="flex-1">{children}</main>
+
+            {/* Footer */}
+            <footer className="border-t border-black/[0.08] py-12 px-6 md:px-12 text-sm text-[#888] font-medium mt-6">
+              <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span>© {new Date().getFullYear()}</span>
+                  <a
+                    href="https://github.com/proshano/KCRU-website"
+                    className="hover:text-purple transition-colors"
+                    target="_blank"
+                    rel="noreferrer"
                   >
-                    {link.label}
-                  </Link>
-                ))}
+                    read technical information about this site
+                  </a>
+                </div>
+                <div className="flex gap-6">
+                  <Link href="/privacy" className="hover:text-purple transition-colors">Privacy</Link>
+                  <Link href="/accessibility" className="hover:text-purple transition-colors">Accessibility</Link>
+                </div>
               </div>
-            </div>
-          </nav>
-
-          {/* Main content */}
-          <main className="flex-1">{children}</main>
-
-          {/* Footer */}
-          <footer className="border-t border-black/[0.08] py-12 px-6 md:px-12 text-sm text-[#888] font-medium mt-6">
-            <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <span>© {new Date().getFullYear()}</span>
-                <a
-                  href="https://github.com/proshano/KCRU-website"
-                  className="hover:text-purple transition-colors"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  read technical information about this site
-                </a>
-              </div>
-              <div className="flex gap-6">
-                <Link href="/privacy" className="hover:text-purple transition-colors">Privacy</Link>
-                <Link href="/accessibility" className="hover:text-purple transition-colors">Accessibility</Link>
-              </div>
-            </div>
-          </footer>
-        </div>
-        <SpeedInsights />
-        <Analytics />
+            </footer>
+          </div>
+          <SpeedInsights />
+          <Analytics />
+        </AuthSessionProvider>
       </body>
     </html>
   )

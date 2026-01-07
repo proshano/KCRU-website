@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import AuthButtons from '@/app/components/AuthButtons'
 import { ROLE_OPTIONS, SPECIALTY_OPTIONS } from '@/lib/communicationOptions'
 
 const TOKEN_STORAGE_KEY = 'kcru-admin-token'
-const EMAIL_STORAGE_KEY = 'kcru-admin-email'
 const LEGACY_TOKEN_KEYS = ['kcru-updates-admin-token', 'kcru-approval-token']
-const LEGACY_EMAIL_KEYS = ['kcru-updates-admin-email', 'kcru-approval-email']
 
 const DEFAULT_SETTINGS = {
   subjectTemplate: '',
@@ -97,13 +97,11 @@ export default function UpdatesAdminClient() {
   const approvalsPath = prefersAdmin ? '/admin/approvals' : '/trials/approvals'
   const updatesPath = prefersAdmin ? '/admin/updates' : '/updates/admin'
   const [token, setToken] = useState('')
-  const [email, setEmail] = useState('')
-  const [passcode, setPasscode] = useState('')
-  const [password, setPassword] = useState('')
+  const { data: session, status: sessionStatus } = useSession()
+  const hasSessionAccess = Boolean(session?.user?.access?.admin)
+  const isAuthorized = hasSessionAccess || Boolean(token)
+  const isSessionLoading = sessionStatus === 'loading'
   const [adminEmail, setAdminEmail] = useState('')
-  const [sendingCode, setSendingCode] = useState(false)
-  const [verifyingCode, setVerifyingCode] = useState(false)
-  const [verifyingPassword, setVerifyingPassword] = useState(false)
   const [sendingNow, setSendingNow] = useState(false)
   const [sendingForce, setSendingForce] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
@@ -157,14 +155,6 @@ export default function UpdatesAdminClient() {
       }
     }
     if (storedToken) setToken(storedToken)
-    let storedEmail = sessionStorage.getItem(EMAIL_STORAGE_KEY)
-    if (!storedEmail) {
-      storedEmail = LEGACY_EMAIL_KEYS.map((key) => sessionStorage.getItem(key)).find(Boolean) || ''
-      if (storedEmail) {
-        sessionStorage.setItem(EMAIL_STORAGE_KEY, storedEmail)
-      }
-    }
-    if (storedEmail) setEmail(storedEmail)
   }, [])
 
   useEffect(() => {
@@ -175,23 +165,10 @@ export default function UpdatesAdminClient() {
     }
   }, [token])
 
-  useEffect(() => {
-    if (email) {
-      sessionStorage.setItem(EMAIL_STORAGE_KEY, email)
-    } else {
-      sessionStorage.removeItem(EMAIL_STORAGE_KEY)
-    }
-  }, [email])
-
   const handleLogout = useCallback(() => {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY)
-    sessionStorage.removeItem(EMAIL_STORAGE_KEY)
     LEGACY_TOKEN_KEYS.forEach((key) => sessionStorage.removeItem(key))
-    LEGACY_EMAIL_KEYS.forEach((key) => sessionStorage.removeItem(key))
     setToken('')
-    setEmail('')
-    setPasscode('')
-    setPassword('')
     setAdminEmail('')
     setStats({ total: 0, active: 0, optedIn: 0, eligible: 0, suppressed: 0, lastSentAt: null })
     setSettings(DEFAULT_SETTINGS)
@@ -222,13 +199,13 @@ export default function UpdatesAdminClient() {
   }, [])
 
   const loadAdminData = useCallback(async (activeToken = token) => {
-    if (!activeToken) return
+    if (!activeToken && !hasSessionAccess) return
     setLoading(true)
     setError('')
     setSuccess('')
     try {
       const res = await fetch('/api/updates/admin', {
-        headers: { Authorization: `Bearer ${activeToken}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -260,16 +237,16 @@ export default function UpdatesAdminClient() {
     } finally {
       setLoading(false)
     }
-  }, [token, handleLogout])
+  }, [token, hasSessionAccess, handleLogout])
 
   const loadPublicationAdminData = useCallback(async (activeToken = token) => {
-    if (!activeToken) return
+    if (!activeToken && !hasSessionAccess) return
     setLoadingPublications(true)
     setError('')
     setSuccess('')
     try {
       const res = await fetch('/api/updates/publication-newsletter/admin', {
-        headers: { Authorization: `Bearer ${activeToken}` },
+        headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -303,103 +280,17 @@ export default function UpdatesAdminClient() {
     } finally {
       setLoadingPublications(false)
     }
-  }, [token, handleLogout])
+  }, [token, hasSessionAccess, handleLogout])
 
   useEffect(() => {
-    if (token) {
+    if (token || hasSessionAccess) {
       loadAdminData(token)
       loadPublicationAdminData(token)
     }
-  }, [token, loadAdminData, loadPublicationAdminData])
-
-  async function sendPasscode(event) {
-    event.preventDefault()
-    setError('')
-    setSuccess('')
-    if (!email) {
-      setError('Enter your email.')
-      return
-    }
-    setSendingCode(true)
-    try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, scope: 'updates' }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || `Request failed (${res.status})`)
-      }
-      setSuccess('Passcode sent. Check your email.')
-    } catch (err) {
-      setError(err.message || 'Failed to send passcode.')
-    } finally {
-      setSendingCode(false)
-    }
-  }
-
-  async function verifyPasscode(event) {
-    event.preventDefault()
-    setError('')
-    setSuccess('')
-    if (!email || !passcode) {
-      setError('Enter your email and passcode.')
-      return
-    }
-    setVerifyingCode(true)
-    try {
-      const res = await fetch('/api/admin/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: passcode, scope: 'updates' }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || `Request failed (${res.status})`)
-      }
-      setToken(data.token || '')
-      setSuccess('Signed in. Loading study update admin...')
-      setPasscode('')
-    } catch (err) {
-      setError(err.message || 'Failed to verify passcode.')
-    } finally {
-      setVerifyingCode(false)
-    }
-  }
-
-  async function signInWithPassword(event) {
-    event.preventDefault()
-    setError('')
-    setSuccess('')
-    if (!email || !password) {
-      setError('Enter your email and password.')
-      return
-    }
-    setVerifyingPassword(true)
-    try {
-      const res = await fetch('/api/admin/password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, scope: 'updates' }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) {
-        throw new Error(data?.error || `Request failed (${res.status})`)
-      }
-      setToken(data.token || '')
-      setSuccess('Signed in. Loading study update admin...')
-      setPassword('')
-      setPasscode('')
-    } catch (err) {
-      setError(err.message || 'Failed to verify password.')
-    } finally {
-      setVerifyingPassword(false)
-    }
-  }
+  }, [token, hasSessionAccess, loadAdminData, loadPublicationAdminData])
 
   async function handleSend({ force }) {
-    if (!token) return
+    if (!isAuthorized) return
     setError('')
     setSuccess('')
     setLastSendResult(null)
@@ -418,7 +309,7 @@ export default function UpdatesAdminClient() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ force }),
       })
@@ -452,7 +343,7 @@ export default function UpdatesAdminClient() {
   }
 
   async function handlePublicationSend({ force }) {
-    if (!token) return
+    if (!isAuthorized) return
     setError('')
     setSuccess('')
     setPublicationLastSendResult(null)
@@ -471,7 +362,7 @@ export default function UpdatesAdminClient() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ force }),
       })
@@ -518,7 +409,7 @@ export default function UpdatesAdminClient() {
 
   async function saveSettings(event) {
     event.preventDefault()
-    if (!token) return
+    if (!isAuthorized) return
     setError('')
     setSuccess('')
     setSavingSettings(true)
@@ -536,7 +427,7 @@ export default function UpdatesAdminClient() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(payload),
       })
@@ -570,7 +461,7 @@ export default function UpdatesAdminClient() {
 
   async function saveTestSettings(event) {
     event.preventDefault()
-    if (!token) return
+    if (!isAuthorized) return
     setError('')
     setSuccess('')
     setSavingTestSettings(true)
@@ -586,7 +477,7 @@ export default function UpdatesAdminClient() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(payload),
       })
@@ -609,7 +500,7 @@ export default function UpdatesAdminClient() {
 
   async function savePublicationSettings(event) {
     event.preventDefault()
-    if (!token) return
+    if (!isAuthorized) return
     setError('')
     setSuccess('')
     setSavingPublicationSettings(true)
@@ -629,7 +520,7 @@ export default function UpdatesAdminClient() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(payload),
       })
@@ -665,7 +556,7 @@ export default function UpdatesAdminClient() {
   }
 
   async function suppressAllSubscribers() {
-    if (!token) return
+    if (!isAuthorized) return
     if (!window.confirm('Disable emails for every subscriber? This will suppress all update sends.')) {
       return
     }
@@ -677,7 +568,7 @@ export default function UpdatesAdminClient() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ action: 'suppress_all' }),
       })
@@ -696,7 +587,7 @@ export default function UpdatesAdminClient() {
   }
 
   async function unsuppressSubscribersByEmail() {
-    if (!token) return
+    if (!isAuthorized) return
     const emails = parseEmailListInput(suppressionEmails)
     if (!emails.length) {
       setError('Enter at least one email to re-enable.')
@@ -713,7 +604,7 @@ export default function UpdatesAdminClient() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ action: 'unsuppress_emails', emails }),
       })
@@ -765,7 +656,7 @@ export default function UpdatesAdminClient() {
   }
 
   async function previewCustomAudience() {
-    if (!token) return
+    if (!isAuthorized) return
     setCustomPreviewing(true)
     setCustomStatus({ type: 'idle', message: '' })
     try {
@@ -773,7 +664,7 @@ export default function UpdatesAdminClient() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ dryRun: true, filters: customFilters }),
       })
@@ -794,7 +685,7 @@ export default function UpdatesAdminClient() {
   }
 
   async function sendCustomNewsletter() {
-    if (!token) return
+    if (!isAuthorized) return
     setCustomStatus({ type: 'idle', message: '' })
     const recipientCount = parseEmailListInput(testSettings.recipients).length
     if (!testSettings.enabled || recipientCount === 0) {
@@ -818,7 +709,7 @@ export default function UpdatesAdminClient() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           subject,
@@ -859,7 +750,7 @@ export default function UpdatesAdminClient() {
         <p className="text-gray-600 max-w-2xl">
           Manage study update emails, publication newsletters, and subscriber communications.
         </p>
-        {token && (
+        {isAuthorized && (
           <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
             <span className="text-xs uppercase tracking-wide text-gray-400">Admin links</span>
             <Link href="/admin" className="hover:text-gray-700">
@@ -875,90 +766,23 @@ export default function UpdatesAdminClient() {
         )}
       </header>
 
-      {!token && (
+      {isSessionLoading && (
+        <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm animate-pulse h-32" />
+      )}
+
+      {!isAuthorized && !isSessionLoading && (
         <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4 max-w-xl">
           <div>
             <h2 className="text-lg font-semibold">Admin access</h2>
             <p className="text-sm text-gray-500">
-              Request a one-time passcode or sign in with your admin password.
+              Sign in with your Microsoft account to manage study updates.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <form className="space-y-2" onSubmit={sendPasscode}>
-              <label htmlFor="updates-admin-email" className="text-sm font-medium">Work email</label>
-              <input
-                id="updates-admin-email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@lhsc.on.ca"
-                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-              />
-              <p className="text-xs text-gray-500">
-                We will send a one-time 6-digit code.
-              </p>
-              <button
-                type="submit"
-                disabled={sendingCode || !email}
-                className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
-              >
-                {sendingCode ? 'Sending...' : 'Send passcode'}
-              </button>
-            </form>
-            <form className="space-y-2" onSubmit={verifyPasscode}>
-              <label htmlFor="updates-admin-passcode" className="text-sm font-medium">Passcode</label>
-              <input
-                id="updates-admin-passcode"
-                type="text"
-                value={passcode}
-                onChange={(event) => setPasscode(event.target.value)}
-                placeholder="6-digit code"
-                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono"
-              />
-              <p className="text-xs text-gray-500">
-                Enter the 6-digit code from your email.
-              </p>
-              <button
-                type="submit"
-                disabled={verifyingCode || !email || !passcode}
-                className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
-              >
-                {verifyingCode ? 'Verifying...' : 'Verify passcode'}
-              </button>
-            </form>
-            <form className="space-y-2 md:col-span-2" onSubmit={signInWithPassword}>
-              <label htmlFor="updates-admin-password" className="text-sm font-medium">Password</label>
-              <input
-                id="updates-admin-password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Admin password"
-                autoComplete="current-password"
-                className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-              />
-              <p className="text-xs text-gray-500">
-                Uses the email entered above.
-              </p>
-              <button
-                type="submit"
-                disabled={verifyingPassword || !email || !password}
-                className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
-              >
-                {verifyingPassword ? 'Signing in...' : 'Sign in'}
-              </button>
-            </form>
-          </div>
-          {(error || success) && (
-            <div className="text-sm">
-              {error && <p className="text-red-600">{error}</p>}
-              {success && <p className="text-emerald-700">{success}</p>}
-            </div>
-          )}
+          <AuthButtons signInCallbackUrl={updatesPath} signOutCallbackUrl="/login" />
         </section>
       )}
 
-      {token && (
+      {isAuthorized && (
         <section className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -969,7 +793,11 @@ export default function UpdatesAdminClient() {
               <p className="text-sm text-gray-500">
                 Suppressed subscribers: {formatCount(stats.suppressed)}
               </p>
-              {adminEmail && <p className="text-sm text-gray-500">Signed in as {adminEmail}.</p>}
+              {(adminEmail || session?.user?.email) && (
+                <p className="text-sm text-gray-500">
+                  Signed in as {adminEmail || session?.user?.email}.
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -983,13 +811,7 @@ export default function UpdatesAdminClient() {
               >
                 {loading || loadingPublications ? 'Refreshing...' : 'Refresh'}
               </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="inline-flex items-center justify-center text-sm text-gray-500 hover:text-gray-700"
-              >
-                Sign out
-              </button>
+              <AuthButtons signInCallbackUrl={updatesPath} signOutCallbackUrl="/login" />
             </div>
           </div>
 

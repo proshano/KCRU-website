@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import AuthButtons from '@/app/components/AuthButtons'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 
 const TOKEN_STORAGE_KEY = 'kcru-admin-token'
@@ -124,6 +126,10 @@ export default function ApprovalEditClient() {
   const approvalsEditPath = `${approvalsPath}/edit`
   const updatesPath = prefersAdmin ? '/admin/updates' : '/updates/admin'
   const [token, setToken] = useState('')
+  const { data: session, status: sessionStatus } = useSession()
+  const hasSessionAccess = Boolean(session?.user?.access?.admin)
+  const isAuthorized = hasSessionAccess || Boolean(token)
+  const isSessionLoading = sessionStatus === 'loading'
   const [submission, setSubmission] = useState(null)
   const [meta, setMeta] = useState({ areas: [], researchers: [] })
   const [form, setForm] = useState(EMPTY_FORM)
@@ -202,7 +208,7 @@ export default function ApprovalEditClient() {
   }, [form.inclusionCriteria, form.exclusionCriteria])
 
   const loadSubmission = useCallback(async (activeToken = token) => {
-    if (!activeToken || !submissionId) return
+    if ((!activeToken && !hasSessionAccess) || !submissionId) return
     setLoading(true)
     setError('')
     setSuccess('')
@@ -210,7 +216,7 @@ export default function ApprovalEditClient() {
       const res = await fetch(
         `/api/trials/approvals/submission?submissionId=${encodeURIComponent(submissionId)}`,
         {
-          headers: { Authorization: `Bearer ${activeToken}` },
+          headers: activeToken ? { Authorization: `Bearer ${activeToken}` } : undefined,
         }
       )
       const data = await res.json()
@@ -230,11 +236,11 @@ export default function ApprovalEditClient() {
     } finally {
       setLoading(false)
     }
-  }, [submissionId, token])
+  }, [submissionId, token, hasSessionAccess])
 
   useEffect(() => {
-    if (token && submissionId) loadSubmission(token)
-  }, [token, submissionId, loadSubmission])
+    if ((token || hasSessionAccess) && submissionId) loadSubmission(token)
+  }, [token, hasSessionAccess, submissionId, loadSubmission])
 
   function updateFormField(key, value) {
     if (key === 'principalInvestigatorName') {
@@ -496,7 +502,7 @@ export default function ApprovalEditClient() {
   }
 
   async function saveEdits() {
-    if (!token) {
+    if (!isAuthorized) {
       setError('Sign in to edit submissions.')
       return false
     }
@@ -517,7 +523,7 @@ export default function ApprovalEditClient() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ submissionId, payload: form }),
       })
@@ -553,7 +559,7 @@ export default function ApprovalEditClient() {
         <p className="text-gray-600 max-w-2xl">
           Edit pending study submissions before approving them. Save changes here, then approve in the approvals list.
         </p>
-        {token && (
+        {isAuthorized && (
           <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
             <span className="text-xs uppercase tracking-wide text-gray-400">Admin links</span>
             <Link href="/admin" className="hover:text-gray-700">
@@ -572,6 +578,22 @@ export default function ApprovalEditClient() {
         </Link>
       </header>
 
+      {isSessionLoading && (
+        <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm animate-pulse h-32" />
+      )}
+
+      {!isAuthorized && !isSessionLoading && (
+        <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4 max-w-xl">
+          <div>
+            <h2 className="text-lg font-semibold">Approval access</h2>
+            <p className="text-sm text-gray-500">
+              Sign in with your Microsoft account to edit submissions.
+            </p>
+          </div>
+          <AuthButtons signInCallbackUrl={approvalsEditPath} signOutCallbackUrl="/login" />
+        </section>
+      )}
+
       {(error || success) && (
         <div className="text-sm">
           {error && <p className="text-red-600">{error}</p>}
@@ -579,13 +601,13 @@ export default function ApprovalEditClient() {
         </div>
       )}
 
-      {!submissionId && (
+      {isAuthorized && !submissionId && (
         <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm">
           <p className="text-sm text-gray-600">Select a submission to edit from the approvals list.</p>
         </section>
       )}
 
-      {submissionId && (
+      {isAuthorized && submissionId && (
         <form onSubmit={handleSave} className="space-y-6">
           <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
