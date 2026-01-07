@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs/promises'
-import path from 'path'
 import { writeClient } from '@/lib/sanity'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
+import { CACHE_PATH } from '@/lib/pubmedCache'
 
 const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN
-const CACHE_PATH = path.join(process.cwd(), 'runtime', 'pubmed-cache.json')
 const CACHE_DOC_ID = 'pubmedCache'
 const CACHE_DOC_TYPE = 'pubmedCache'
 
