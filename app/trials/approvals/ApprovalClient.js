@@ -238,7 +238,7 @@ export default function ApprovalClient() {
           <div>
             <h2 className="text-lg font-semibold">Approval access</h2>
             <p className="text-sm text-gray-500">
-              Sign in with your Microsoft account to review submissions.
+              Sign in with your LHSC account to review submissions.
             </p>
           </div>
           <AuthButtons signInCallbackUrl={approvalsPath} signOutCallbackUrl="/login" />

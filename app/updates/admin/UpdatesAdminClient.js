@@ -775,7 +775,7 @@ export default function UpdatesAdminClient() {
           <div>
             <h2 className="text-lg font-semibold">Admin access</h2>
             <p className="text-sm text-gray-500">
-              Sign in with your Microsoft account to manage study updates.
+              Sign in with your LHSC account to manage study updates.
             </p>
           </div>
           <AuthButtons signInCallbackUrl={updatesPath} signOutCallbackUrl="/login" />
