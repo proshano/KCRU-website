@@ -10,7 +10,7 @@ function resolveCallbackUrl(value, requestHeaders) {
     }
     try {
       const url = new URL(value)
-      const host = requestHeaders.get('host')
+      const host = typeof requestHeaders?.get === 'function' ? requestHeaders.get('host') : null
       if (host && url.host === host) {
         const path = `${url.pathname}${url.search}${url.hash}` || DEFAULT_CALLBACK
         return path === '/login' ? DEFAULT_CALLBACK : path
@@ -30,11 +30,12 @@ function resolveCallbackUrl(value, requestHeaders) {
   return ''
 }
 
-export default function LoginPage({ searchParams }) {
-  const requestHeaders = headers()
+export default async function LoginPage({ searchParams }) {
+  const requestHeaders = await headers()
+  const referer = typeof requestHeaders?.get === 'function' ? requestHeaders.get('referer') : null
   const callbackUrl =
     resolveCallbackUrl(searchParams?.callbackUrl, requestHeaders) ||
-    resolveCallbackUrl(requestHeaders.get('referer'), requestHeaders) ||
+    resolveCallbackUrl(referer, requestHeaders) ||
     DEFAULT_CALLBACK
   const errorMessage =
     searchParams?.error === 'AccessDenied'
