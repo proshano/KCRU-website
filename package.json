@@ -9,13 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "clear:pubmed": "node scripts/clear-pubmed-cache.js",
     "refresh:pubmed": "node scripts/refresh-pubmed-cache.js",
-    "upload:pubmed": "node scripts/upload-cache-to-sanity.js",
-    "migrate:trial-fields": "node scripts/migrate-trial-fields.js",
-    "sync:therapeutic-areas": "node scripts/sync-therapeutic-areas.js",
-    "migrate:therapeutic-area-ckd": "node scripts/replace-therapeutic-area.js",
-    "migrate:update-subscriber-areas": "node scripts/migrate-update-subscriber-areas.js"
+    "upload:pubmed": "node scripts/upload-cache-to-sanity.js"
   },
   "keywords": [],
   "author": "",
@@ -29,18 +24,19 @@
     "@vercel/speed-insights": "^1.3.1",
     "autoprefixer": "^10.4.20",
     "next": "^16.0.7",
-    "next-auth": "^4.24.11",
+    "next-auth": "^4.24.13",
     "postcss": "^8.4.47",
-    "prismjs": "^1.29.0",
-    "react": "^19.2.2",
-    "react-dom": "^19.2.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "styled-components": "^6.1.19",
     "tailwindcss": "^3.4.16"
   },
   "devDependencies": {
-    "@sanity/vision": "^5.1.0",
+    "@sanity/vision": "^5.7.0",
+    "baseline-browser-mapping": "^2.9.19",
     "eslint": "^9.17.0",
     "eslint-config-next": "^15.0.4",
-    "sanity": "^5.1.0"
+    "sanity": "^5.7.0",
+    "typescript": "5.9.3"
   }
 }

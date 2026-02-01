@@ -135,6 +135,7 @@ export default function UpdatesAdminClient() {
   const [publicationLastSendResult, setPublicationLastSendResult] = useState(null)
   const [suppressionEmails, setSuppressionEmails] = useState('')
   const [suppressingAll, setSuppressingAll] = useState(false)
+  const [unsuppressingAll, setUnsuppressingAll] = useState(false)
   const [unsuppressingList, setUnsuppressingList] = useState(false)
   const [customSubject, setCustomSubject] = useState('')
   const [customMessage, setCustomMessage] = useState('')
@@ -183,6 +184,7 @@ export default function UpdatesAdminClient() {
     setSendingPublicationForce(false)
     setSuppressionEmails('')
     setSuppressingAll(false)
+    setUnsuppressingAll(false)
     setUnsuppressingList(false)
     setCustomSubject('')
     setCustomMessage('')
@@ -622,6 +624,37 @@ export default function UpdatesAdminClient() {
     }
   }
 
+  async function unsuppressAllSubscribers() {
+    if (!isAuthorized) return
+    if (!window.confirm('Re-enable emails for every subscriber? This will allow update sends again.')) {
+      return
+    }
+    setError('')
+    setSuccess('')
+    setUnsuppressingAll(true)
+    try {
+      const res = await fetch('/api/updates/admin/suppression', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ action: 'unsuppress_all' }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`)
+      }
+      setSuccess('All subscribers are now re-enabled.')
+      await loadAdminData(token)
+      await loadPublicationAdminData(token)
+    } catch (err) {
+      setError(err.message || 'Failed to re-enable subscribers.')
+    } finally {
+      setUnsuppressingAll(false)
+    }
+  }
+
   function toggleCustomFilter(key, value) {
     setCustomFilters((prev) => {
       const set = new Set(prev[key] || [])
@@ -901,6 +934,14 @@ export default function UpdatesAdminClient() {
                 className="inline-flex items-center justify-center bg-rose-600 text-white px-4 py-2 rounded shadow hover:bg-rose-700 disabled:opacity-60"
               >
                 {suppressingAll ? 'Disabling...' : 'Disable all subscribers'}
+              </button>
+              <button
+                type="button"
+                onClick={unsuppressAllSubscribers}
+                disabled={unsuppressingAll}
+                className="inline-flex items-center justify-center border border-rose-500 text-rose-700 px-4 py-2 rounded hover:bg-rose-100 disabled:opacity-60"
+              >
+                {unsuppressingAll ? 'Re-enabling...' : 'Re-enable all subscribers'}
               </button>
               <p className="text-sm text-rose-900/70">
                 Currently suppressed: {formatCount(stats.suppressed)}
