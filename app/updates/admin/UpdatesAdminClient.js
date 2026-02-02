@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSession } from 'next-auth/react'
@@ -42,6 +42,17 @@ const DEFAULT_CUSTOM_FILTERS = {
   specialties: [],
   interestAreas: [],
 }
+
+const ROLE_LABELS = new Map(ROLE_OPTIONS.map((option) => [option.value, option.title]))
+const SPECIALTY_LABELS = new Map(SPECIALTY_OPTIONS.map((option) => [option.value, option.title]))
+const CORRESPONDENCE_LABELS = new Map(
+  [
+    { title: 'Publication/news updates', value: 'newsletter' },
+    { title: 'Study updates', value: 'study_updates' },
+  ].map((option) => [option.value, option.title])
+)
+
+const SUBSCRIBER_PAGE_SIZE = 200
 
 function formatDate(value) {
   if (!value) return 'Not sent yet'
@@ -91,6 +102,20 @@ function buildInterestAreaOptions(areas) {
   return [{ value: 'all', title: 'All areas' }, ...options]
 }
 
+function formatSubscriberStatus(subscriber) {
+  if (subscriber?.subscriptionStatus === 'unsubscribed') return 'Unsubscribed'
+  if (subscriber?.deliveryStatus === 'suppressed') return 'Suppressed'
+  return 'Active'
+}
+
+function formatSubscriberPreferences(preferences) {
+  if (!Array.isArray(preferences) || preferences.length === 0) return 'None'
+  return preferences
+    .map((value) => CORRESPONDENCE_LABELS.get(value) || value)
+    .filter(Boolean)
+    .join(', ')
+}
+
 export default function UpdatesAdminClient() {
   const pathname = usePathname()
   const prefersAdmin = pathname.startsWith('/admin')
@@ -137,6 +162,13 @@ export default function UpdatesAdminClient() {
   const [suppressingAll, setSuppressingAll] = useState(false)
   const [unsuppressingAll, setUnsuppressingAll] = useState(false)
   const [unsuppressingList, setUnsuppressingList] = useState(false)
+  const [subscriberItems, setSubscriberItems] = useState([])
+  const [subscriberTotal, setSubscriberTotal] = useState(0)
+  const subscriberOffsetRef = useRef(0)
+  const [subscriberLoading, setSubscriberLoading] = useState(false)
+  const [subscriberError, setSubscriberError] = useState('')
+  const [subscriberSearch, setSubscriberSearch] = useState('')
+  const [subscriberStatusFilter, setSubscriberStatusFilter] = useState('all')
   const [customSubject, setCustomSubject] = useState('')
   const [customMessage, setCustomMessage] = useState('')
   const [customSignature, setCustomSignature] = useState('')
@@ -186,6 +218,13 @@ export default function UpdatesAdminClient() {
     setSuppressingAll(false)
     setUnsuppressingAll(false)
     setUnsuppressingList(false)
+    setSubscriberItems([])
+    setSubscriberTotal(0)
+    subscriberOffsetRef.current = 0
+    setSubscriberLoading(false)
+    setSubscriberError('')
+    setSubscriberSearch('')
+    setSubscriberStatusFilter('all')
     setCustomSubject('')
     setCustomMessage('')
     setCustomSignature('')
@@ -288,8 +327,9 @@ export default function UpdatesAdminClient() {
     if (token || hasSessionAccess) {
       loadAdminData(token)
       loadPublicationAdminData(token)
+      loadSubscribers({ reset: true })
     }
-  }, [token, hasSessionAccess, loadAdminData, loadPublicationAdminData])
+  }, [token, hasSessionAccess, loadAdminData, loadPublicationAdminData, loadSubscribers])
 
   async function handleSend({ force }) {
     if (!isAuthorized) return
@@ -655,6 +695,40 @@ export default function UpdatesAdminClient() {
     }
   }
 
+  const loadSubscribers = useCallback(
+    async ({ reset = false } = {}) => {
+      if (!isAuthorized) return
+      setSubscriberLoading(true)
+      setSubscriberError('')
+      if (reset) {
+        setSubscriberItems([])
+        subscriberOffsetRef.current = 0
+      }
+      try {
+        const nextOffset = reset ? 0 : subscriberOffsetRef.current
+        const res = await fetch(
+          `/api/updates/admin/subscribers?offset=${nextOffset}&limit=${SUBSCRIBER_PAGE_SIZE}`,
+          {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          }
+        )
+        const data = await res.json()
+        if (!res.ok || !data?.ok) {
+          throw new Error(data?.error || `Request failed (${res.status})`)
+        }
+        const nextOffsetValue = nextOffset + (data.items?.length || 0)
+        setSubscriberTotal(formatCount(data.total))
+        subscriberOffsetRef.current = nextOffsetValue
+        setSubscriberItems((prev) => (reset ? data.items || [] : [...prev, ...(data.items || [])]))
+      } catch (err) {
+        setSubscriberError(err.message || 'Failed to load subscribers.')
+      } finally {
+        setSubscriberLoading(false)
+      }
+    },
+    [isAuthorized, token]
+  )
+
   function toggleCustomFilter(key, value) {
     setCustomFilters((prev) => {
       const set = new Set(prev[key] || [])
@@ -774,6 +848,25 @@ export default function UpdatesAdminClient() {
   const testRecipientCount = parseEmailListInput(testSettings.recipients).length
   const testRecipientLabel = testRecipientCount === 1 ? '1 recipient' : `${testRecipientCount} recipients`
   const canSendUpdates = testSettings.enabled && testRecipientCount > 0
+  const normalizedSubscriberSearch = subscriberSearch.trim().toLowerCase()
+  const filteredSubscribers = subscriberItems.filter((subscriber) => {
+    const status = formatSubscriberStatus(subscriber).toLowerCase()
+    if (subscriberStatusFilter !== 'all' && status !== subscriberStatusFilter) {
+      return false
+    }
+    if (!normalizedSubscriberSearch) return true
+    const searchSpace = [
+      subscriber?.name,
+      subscriber?.email,
+      ROLE_LABELS.get(subscriber?.role) || subscriber?.role,
+      SPECIALTY_LABELS.get(subscriber?.specialty) || subscriber?.specialty,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return searchSpace.includes(normalizedSubscriberSearch)
+  })
+  const subscriberHasMore = subscriberItems.length < subscriberTotal
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-10 space-y-8">
@@ -968,6 +1061,130 @@ export default function UpdatesAdminClient() {
               >
                 {unsuppressingList ? 'Re-enabling...' : 'Re-enable listed emails'}
               </button>
+            </div>
+          </section>
+
+          <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold">Subscribers</h3>
+                <p className="text-sm text-gray-500">
+                  Browse update subscribers without opening Sanity. Total: {formatCount(subscriberTotal)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => loadSubscribers({ reset: true })}
+                disabled={subscriberLoading}
+                className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
+              >
+                {subscriberLoading ? 'Loading...' : 'Refresh list'}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <input
+                type="search"
+                value={subscriberSearch}
+                onChange={(event) => setSubscriberSearch(event.target.value)}
+                placeholder="Search name, email, role, specialty..."
+                className="flex-1 min-w-[220px] border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
+              />
+              <select
+                value={subscriberStatusFilter}
+                onChange={(event) => setSubscriberStatusFilter(event.target.value)}
+                className="min-w-[180px] border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple bg-white"
+              >
+                <option value="all">All statuses</option>
+                <option value="active">Active</option>
+                <option value="suppressed">Suppressed</option>
+                <option value="unsubscribed">Unsubscribed</option>
+              </select>
+            </div>
+            {subscriberError && <p className="text-sm text-red-600">{subscriberError}</p>}
+            <div className="border border-black/5 rounded-lg overflow-x-auto">
+              <table className="min-w-[900px] w-full text-sm">
+                <thead className="bg-gray-50 text-gray-600">
+                  <tr>
+                    <th className="text-left font-semibold px-4 py-3">Name</th>
+                    <th className="text-left font-semibold px-4 py-3">Email</th>
+                    <th className="text-left font-semibold px-4 py-3">Status</th>
+                    <th className="text-left font-semibold px-4 py-3">Preferences</th>
+                    <th className="text-left font-semibold px-4 py-3">Interest areas</th>
+                    <th className="text-left font-semibold px-4 py-3">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSubscribers.map((subscriber) => {
+                    const statusLabel = formatSubscriberStatus(subscriber)
+                    const interestAreas = subscriber?.allTherapeuticAreas
+                      ? 'All areas'
+                      : (subscriber?.interestAreas || [])
+                          .map((area) => formatInterestAreaTitle(area))
+                          .filter(Boolean)
+                          .join(', ') || 'None'
+                    return (
+                      <tr key={subscriber._id} className="border-t border-black/5">
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-gray-900">
+                            {subscriber?.name || 'Unnamed subscriber'}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {ROLE_LABELS.get(subscriber?.role) || subscriber?.role || 'Role not set'}
+                            {subscriber?.specialty
+                              ? ` • ${SPECIALTY_LABELS.get(subscriber?.specialty) || subscriber?.specialty}`
+                              : ''}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3">{subscriber?.email || 'No email'}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                              statusLabel === 'Active'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : statusLabel === 'Suppressed'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-gray-200 text-gray-700'
+                            }`}
+                          >
+                            {statusLabel}
+                          </span>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {subscriber?.subscriptionStatus || 'unknown'}
+                            {subscriber?.deliveryStatus ? ` / ${subscriber.deliveryStatus}` : ''}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatSubscriberPreferences(subscriber?.correspondencePreferences)}
+                        </td>
+                        <td className="px-4 py-3">{interestAreas}</td>
+                        <td className="px-4 py-3">{formatDate(subscriber?.updatedAt)}</td>
+                      </tr>
+                    )
+                  })}
+                  {filteredSubscribers.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                        {subscriberLoading ? 'Loading subscribers...' : 'No subscribers match your filters.'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
+              <span>
+                Showing {filteredSubscribers.length} of {formatCount(subscriberItems.length)} loaded
+              </span>
+              {subscriberHasMore && (
+                <button
+                  type="button"
+                  onClick={() => loadSubscribers()}
+                  disabled={subscriberLoading}
+                  className="inline-flex items-center justify-center border border-purple text-purple px-4 py-2 rounded hover:bg-purple/10 disabled:opacity-60"
+                >
+                  {subscriberLoading ? 'Loading...' : 'Load more'}
+                </button>
+              )}
             </div>
           </section>
 
