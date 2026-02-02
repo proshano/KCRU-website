@@ -323,6 +323,40 @@ export default function UpdatesAdminClient() {
     }
   }, [token, hasSessionAccess, handleLogout])
 
+  const loadSubscribers = useCallback(
+    async ({ reset = false } = {}) => {
+      if (!isAuthorized) return
+      setSubscriberLoading(true)
+      setSubscriberError('')
+      if (reset) {
+        setSubscriberItems([])
+        subscriberOffsetRef.current = 0
+      }
+      try {
+        const nextOffset = reset ? 0 : subscriberOffsetRef.current
+        const res = await fetch(
+          `/api/updates/admin/subscribers?offset=${nextOffset}&limit=${SUBSCRIBER_PAGE_SIZE}`,
+          {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          }
+        )
+        const data = await res.json()
+        if (!res.ok || !data?.ok) {
+          throw new Error(data?.error || `Request failed (${res.status})`)
+        }
+        const nextOffsetValue = nextOffset + (data.items?.length || 0)
+        setSubscriberTotal(formatCount(data.total))
+        subscriberOffsetRef.current = nextOffsetValue
+        setSubscriberItems((prev) => (reset ? data.items || [] : [...prev, ...(data.items || [])]))
+      } catch (err) {
+        setSubscriberError(err.message || 'Failed to load subscribers.')
+      } finally {
+        setSubscriberLoading(false)
+      }
+    },
+    [isAuthorized, token]
+  )
+
   useEffect(() => {
     if (token || hasSessionAccess) {
       loadAdminData(token)
@@ -694,40 +728,6 @@ export default function UpdatesAdminClient() {
       setUnsuppressingAll(false)
     }
   }
-
-  const loadSubscribers = useCallback(
-    async ({ reset = false } = {}) => {
-      if (!isAuthorized) return
-      setSubscriberLoading(true)
-      setSubscriberError('')
-      if (reset) {
-        setSubscriberItems([])
-        subscriberOffsetRef.current = 0
-      }
-      try {
-        const nextOffset = reset ? 0 : subscriberOffsetRef.current
-        const res = await fetch(
-          `/api/updates/admin/subscribers?offset=${nextOffset}&limit=${SUBSCRIBER_PAGE_SIZE}`,
-          {
-            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          }
-        )
-        const data = await res.json()
-        if (!res.ok || !data?.ok) {
-          throw new Error(data?.error || `Request failed (${res.status})`)
-        }
-        const nextOffsetValue = nextOffset + (data.items?.length || 0)
-        setSubscriberTotal(formatCount(data.total))
-        subscriberOffsetRef.current = nextOffsetValue
-        setSubscriberItems((prev) => (reset ? data.items || [] : [...prev, ...(data.items || [])]))
-      } catch (err) {
-        setSubscriberError(err.message || 'Failed to load subscribers.')
-      } finally {
-        setSubscriberLoading(false)
-      }
-    },
-    [isAuthorized, token]
-  )
 
   function toggleCustomFilter(key, value) {
     setCustomFilters((prev) => {
