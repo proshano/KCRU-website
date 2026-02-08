@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getMaintenanceSettings } from '@/lib/sanity/client'
 
-const CACHE_SECONDS = 60
+export const revalidate = 60
+
+const CACHE_SECONDS = revalidate
 const CACHE_HEADERS = {
   'Cache-Control': `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=${CACHE_SECONDS * 5}`
 }
@@ -20,4 +22,4 @@ export async function GET() {
   }
 }
 
-export const revalidate = CACHE_SECONDS
+// Revalidate is exported above for Next.js segment config
