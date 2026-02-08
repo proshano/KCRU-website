@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { sanityFetch, queries } from '@/lib/sanity'
 import { generateMissingSummaries } from '@/lib/publications'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
-import { isCronAuthorized } from '@/lib/cronUtils'
+import { isCronAuthorized, isVercelCronRequest } from '@/lib/cronUtils'
 
 const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN
 const CRON_SECRET = process.env.CRON_SECRET || ''
@@ -20,6 +20,7 @@ export async function OPTIONS() {
 // GET handler for Vercel cron - generates summaries for publications missing them
 export async function GET(request) {
   const now = new Date()
+  const isVercelCron = isVercelCronRequest(request)
 
   console.info('[pubmed-summarize] Cron GET request received', {
     timestamp: now.toISOString(),
@@ -28,7 +29,7 @@ export async function GET(request) {
     hasCronSecret: !!CRON_SECRET,
   })
 
-  if (!CRON_SECRET) {
+  if (!CRON_SECRET && !isVercelCron) {
     return NextResponse.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 500, headers: CORS_HEADERS })
   }
 

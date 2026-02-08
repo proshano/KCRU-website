@@ -5,7 +5,7 @@ import { generateSeoSummary, generateSeoTopics } from '@/lib/summaries'
 import { normalizeDescription } from '@/lib/seo'
 import { getPublicationSeoSnapshot } from '@/lib/publicationsSeo'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
-import { isCronAuthorized } from '@/lib/cronUtils'
+import { isCronAuthorized, isVercelCronRequest } from '@/lib/cronUtils'
 
 const AUTH_TOKEN = process.env.SEO_REFRESH_TOKEN
 const CRON_SECRET = process.env.CRON_SECRET || ''
@@ -149,7 +149,8 @@ export async function OPTIONS() {
 }
 
 export async function GET(request) {
-  if (!CRON_SECRET) {
+  const isVercelCron = isVercelCronRequest(request)
+  if (!CRON_SECRET && !isVercelCron) {
     return NextResponse.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 500, headers: CORS_HEADERS })
   }
   if (!isCronAuthorized(request, CRON_SECRET)) {

@@ -3,7 +3,7 @@ import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
 import { buildPublicationNewsletterEmail } from '@/lib/publicationNewsletterEmailTemplate'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
-import { getZonedParts, isCronAuthorized, isWithinCronWindow } from '@/lib/cronUtils'
+import { getZonedParts, isCronAuthorized, isVercelCronRequest, isWithinCronWindow } from '@/lib/cronUtils'
 import { readCache } from '@/lib/pubmedCache'
 import { getPublicationDate } from '@/lib/publicationUtils'
 import { mergeWithClassifications } from '@/lib/publications'
@@ -325,7 +325,8 @@ export async function OPTIONS() {
 }
 
 export async function GET(request) {
-  if (!CRON_SECRET) {
+  const isVercelCron = isVercelCronRequest(request)
+  if (!CRON_SECRET && !isVercelCron) {
     return NextResponse.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 500, headers: CORS_HEADERS })
   }
 

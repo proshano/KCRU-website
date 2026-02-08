@@ -4,7 +4,7 @@ import { sanityFetch, queries } from '@/lib/sanity'
 import { refreshPubmedCache } from '@/lib/publications'
 import { readCache } from '@/lib/pubmedCache'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
-import { getZonedParts, isCronAuthorized, isWithinCronWindow, sameLocalDate } from '@/lib/cronUtils'
+import { getZonedParts, isCronAuthorized, isVercelCronRequest, isWithinCronWindow, sameLocalDate } from '@/lib/cronUtils'
 import { getSiteBaseUrl } from '@/lib/seo'
 
 const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN
@@ -32,6 +32,7 @@ export async function OPTIONS() {
 export async function GET(request) {
   const now = new Date()
   const nowParts = getZonedParts(now, CRON_TIMEZONE)
+  const isVercelCron = isVercelCronRequest(request)
   
   console.info('[pubmed] Cron GET request received', {
     timestamp: now.toISOString(),
@@ -42,7 +43,7 @@ export async function GET(request) {
     hasCronSecret: !!CRON_SECRET,
   })
 
-  if (!CRON_SECRET) {
+  if (!CRON_SECRET && !isVercelCron) {
     return NextResponse.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 500, headers: CORS_HEADERS })
   }
 
