@@ -13,6 +13,22 @@ const AUTH_TOKEN =
   process.env.SANITY_STUDIO_PUBMED_REFRESH_TOKEN ||
   process.env.SANITY_STUDIO_PUBMED_CANCEL_TOKEN ||
   process.env.NEXT_PUBLIC_PUBMED_REFRESH_TOKEN
+const MANUAL_BASE_URL_KEY = 'pubmedCacheTool.baseUrl'
+const MANUAL_TOKEN_KEY = 'pubmedCacheTool.token'
+
+function normalizeBaseUrl(value = '') {
+  return String(value || '').trim().replace(/\/+$/, '')
+}
+
+function readLocalStorage(key) {
+  if (typeof window === 'undefined') return ''
+  try {
+    return window.localStorage.getItem(key) || ''
+  } catch (err) {
+    console.warn('Failed to read localStorage', err)
+    return ''
+  }
+}
 
 function isNetworkError(message = '') {
   return /load failed|failed to fetch/i.test(message)
@@ -23,12 +39,25 @@ function withNetworkHint(message, url) {
   return `Unable to reach ${url}. If using hosted Studio, set SANITY_STUDIO_NEXT_APP_URL or SANITY_STUDIO_PUBMED_REFRESH_URL to your deployed site URL.`
 }
 
+function resolveManualBaseUrl() {
+  return normalizeBaseUrl(readLocalStorage(MANUAL_BASE_URL_KEY))
+}
+
+function resolveManualToken() {
+  return readLocalStorage(MANUAL_TOKEN_KEY)
+}
+
 function PubmedCacheRefreshAction(props) {
   const toast = useToast()
   const [isRunning, setIsRunning] = useState(false)
 
   async function handleRefresh() {
-    if (!AUTH_TOKEN) {
+    const manualToken = resolveManualToken()
+    const authToken = manualToken || AUTH_TOKEN
+    const manualBaseUrl = resolveManualBaseUrl()
+    const refreshUrl = manualBaseUrl ? `${manualBaseUrl}/api/pubmed/refresh` : REFRESH_URL
+
+    if (!authToken) {
       toast.push({
         status: 'error',
         title: 'Missing token',
@@ -40,11 +69,11 @@ function PubmedCacheRefreshAction(props) {
 
     setIsRunning(true)
     try {
-      const res = await fetch(REFRESH_URL, {
+      const res = await fetch(refreshUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${AUTH_TOKEN}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ trigger: 'sanity-action' }),
       })
@@ -69,7 +98,7 @@ function PubmedCacheRefreshAction(props) {
       toast.push({
         status: 'error',
         title: 'Refresh failed',
-        description: withNetworkHint(raw, REFRESH_URL),
+        description: withNetworkHint(raw, refreshUrl),
       })
     } finally {
       setIsRunning(false)
@@ -91,7 +120,12 @@ function PubmedCacheCancelAction(props) {
   const [isRunning, setIsRunning] = useState(false)
 
   async function handleCancel() {
-    if (!AUTH_TOKEN) {
+    const manualToken = resolveManualToken()
+    const authToken = manualToken || AUTH_TOKEN
+    const manualBaseUrl = resolveManualBaseUrl()
+    const cancelUrl = manualBaseUrl ? `${manualBaseUrl}/api/pubmed/cancel` : CANCEL_URL
+
+    if (!authToken) {
       toast.push({
         status: 'error',
         title: 'Missing token',
@@ -103,11 +137,11 @@ function PubmedCacheCancelAction(props) {
 
     setIsRunning(true)
     try {
-      const res = await fetch(CANCEL_URL, {
+      const res = await fetch(cancelUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${AUTH_TOKEN}`,
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({ trigger: 'sanity-action' }),
       })
@@ -130,7 +164,7 @@ function PubmedCacheCancelAction(props) {
       toast.push({
         status: 'error',
         title: 'Cancel failed',
-        description: withNetworkHint(raw, CANCEL_URL),
+        description: withNetworkHint(raw, cancelUrl),
       })
     } finally {
       setIsRunning(false)

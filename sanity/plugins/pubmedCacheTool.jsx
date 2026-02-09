@@ -19,6 +19,8 @@ const AUTH_TOKEN =
 const STUDIO_PROJECT_ID = process.env.SANITY_STUDIO_PROJECT_ID
 const STUDIO_DATASET = process.env.SANITY_STUDIO_DATASET
 const hasStudioConfig = Boolean(STUDIO_PROJECT_ID && STUDIO_DATASET)
+const MANUAL_BASE_URL_KEY = 'pubmedCacheTool.baseUrl'
+const MANUAL_TOKEN_KEY = 'pubmedCacheTool.token'
 
 // Cache staleness: 24 hours (same as lib/pubmedCache.js)
 const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000
@@ -28,6 +30,10 @@ function isCacheStale(lastRefreshedAt) {
   const ts = Date.parse(lastRefreshedAt)
   if (Number.isNaN(ts)) return true
   return Date.now() - ts > CACHE_MAX_AGE_MS
+}
+
+function normalizeBaseUrl(value = '') {
+  return String(value || '').trim().replace(/\/+$/, '')
 }
 
 function isNetworkError(message = '') {
@@ -46,6 +52,8 @@ function PubmedCacheTool({ tool }) {
   const [uploading, setUploading] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [message, setMessage] = useState(null)
+  const [manualBaseUrl, setManualBaseUrl] = useState('')
+  const [manualToken, setManualToken] = useState('')
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -53,8 +61,61 @@ function PubmedCacheTool({ tool }) {
   const [searching, setSearching] = useState(false)
   const [actionLoading, setActionLoading] = useState({}) // pmid -> 'delete' | 'regenerate' | null
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const savedBase = window.localStorage.getItem(MANUAL_BASE_URL_KEY) || ''
+      const savedToken = window.localStorage.getItem(MANUAL_TOKEN_KEY) || ''
+      setManualBaseUrl(savedBase)
+      setManualToken(savedToken)
+    } catch (err) {
+      console.warn('Failed to read manual PubMed settings', err)
+    }
+  }, [])
+
+  const handleManualBaseUrlChange = (value) => {
+    setManualBaseUrl(value)
+    if (typeof window === 'undefined') return
+    try {
+      if (value) {
+        window.localStorage.setItem(MANUAL_BASE_URL_KEY, value)
+      } else {
+        window.localStorage.removeItem(MANUAL_BASE_URL_KEY)
+      }
+    } catch (err) {
+      console.warn('Failed to save manual PubMed base URL', err)
+    }
+  }
+
+  const handleManualTokenChange = (value) => {
+    setManualToken(value)
+    if (typeof window === 'undefined') return
+    try {
+      if (value) {
+        window.localStorage.setItem(MANUAL_TOKEN_KEY, value)
+      } else {
+        window.localStorage.removeItem(MANUAL_TOKEN_KEY)
+      }
+    } catch (err) {
+      console.warn('Failed to save manual PubMed token', err)
+    }
+  }
+
+  const clearManualSettings = () => {
+    handleManualBaseUrlChange('')
+    handleManualTokenChange('')
+  }
+
+  const resolvedBaseUrl = normalizeBaseUrl(manualBaseUrl) || BASE_URL
+  const resolvedAuthToken = manualToken || AUTH_TOKEN
+  const resolvedRefreshUrl = normalizeBaseUrl(manualBaseUrl) ? `${resolvedBaseUrl}/api/pubmed/refresh` : REFRESH_URL
+  const resolvedCancelUrl = normalizeBaseUrl(manualBaseUrl) ? `${resolvedBaseUrl}/api/pubmed/cancel` : CANCEL_URL
+  const resolvedUploadUrl = normalizeBaseUrl(manualBaseUrl) ? `${resolvedBaseUrl}/api/pubmed/upload` : UPLOAD_URL
+  const resolvedDownloadUrl = normalizeBaseUrl(manualBaseUrl) ? `${resolvedBaseUrl}/api/pubmed/download` : DOWNLOAD_URL
+  const resolvedPublicationUrl = normalizeBaseUrl(manualBaseUrl) ? `${resolvedBaseUrl}/api/pubmed/publication` : PUBLICATION_URL
+
   const requireAuthToken = () => {
-    if (AUTH_TOKEN) return true
+    if (resolvedAuthToken) return true
     setMessage({
       tone: 'critical',
       text: 'SANITY_STUDIO_PUBMED_REFRESH_TOKEN or SANITY_STUDIO_PUBMED_CANCEL_TOKEN is not configured.',
@@ -168,10 +229,10 @@ function PubmedCacheTool({ tool }) {
     if (!confirm(`Delete publication ${pmid} from cache?`)) return
     setActionLoading(prev => ({ ...prev, [pmid]: 'delete' }))
     try {
-      const res = await fetch(`${PUBLICATION_URL}?pmid=${pmid}`, {
+      const res = await fetch(`${resolvedPublicationUrl}?pmid=${pmid}`, {
         method: 'DELETE',
         headers: {
-          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+          ...(resolvedAuthToken ? { Authorization: `Bearer ${resolvedAuthToken}` } : {}),
         },
       })
       const data = await res.json().catch(() => ({}))
@@ -193,11 +254,11 @@ function PubmedCacheTool({ tool }) {
     if (!requireAuthToken()) return
     setActionLoading(prev => ({ ...prev, [pmid]: 'regenerate' }))
     try {
-      const res = await fetch(PUBLICATION_URL, {
+      const res = await fetch(resolvedPublicationUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+          ...(resolvedAuthToken ? { Authorization: `Bearer ${resolvedAuthToken}` } : {}),
         },
         body: JSON.stringify({ pmid }),
       })
@@ -224,11 +285,11 @@ function PubmedCacheTool({ tool }) {
     setRefreshing(true)
     setMessage(null)
     try {
-      const res = await fetch(REFRESH_URL, {
+      const res = await fetch(resolvedRefreshUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+          ...(resolvedAuthToken ? { Authorization: `Bearer ${resolvedAuthToken}` } : {}),
         },
         body: JSON.stringify({ trigger: 'sanity-tool' }),
       })
@@ -241,7 +302,7 @@ function PubmedCacheTool({ tool }) {
       }
     } catch (err) {
       const raw = err?.message || 'Network error'
-      setMessage({ tone: 'critical', text: withNetworkHint(raw, REFRESH_URL) })
+      setMessage({ tone: 'critical', text: withNetworkHint(raw, resolvedRefreshUrl) })
     } finally {
       setRefreshing(false)
     }
@@ -250,11 +311,11 @@ function PubmedCacheTool({ tool }) {
   const handleCancel = async () => {
     if (!requireAuthToken()) return
     try {
-      const res = await fetch(CANCEL_URL, {
+      const res = await fetch(resolvedCancelUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+          ...(resolvedAuthToken ? { Authorization: `Bearer ${resolvedAuthToken}` } : {}),
         },
         body: JSON.stringify({ trigger: 'sanity-tool' }),
       })
@@ -267,18 +328,18 @@ function PubmedCacheTool({ tool }) {
       }
     } catch (err) {
       const raw = err?.message || 'Network error'
-      setMessage({ tone: 'critical', text: withNetworkHint(raw, CANCEL_URL) })
+      setMessage({ tone: 'critical', text: withNetworkHint(raw, resolvedCancelUrl) })
     }
   }
 
   const handleUpload = async () => {
     if (!requireAuthToken()) return
     const attemptUpload = async (force = false) => {
-      const res = await fetch(UPLOAD_URL, {
+      const res = await fetch(resolvedUploadUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+          ...(resolvedAuthToken ? { Authorization: `Bearer ${resolvedAuthToken}` } : {}),
         },
         body: JSON.stringify({ trigger: 'sanity-tool', force }),
       })
@@ -316,7 +377,7 @@ function PubmedCacheTool({ tool }) {
       setMessage({ tone: 'critical', text: data.error || 'Upload failed' })
     } catch (err) {
       const raw = err?.message || 'Network error'
-      setMessage({ tone: 'critical', text: withNetworkHint(raw, UPLOAD_URL) })
+      setMessage({ tone: 'critical', text: withNetworkHint(raw, resolvedUploadUrl) })
     } finally {
       setUploading(false)
     }
@@ -327,10 +388,10 @@ function PubmedCacheTool({ tool }) {
     setDownloading(true)
     setMessage(null)
     try {
-      const res = await fetch(DOWNLOAD_URL, {
+      const res = await fetch(resolvedDownloadUrl, {
         method: 'GET',
         headers: {
-          ...(AUTH_TOKEN ? { Authorization: `Bearer ${AUTH_TOKEN}` } : {}),
+          ...(resolvedAuthToken ? { Authorization: `Bearer ${resolvedAuthToken}` } : {}),
         },
       })
       if (!res.ok) {
@@ -352,7 +413,7 @@ function PubmedCacheTool({ tool }) {
       setMessage({ tone: 'positive', text: 'Download started' })
     } catch (err) {
       const raw = err?.message || 'Download failed'
-      setMessage({ tone: 'critical', text: withNetworkHint(raw, DOWNLOAD_URL) })
+      setMessage({ tone: 'critical', text: withNetworkHint(raw, resolvedDownloadUrl) })
     } finally {
       setDownloading(false)
     }
@@ -494,6 +555,41 @@ function PubmedCacheTool({ tool }) {
                 ))}
               </Stack>
             )}
+          </Stack>
+        </Card>
+
+        {/* Manual API Connection */}
+        <Card padding={4} radius={2} shadow={1} tone="transparent">
+          <Stack space={3}>
+            <Heading as="h2" size={1}>Manual API connection (optional)</Heading>
+            <Text size={1} muted>
+              Use this if the hosted Studio cannot reach localhost. Values are saved in your browser.
+            </Text>
+            <Stack space={2}>
+              <TextInput
+                placeholder="https://your-site-domain"
+                value={manualBaseUrl}
+                onChange={(e) => handleManualBaseUrlChange(e.currentTarget.value)}
+              />
+              <TextInput
+                type="password"
+                placeholder="PubMed refresh token"
+                value={manualToken}
+                onChange={(e) => handleManualTokenChange(e.currentTarget.value)}
+              />
+            </Stack>
+            <Flex gap={2}>
+              <Button
+                tone="default"
+                mode="ghost"
+                text="Clear manual settings"
+                onClick={clearManualSettings}
+                disabled={!manualBaseUrl && !manualToken}
+              />
+            </Flex>
+            <Text size={0} muted>
+              Current base URL: {resolvedBaseUrl}
+            </Text>
           </Stack>
         </Card>
 
