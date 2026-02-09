@@ -2,12 +2,26 @@ import { useState } from 'react'
 import { definePlugin } from 'sanity'
 import { useToast } from '@sanity/ui'
 
-const REFRESH_URL = process.env.SANITY_STUDIO_PUBMED_REFRESH_URL || 'http://localhost:3000/api/pubmed/refresh'
-const CANCEL_URL = process.env.SANITY_STUDIO_PUBMED_CANCEL_URL || 'http://localhost:3000/api/pubmed/cancel'
+const BASE_URL =
+  process.env.SANITY_STUDIO_PUBMED_BASE_URL ||
+  process.env.SANITY_STUDIO_NEXT_APP_URL ||
+  process.env.SANITY_STUDIO_API_URL ||
+  'http://localhost:3000'
+const REFRESH_URL = process.env.SANITY_STUDIO_PUBMED_REFRESH_URL || `${BASE_URL}/api/pubmed/refresh`
+const CANCEL_URL = process.env.SANITY_STUDIO_PUBMED_CANCEL_URL || `${BASE_URL}/api/pubmed/cancel`
 const AUTH_TOKEN =
   process.env.SANITY_STUDIO_PUBMED_REFRESH_TOKEN ||
   process.env.SANITY_STUDIO_PUBMED_CANCEL_TOKEN ||
   process.env.NEXT_PUBLIC_PUBMED_REFRESH_TOKEN
+
+function isNetworkError(message = '') {
+  return /load failed|failed to fetch/i.test(message)
+}
+
+function withNetworkHint(message, url) {
+  if (!isNetworkError(message)) return message
+  return `Unable to reach ${url}. If using hosted Studio, set SANITY_STUDIO_NEXT_APP_URL or SANITY_STUDIO_PUBMED_REFRESH_URL to your deployed site URL.`
+}
 
 function PubmedCacheRefreshAction(props) {
   const toast = useToast()
@@ -51,10 +65,11 @@ function PubmedCacheRefreshAction(props) {
       })
     } catch (err) {
       console.error('PubMed cache refresh failed', err)
+      const raw = err?.message || 'Unable to refresh cache'
       toast.push({
         status: 'error',
         title: 'Refresh failed',
-        description: err.message || 'Unable to refresh cache',
+        description: withNetworkHint(raw, REFRESH_URL),
       })
     } finally {
       setIsRunning(false)
@@ -111,10 +126,11 @@ function PubmedCacheCancelAction(props) {
       })
     } catch (err) {
       console.error('PubMed cache cancel failed', err)
+      const raw = err?.message || 'Unable to cancel refresh'
       toast.push({
         status: 'error',
         title: 'Cancel failed',
-        description: err.message || 'Unable to cancel refresh',
+        description: withNetworkHint(raw, CANCEL_URL),
       })
     } finally {
       setIsRunning(false)

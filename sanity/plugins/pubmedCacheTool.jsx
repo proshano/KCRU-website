@@ -3,7 +3,11 @@ import { definePlugin } from 'sanity'
 import { Card, Stack, Text, Button, Code, Heading, Flex, Badge, Box, Spinner, TextInput } from '@sanity/ui'
 import { DatabaseIcon, SearchIcon } from '@sanity/icons'
 
-const BASE_URL = process.env.SANITY_STUDIO_API_URL || 'http://localhost:3000'
+const BASE_URL =
+  process.env.SANITY_STUDIO_PUBMED_BASE_URL ||
+  process.env.SANITY_STUDIO_API_URL ||
+  process.env.SANITY_STUDIO_NEXT_APP_URL ||
+  'http://localhost:3000'
 const REFRESH_URL = process.env.SANITY_STUDIO_PUBMED_REFRESH_URL || `${BASE_URL}/api/pubmed/refresh`
 const CANCEL_URL = process.env.SANITY_STUDIO_PUBMED_CANCEL_URL || `${BASE_URL}/api/pubmed/cancel`
 const UPLOAD_URL = process.env.SANITY_STUDIO_PUBMED_UPLOAD_URL || `${BASE_URL}/api/pubmed/upload`
@@ -24,6 +28,15 @@ function isCacheStale(lastRefreshedAt) {
   const ts = Date.parse(lastRefreshedAt)
   if (Number.isNaN(ts)) return true
   return Date.now() - ts > CACHE_MAX_AGE_MS
+}
+
+function isNetworkError(message = '') {
+  return /load failed|failed to fetch/i.test(message)
+}
+
+function withNetworkHint(message, url) {
+  if (!isNetworkError(message)) return message
+  return `Unable to reach ${url}. If using hosted Studio, set SANITY_STUDIO_NEXT_APP_URL or SANITY_STUDIO_PUBMED_REFRESH_URL to your deployed site URL.`
 }
 
 function PubmedCacheTool({ tool }) {
@@ -227,7 +240,8 @@ function PubmedCacheTool({ tool }) {
         setMessage({ tone: 'critical', text: data.error || 'Refresh failed' })
       }
     } catch (err) {
-      setMessage({ tone: 'critical', text: err.message || 'Network error' })
+      const raw = err?.message || 'Network error'
+      setMessage({ tone: 'critical', text: withNetworkHint(raw, REFRESH_URL) })
     } finally {
       setRefreshing(false)
     }
@@ -252,7 +266,8 @@ function PubmedCacheTool({ tool }) {
         setMessage({ tone: 'critical', text: data.error || 'Cancel failed' })
       }
     } catch (err) {
-      setMessage({ tone: 'critical', text: err.message || 'Network error' })
+      const raw = err?.message || 'Network error'
+      setMessage({ tone: 'critical', text: withNetworkHint(raw, CANCEL_URL) })
     }
   }
 
@@ -300,7 +315,8 @@ function PubmedCacheTool({ tool }) {
       }
       setMessage({ tone: 'critical', text: data.error || 'Upload failed' })
     } catch (err) {
-      setMessage({ tone: 'critical', text: err.message || 'Network error' })
+      const raw = err?.message || 'Network error'
+      setMessage({ tone: 'critical', text: withNetworkHint(raw, UPLOAD_URL) })
     } finally {
       setUploading(false)
     }
@@ -335,7 +351,8 @@ function PubmedCacheTool({ tool }) {
       window.URL.revokeObjectURL(url)
       setMessage({ tone: 'positive', text: 'Download started' })
     } catch (err) {
-      setMessage({ tone: 'critical', text: err.message || 'Download failed' })
+      const raw = err?.message || 'Download failed'
+      setMessage({ tone: 'critical', text: withNetworkHint(raw, DOWNLOAD_URL) })
     } finally {
       setDownloading(false)
     }
