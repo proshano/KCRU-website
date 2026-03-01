@@ -193,11 +193,11 @@ export async function POST(request) {
       )
     }
 
-    if (!testSettings.enabled || testSettings.recipients.length === 0) {
+    if (testSettings.enabled && testSettings.recipients.length === 0) {
       return NextResponse.json(
         {
           ok: false,
-          error: 'Update email sending is locked. Enable test mode and add at least one test recipient.',
+          error: 'Update email sending is locked. Add at least one test recipient or disable test mode.',
         },
         { status: 409, headers: CORS_HEADERS }
       )

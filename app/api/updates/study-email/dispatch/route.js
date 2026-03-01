@@ -177,11 +177,11 @@ async function runDispatch({ force = false } = {}) {
   const areas = Array.isArray(areasRaw) ? areasRaw : []
   const updateSettings = settingsPayload?.settings || {}
   const testSettings = normalizeUpdateEmailTesting(settingsPayload?.testing)
-  if (!testSettings.enabled || testSettings.recipients.length === 0) {
+  if (testSettings.enabled && testSettings.recipients.length === 0) {
     return {
       ok: false,
       status: 409,
-      error: 'Update email sending is locked. Enable test mode and add at least one test recipient.',
+      error: 'Update email sending is locked. Add at least one test recipient or disable test mode.',
     }
   }
   let subscribers = Array.isArray(subscribersRaw) ? subscribersRaw : []

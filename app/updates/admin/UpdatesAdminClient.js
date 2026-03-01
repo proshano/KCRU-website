@@ -371,8 +371,8 @@ export default function UpdatesAdminClient() {
     setSuccess('')
     setLastSendResult(null)
     const recipientCount = parseEmailListInput(testSettings.recipients).length
-    if (!testSettings.enabled || recipientCount === 0) {
-      setError('Sending is locked. Enable test mode and add at least one test recipient.')
+    if (testSettings.enabled && recipientCount === 0) {
+      setError('Sending is locked. Add at least one test recipient or disable test mode.')
       return
     }
     if (force) {
@@ -424,8 +424,8 @@ export default function UpdatesAdminClient() {
     setSuccess('')
     setPublicationLastSendResult(null)
     const recipientCount = parseEmailListInput(testSettings.recipients).length
-    if (!testSettings.enabled || recipientCount === 0) {
-      setError('Sending is locked. Enable test mode and add at least one test recipient.')
+    if (testSettings.enabled && recipientCount === 0) {
+      setError('Sending is locked. Add at least one test recipient or disable test mode.')
       return
     }
     if (force) {
@@ -795,10 +795,10 @@ export default function UpdatesAdminClient() {
     if (!isAuthorized) return
     setCustomStatus({ type: 'idle', message: '' })
     const recipientCount = parseEmailListInput(testSettings.recipients).length
-    if (!testSettings.enabled || recipientCount === 0) {
+    if (testSettings.enabled && recipientCount === 0) {
       setCustomStatus({
         type: 'error',
-        message: 'Sending is locked. Enable test mode and add at least one test recipient.',
+        message: 'Sending is locked. Add at least one test recipient or disable test mode.',
       })
       return
     }
@@ -847,7 +847,7 @@ export default function UpdatesAdminClient() {
 
   const testRecipientCount = parseEmailListInput(testSettings.recipients).length
   const testRecipientLabel = testRecipientCount === 1 ? '1 recipient' : `${testRecipientCount} recipients`
-  const canSendUpdates = testSettings.enabled && testRecipientCount > 0
+  const canSendUpdates = !testSettings.enabled || testRecipientCount > 0
   const normalizedSubscriberSearch = subscriberSearch.trim().toLowerCase()
   const filteredSubscribers = subscriberItems.filter((subscriber) => {
     const status = formatSubscriberStatus(subscriber).toLowerCase()
@@ -968,7 +968,7 @@ export default function UpdatesAdminClient() {
               <h3 className="text-lg font-semibold text-amber-900">Test mode</h3>
               <p className="text-sm text-amber-900/70">
                 When enabled, study updates, publication newsletters, and custom newsletters only send to the emails
-                listed below. Sending is blocked until test mode is enabled and at least one email is set.
+                listed below. If test mode is enabled, add at least one email or sends will be blocked.
               </p>
             </div>
             <form className="space-y-3" onSubmit={saveTestSettings}>
@@ -999,7 +999,7 @@ export default function UpdatesAdminClient() {
                   <p className="text-xs text-red-600">Add at least one test email or nothing will send.</p>
                 )}
                 {!canSendUpdates && (
-                  <p className="text-xs text-red-600">Sending is locked until test mode is enabled and saved.</p>
+                  <p className="text-xs text-red-600">Sending is locked because test mode is enabled with no test recipients.</p>
                 )}
               </div>
               <button
@@ -1220,7 +1220,7 @@ export default function UpdatesAdminClient() {
             )}
             {!canSendUpdates && (
               <p className="text-sm text-red-600">
-                Sending is locked. Enable test mode and add at least one test recipient.
+                Sending is locked. Add at least one test recipient or disable test mode.
               </p>
             )}
             {lastSendResult && (
@@ -1384,7 +1384,7 @@ export default function UpdatesAdminClient() {
             )}
             {!canSendUpdates && (
               <p className="text-sm text-red-600">
-                Sending is locked. Enable test mode and add at least one test recipient.
+                Sending is locked. Add at least one test recipient or disable test mode.
               </p>
             )}
             {publicationLastSendResult && (
@@ -1635,7 +1635,7 @@ export default function UpdatesAdminClient() {
             </div>
             {!canSendUpdates && (
               <p className="text-sm text-red-600">
-                Sending is locked. Enable test mode and add at least one test recipient.
+                Sending is locked. Add at least one test recipient or disable test mode.
               </p>
             )}
             {customAudienceCount !== null && (
