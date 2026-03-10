@@ -207,7 +207,7 @@ export default async function TeamPage() {
 
                 return href ? (
                   <div key={person._id} className="flex flex-col">
-                    <Link href={href}>{cardBody}</Link>
+                    <Link href={href} prefetch={false}>{cardBody}</Link>
                   </div>
                 ) : (
                   <div key={person._id} className="flex flex-col">

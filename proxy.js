@@ -46,5 +46,8 @@ export default async function proxy(request) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)']
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:avif|bmp|css|eot|gif|ico|jpe?g|js|json|map|md|otf|png|svg|ttf|txt|webmanifest|webp|woff2?|xml)$).*)',
+    '/:path*.md'
+  ]
 }

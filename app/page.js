@@ -253,7 +253,7 @@ export default async function HomePage() {
                   .toUpperCase() || '?'
 
                 return (
-                  <Link key={researcher._id} href={href} className="team-member flex flex-col items-center">
+                  <Link key={researcher._id} href={href} prefetch={false} className="team-member flex flex-col items-center">
                     <div className="team-photo" style={{ width: 135, height: 135 }}>
                       {researcher.photo ? (
                         <Image

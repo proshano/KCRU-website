@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth/next'
 import { redirect } from 'next/navigation'
 import AuthButtons from '@/app/components/AuthButtons'
+import AuthSessionProvider from '@/app/components/AuthSessionProvider'
 import { authOptions } from '@/lib/auth'
 import StudyManagerClient from './StudyManagerClient'
 
@@ -17,19 +18,23 @@ export default async function TrialsManagePage() {
     redirect('/login?callbackUrl=/trials/manage')
   }
 
-  if (!access?.coordinator) {
-    return (
-      <div className="mx-auto max-w-2xl px-6 py-16">
-        <h1 className="text-2xl font-semibold text-[#333]">Access restricted</h1>
-        <p className="mt-4 text-base text-[#555]">
-          Your account does not have coordinator access.
-        </p>
-        <div className="mt-6">
-          <AuthButtons signInCallbackUrl="/trials/manage" signOutCallbackUrl="/login" />
-        </div>
+  const content = !access?.coordinator ? (
+    <div className="mx-auto max-w-2xl px-6 py-16">
+      <h1 className="text-2xl font-semibold text-[#333]">Access restricted</h1>
+      <p className="mt-4 text-base text-[#555]">
+        Your account does not have coordinator access.
+      </p>
+      <div className="mt-6">
+        <AuthButtons signInCallbackUrl="/trials/manage" signOutCallbackUrl="/login" />
       </div>
-    )
-  }
+    </div>
+  ) : (
+    <StudyManagerClient />
+  )
 
-  return <StudyManagerClient />
+  return (
+    <AuthSessionProvider>
+      {content}
+    </AuthSessionProvider>
+  )
 }
