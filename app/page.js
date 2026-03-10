@@ -188,13 +188,13 @@ export default async function HomePage() {
 
             {/* CTA Buttons */}
             <div className="flex gap-3.5 mb-0">
-              <Link href="/trials" className="btn-primary text-center flex-1">
+              <Link href="/trials" prefetch={false} className="btn-primary text-center flex-1">
                 View Active Studies
               </Link>
-              <Link href="/contact?reason=donation" className="btn-secondary text-center flex-1">
+              <Link href="/contact?reason=donation" prefetch={false} className="btn-secondary text-center flex-1">
                 Donate
               </Link>
-              <Link href="/contact?reason=industry" className="btn-secondary text-center flex-1">
+              <Link href="/contact?reason=industry" prefetch={false} className="btn-secondary text-center flex-1">
                 Partner With Us
               </Link>
             </div>
@@ -211,6 +211,7 @@ export default async function HomePage() {
                   <Link
                     key={idx}
                     href={stat.href}
+                    prefetch={false}
                     className="flex flex-col items-center justify-center text-center transition hover:bg-purple/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                     style={{ padding: '32px 24px' }}
                   >
@@ -232,7 +233,7 @@ export default async function HomePage() {
               <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em]">
                 Clinical Investigators
               </h2>
-              <Link href="/team" className="arrow-link text-[13px]">
+              <Link href="/team" prefetch={false} className="arrow-link text-[13px]">
                 All profiles
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M5 12h14M12 5l7 7-7 7"/>

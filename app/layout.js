@@ -150,6 +150,7 @@ export default async function RootLayout({ children }) {
                   <Link
                     key={link.href}
                     href={link.href}
+                    prefetch={false}
                     className="nav-link"
                   >
                     {link.label}

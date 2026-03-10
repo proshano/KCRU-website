@@ -33,6 +33,17 @@ export default async function proxy(request) {
       }
     })
 
+    if (!response.ok) {
+      console.warn('Maintenance check returned non-OK response', response.status)
+      return NextResponse.next()
+    }
+
+    const contentType = response.headers.get('content-type') || ''
+    if (!contentType.toLowerCase().includes('application/json')) {
+      console.warn('Maintenance check returned non-JSON response')
+      return NextResponse.next()
+    }
+
     const { enabled } = await response.json()
 
     if (enabled) {

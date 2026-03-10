@@ -89,6 +89,7 @@ export default async function TrialsPage({ searchParams }) {
         <div className="mt-4">
           <Link
             href="/trials/manage"
+            prefetch={false}
             className="text-sm font-medium text-purple hover:text-purple/80"
           >
             Manage studies

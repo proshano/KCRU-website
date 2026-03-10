@@ -92,6 +92,7 @@ function TrialItem({ trial }) {
             {hasDetailPage ? (
               <Link
                 href={`/trials/${slugValue}`}
+                prefetch={false}
                 className="text-[#1a1a1a] hover:text-purple transition-colors"
               >
                 {trial.title}
@@ -121,6 +122,7 @@ function TrialItem({ trial }) {
           {piHref ? (
             <Link
               href={piHref}
+              prefetch={false}
               className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors"
             >
               <Avatar photo={pi?.photo} name={piName} />

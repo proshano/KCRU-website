@@ -159,6 +159,7 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
             {/* Show All button */}
             <Link
               href="/trials"
+              prefetch={false}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition ${
                 !selectedArea
                   ? 'bg-purple text-white'
@@ -177,6 +178,7 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
                 <Link
                   key={area._id}
                   href={`/trials?area=${area.slug}`}
+                  prefetch={false}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition ${
                     isActive
                       ? 'bg-purple text-white'
