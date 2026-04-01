@@ -94,6 +94,9 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - PubMed cache file: `runtime/pubmed-cache.json` with lock/cancel files.
 - If cache changes are needed, use the scripts rather than editing files directly.
 - Sanity Studio includes a Site Settings action to refresh SEO metadata (configure `SANITY_STUDIO_SEO_REFRESH_URL` and `SANITY_STUDIO_SEO_REFRESH_TOKEN`).
+- DOI abstract backfill (`lib/doiAbstract.js`) uses a four-tier fallback: (1) plain fetch of publisher page meta tags, (2) CrossRef API, (3) OpenAlex API inverted-index abstract, (4) headless Chromium via `lib/browserFetch.js` to bypass Cloudflare/bot protection and extract article text.
+- Headless browser uses `puppeteer-core` + `@sparticuz/chromium-min` on Vercel, local Chrome in dev. Enabled by default on Vercel; set `DOI_BROWSER_FETCH=true` locally. Set `DOI_BROWSER_FETCH=false` to disable.
+- Both packages are listed in `serverExternalPackages` in `next.config.js` to prevent bundling.
 
 ## Cron Jobs
 - Scheduled routes are defined in `vercel.json`.
