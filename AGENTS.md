@@ -104,6 +104,13 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - `/api/seo/refresh` auto-generates SEO/LLM summaries and snapshots publication topics/highlights for llms.txt/markdown (manual via `SEO_REFRESH_TOKEN`; requires `SANITY_API_TOKEN`). To keep within the 2-cron limit, enable optional piggybacking on `/api/pubmed/refresh` by setting `SEO_REFRESH_ON_PUBMED_CRON=true`.
 - `/api/updates/study-email/dispatch` is the daily email dispatch cron.
 
+## Dependency Upgrades
+- **Pin `next` to an exact version** in `package.json` (no `^` or `~`). Turbopack regressions in minor releases have caused production-wide 500 errors on all server-rendered pages. Only upgrade Next.js intentionally, test the build, and verify at least one dynamic page works locally before pushing.
+- After upgrading Next.js, check every dynamic page (`ƒ` in build output) locally — static/ISR pages can mask server-rendering crashes because they are served from cache.
+- `next-auth` v4 is not officially compatible with Next.js 16+; it works today but may break on future upgrades. Plan to migrate to Auth.js v5 when practical.
+- `puppeteer-core` and `@sparticuz/chromium-min` are large native packages. They must stay in `serverExternalPackages` in `next.config.js` and should only be imported dynamically (via `await import(...)`) to avoid cold-start and bundling issues.
+- In Next.js 15+ (and enforced in 16), `params` and `searchParams` page props are Promises. Always `await` them before accessing properties — synchronous access will crash in production even if it appears to work in dev.
+
 ## Testing
 - No dedicated test suite; run `npm run lint` for non-trivial changes.
 - Preferred lint check: `npm run lint` (uses ESLint flat config via `eslint.config.js`).
