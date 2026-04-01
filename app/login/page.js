@@ -32,14 +32,14 @@ function resolveCallbackUrl(value, requestHeaders) {
 }
 
 export default async function LoginPage({ searchParams }) {
-  const requestHeaders = await headers()
+  const [params, requestHeaders] = await Promise.all([searchParams, headers()])
   const referer = typeof requestHeaders?.get === 'function' ? requestHeaders.get('referer') : null
   const callbackUrl =
-    resolveCallbackUrl(searchParams?.callbackUrl, requestHeaders) ||
+    resolveCallbackUrl(params?.callbackUrl, requestHeaders) ||
     resolveCallbackUrl(referer, requestHeaders) ||
     DEFAULT_CALLBACK
   const errorMessage =
-    searchParams?.error === 'AccessDenied'
+    params?.error === 'AccessDenied'
       ? 'Your account is not on the allowlist. Contact the site administrator if you need access.'
       : null
 
