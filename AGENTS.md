@@ -30,12 +30,15 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - Use Tailwind classes for styling unless a nearby component already uses `styled-components`.
 - Node scripts are ESM (`"type": "module"`); use `import` syntax.
 - Prefer `lib/sanity.js` for general reads/writes; `lib/sanity/client.js` is a no-CDN client for maintenance checks.
+- Public navigation and dense link collections intentionally use `prefetch={false}` in several places to limit background requests and Vercel invocation noise; do not re-enable broad automatic prefetching without checking production impact.
 
 ## Maintenance Mode
 - Settings live in Sanity (`siteSettings.maintenanceMode`) and are read via `lib/sanity/client.js`.
-- Under-construction flow uses `/under-construction`, `/api/maintenance`, and `/api/auth` (cookie `site-auth`).
+- Under-construction flow uses `proxy.js`, `/under-construction`, `/api/maintenance`, and `/api/auth` (cookie `site-auth`).
 - If you change this flow, keep it simple and stable so staff can toggle maintenance mode without dev help.
 - During maintenance, allowlisted paths still resolve: `/llms.txt`, `/sitemap.xml`, `/robots.txt`, and markdown endpoints (`/markdown/*` and `*.md`).
+- `proxy.js` intentionally excludes API/static asset requests from the matcher to reduce Vercel middleware invocations; keep the matcher tight if you add new public asset types.
+- The proxy's maintenance fetch is hardened for non-OK and non-JSON responses, especially on preview deployments; preserve that defensive behavior if you refactor it.
 
 ## Contact & Email
 - Contact form posts to `app/api/contact/route.js` and routes via Sanity `contactRouting`.
