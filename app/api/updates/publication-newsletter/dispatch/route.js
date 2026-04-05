@@ -3,7 +3,7 @@ import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
 import { buildPublicationNewsletterEmail } from '@/lib/publicationNewsletterEmailTemplate'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
-import { getZonedParts, isCronAuthorized, isVercelCronRequest, isWithinCronWindow } from '@/lib/cronUtils'
+import { getZonedParts, isCronAuthorized, isTodayNthWeekday, isVercelCronRequest, normalizeNthWeekdaySchedule } from '@/lib/cronUtils'
 import { readCache } from '@/lib/pubmedCache'
 import { getPublicationDate } from '@/lib/publicationUtils'
 import { mergeWithClassifications } from '@/lib/publications'
@@ -17,25 +17,25 @@ const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL 
 const AUTH_TOKEN = process.env.PUBLICATION_NEWSLETTER_SEND_TOKEN
 const CRON_SECRET = process.env.CRON_SECRET || ''
 const CRON_TIMEZONE = process.env.CRON_TIMEZONE || 'America/New_York'
-const CRON_TARGET_DAY = Number(process.env.PUBLICATION_NEWSLETTER_CRON_DAY || 1)
-const CRON_TARGET_HOUR = Number(process.env.PUBLICATION_NEWSLETTER_CRON_HOUR || 8)
-const CRON_ALLOWED_MINUTES = Number(process.env.PUBLICATION_NEWSLETTER_CRON_WINDOW || 10)
+const DEFAULT_SCHEDULE_OCCURRENCE = process.env.PUBLICATION_NEWSLETTER_SCHEDULE_OCCURRENCE || '3rd'
+const DEFAULT_SCHEDULE_DAY_OF_WEEK = process.env.PUBLICATION_NEWSLETTER_SCHEDULE_DAY || 'monday'
 const DEFAULT_WINDOW_DAYS = Number(process.env.PUBLICATION_NEWSLETTER_WINDOW_DAYS || 30)
 const DEFAULT_MAX_PUBLICATIONS = Number(process.env.PUBLICATION_NEWSLETTER_MAX_PUBLICATIONS || 8)
 const NEWSLETTER_PREF = 'newsletter'
 
 const CORS_HEADERS = buildCorsHeaders('GET, POST, OPTIONS')
 
-function shouldRunNow() {
-  const now = new Date()
-  const parts = getZonedParts(now, CRON_TIMEZONE)
-  if (parts.day !== CRON_TARGET_DAY) return false
-  return isWithinCronWindow({
-    timeZone: CRON_TIMEZONE,
-    targetHour: CRON_TARGET_HOUR,
-    allowedMinutes: CRON_ALLOWED_MINUTES,
-    date: now,
+function resolveSchedule(settings = {}) {
+  return normalizeNthWeekdaySchedule({
+    occurrence: settings?.scheduleOccurrence,
+    dayOfWeek: settings?.scheduleDayOfWeek,
+    defaultOccurrence: DEFAULT_SCHEDULE_OCCURRENCE,
+    defaultDayOfWeek: DEFAULT_SCHEDULE_DAY_OF_WEEK,
   })
+}
+
+function shouldRunNow(schedule, date = new Date()) {
+  return isTodayNthWeekday({ timeZone: CRON_TIMEZONE, occurrence: schedule.occurrence, dayOfWeek: schedule.dayOfWeek, date })
 }
 
 function formatMonthLabel(date) {
@@ -132,6 +132,8 @@ async function fetchNewsletterSettings() {
         emptyIntroText,
         outroText,
         signature,
+        scheduleOccurrence,
+        scheduleDayOfWeek,
         windowMode,
         windowDays,
         maxPublications,
@@ -188,7 +190,7 @@ async function fetchResearchers() {
   return fetcher(query)
 }
 
-async function runDispatch({ force = false } = {}) {
+async function runDispatch({ force = false, settingsPayload } = {}) {
   if (!writeClient.config().token) {
     return {
       ok: false,
@@ -199,9 +201,9 @@ async function runDispatch({ force = false } = {}) {
 
   const now = new Date()
   const monthLabel = formatMonthLabel(now)
-  const settingsPayload = await fetchNewsletterSettings()
-  const settings = settingsPayload?.settings || {}
-  const testSettings = normalizeUpdateEmailTesting(settingsPayload?.testing)
+  const resolvedSettingsPayload = settingsPayload || await fetchNewsletterSettings()
+  const settings = resolvedSettingsPayload?.settings || {}
+  const testSettings = normalizeUpdateEmailTesting(resolvedSettingsPayload?.testing)
   if (testSettings.enabled && testSettings.recipients.length === 0) {
     return {
       ok: false,
@@ -237,7 +239,7 @@ async function runDispatch({ force = false } = {}) {
   const publicationsWithClassifications = await mergeWithClassifications(cachePublications)
   const publications = preparePublications(publicationsWithClassifications || [])
   const provenance = cache?.provenance || {}
-  const previousYear = now.getFullYear() - 1
+  const previousYear = getZonedParts(now, CRON_TIMEZONE).year - 1
   const publicationStats = {
     previousYear,
     countSincePreviousYear: countPublicationsSinceYear(publications, previousYear),
@@ -334,20 +336,23 @@ export async function GET(request) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
-  const skipTimeCheck = process.env.CRON_SKIP_TIME_CHECK === 'true'
-  if (!skipTimeCheck && !shouldRunNow()) {
+  const settingsPayload = await fetchNewsletterSettings()
+  const schedule = resolveSchedule(settingsPayload?.settings)
+
+  if (!shouldRunNow(schedule)) {
     return NextResponse.json(
       {
         ok: true,
         skipped: true,
-        reason: 'Outside scheduled local-time window',
+        reason: 'Today does not match the configured scheduled day',
         timezone: CRON_TIMEZONE,
+        schedule,
       },
       { headers: CORS_HEADERS }
     )
   }
 
-  const result = await runDispatch({ force: false })
+  const result = await runDispatch({ force: false, settingsPayload })
   const status = result.ok ? 200 : result.status || 500
   return NextResponse.json(result, { status, headers: CORS_HEADERS })
 }

@@ -1,4 +1,4 @@
-name: Publication Newsletter Dispatch
+name: Study Email Dispatch
 
 on:
   schedule:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       force:
-        description: "Force send regardless of rolling window"
+        description: "Force send regardless of this month's send tracking"
         required: false
         type: boolean
         default: false
@@ -16,10 +16,10 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     steps:
-      - name: Send publication newsletter
+      - name: Send study emails
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
-          TOKEN: ${{ secrets.PUBLICATION_NEWSLETTER_SEND_TOKEN }}
+          TOKEN: ${{ secrets.STUDY_UPDATE_SEND_TOKEN }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           FORCE_INPUT="${{ inputs.force }}"
@@ -36,14 +36,14 @@ jobs:
               echo "CRON_SECRET secret is not set."
               exit 1
             fi
-            curl -f -sS "$SITE_URL/api/updates/publication-newsletter/dispatch" \
+            curl -f -sS "$SITE_URL/api/updates/study-email/dispatch" \
               -H "Authorization: Bearer $CRON_SECRET"
           else
             if [ -z "$TOKEN" ]; then
-              echo "PUBLICATION_NEWSLETTER_SEND_TOKEN secret is not set."
+              echo "STUDY_UPDATE_SEND_TOKEN secret is not set."
               exit 1
             fi
-            curl -f -sS -X POST "$SITE_URL/api/updates/publication-newsletter/dispatch" \
+            curl -f -sS -X POST "$SITE_URL/api/updates/study-email/dispatch" \
               -H "Authorization: Bearer $TOKEN" \
               -H "Content-Type: application/json" \
               --data "{\"force\":${FORCE_INPUT}}"

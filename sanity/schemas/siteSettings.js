@@ -590,6 +590,40 @@ const siteSettings = {
           initialValue: 'London Kidney Clinical Research'
         },
         {
+          name: 'scheduleOccurrence',
+          title: 'Send on occurrence',
+          type: 'string',
+          description: 'Which occurrence of the weekday should trigger the email each month.',
+          initialValue: '1st',
+          options: {
+            list: [
+              { title: '1st', value: '1st' },
+              { title: '2nd', value: '2nd' },
+              { title: '3rd', value: '3rd' },
+              { title: '4th', value: '4th' },
+              { title: 'Last', value: 'last' }
+            ]
+          }
+        },
+        {
+          name: 'scheduleDayOfWeek',
+          title: 'Day of week',
+          type: 'string',
+          description: 'Which weekday should trigger the email each month.',
+          initialValue: 'monday',
+          options: {
+            list: [
+              { title: 'Monday', value: 'monday' },
+              { title: 'Tuesday', value: 'tuesday' },
+              { title: 'Wednesday', value: 'wednesday' },
+              { title: 'Thursday', value: 'thursday' },
+              { title: 'Friday', value: 'friday' },
+              { title: 'Saturday', value: 'saturday' },
+              { title: 'Sunday', value: 'sunday' }
+            ]
+          }
+        },
+        {
           name: 'maxStudies',
           title: 'Max Studies Per Email',
           type: 'number',
@@ -645,6 +679,40 @@ const siteSettings = {
           type: 'string',
           description: 'Footer signature line.',
           initialValue: 'London Kidney Clinical Research'
+        },
+        {
+          name: 'scheduleOccurrence',
+          title: 'Send on occurrence',
+          type: 'string',
+          description: 'Which occurrence of the weekday should trigger the newsletter each month.',
+          initialValue: '3rd',
+          options: {
+            list: [
+              { title: '1st', value: '1st' },
+              { title: '2nd', value: '2nd' },
+              { title: '3rd', value: '3rd' },
+              { title: '4th', value: '4th' },
+              { title: 'Last', value: 'last' }
+            ]
+          }
+        },
+        {
+          name: 'scheduleDayOfWeek',
+          title: 'Day of week',
+          type: 'string',
+          description: 'Which weekday should trigger the newsletter each month.',
+          initialValue: 'monday',
+          options: {
+            list: [
+              { title: 'Monday', value: 'monday' },
+              { title: 'Tuesday', value: 'tuesday' },
+              { title: 'Wednesday', value: 'wednesday' },
+              { title: 'Thursday', value: 'thursday' },
+              { title: 'Friday', value: 'friday' },
+              { title: 'Saturday', value: 'saturday' },
+              { title: 'Sunday', value: 'sunday' }
+            ]
+          }
         },
         {
           name: 'windowMode',

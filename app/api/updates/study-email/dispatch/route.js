@@ -3,7 +3,13 @@ import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
 import { buildStudyUpdateEmail } from '@/lib/studyUpdateEmailTemplate'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
-import { getZonedParts, isCronAuthorized, isVercelCronRequest, isWithinCronWindow } from '@/lib/cronUtils'
+import {
+  getZonedParts,
+  isCronAuthorized,
+  isTodayNthWeekday,
+  isVercelCronRequest,
+  normalizeNthWeekdaySchedule,
+} from '@/lib/cronUtils'
 import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
 import { isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
 import {
@@ -19,29 +25,35 @@ const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL 
 const AUTH_TOKEN = process.env.STUDY_UPDATE_SEND_TOKEN
 const CRON_SECRET = process.env.CRON_SECRET || ''
 const CRON_TIMEZONE = process.env.CRON_TIMEZONE || 'America/New_York'
-const CRON_TARGET_HOUR = Number(process.env.STUDY_UPDATE_CRON_HOUR || 7)
-const CRON_ALLOWED_MINUTES = Number(process.env.STUDY_UPDATE_CRON_WINDOW || 10)
+const DEFAULT_SCHEDULE_OCCURRENCE = process.env.STUDY_UPDATE_SCHEDULE_OCCURRENCE || '1st'
+const DEFAULT_SCHEDULE_DAY_OF_WEEK = process.env.STUDY_UPDATE_SCHEDULE_DAY || 'monday'
 const MAX_STUDIES = Number(process.env.STUDY_UPDATE_MAX_STUDIES || 4)
 const STUDY_UPDATES_PREF = 'study_updates'
 
 const CORS_HEADERS = buildCorsHeaders('GET, POST, OPTIONS')
-function shouldRunNow() {
-  const now = new Date()
-  const parts = getZonedParts(now, CRON_TIMEZONE)
-  if (parts.day !== 1) return false
-  return isWithinCronWindow({
-    timeZone: CRON_TIMEZONE,
-    targetHour: CRON_TARGET_HOUR,
-    allowedMinutes: CRON_ALLOWED_MINUTES,
-    date: now,
+
+function resolveSchedule(settings = {}) {
+  return normalizeNthWeekdaySchedule({
+    occurrence: settings?.scheduleOccurrence,
+    dayOfWeek: settings?.scheduleDayOfWeek,
+    defaultOccurrence: DEFAULT_SCHEDULE_OCCURRENCE,
+    defaultDayOfWeek: DEFAULT_SCHEDULE_DAY_OF_WEEK,
   })
 }
 
-function getMonthStartIso() {
-  const now = new Date()
-  const parts = getZonedParts(now, CRON_TIMEZONE)
-  const startUtc = new Date(Date.UTC(parts.year, parts.month - 1, 1, 0, 0, 0))
-  return startUtc.toISOString()
+function shouldRunNow(schedule, date = new Date()) {
+  return isTodayNthWeekday({ timeZone: CRON_TIMEZONE, occurrence: schedule.occurrence, dayOfWeek: schedule.dayOfWeek, date })
+}
+
+function hasStudyUpdateBeenSentThisMonth(lastSentAt, date = new Date()) {
+  if (!lastSentAt) return false
+
+  const lastSentDate = new Date(lastSentAt)
+  if (Number.isNaN(lastSentDate.getTime())) return false
+
+  const lastSentParts = getZonedParts(lastSentDate, CRON_TIMEZONE)
+  const currentParts = getZonedParts(date, CRON_TIMEZONE)
+  return lastSentParts.year === currentParts.year && lastSentParts.month === currentParts.month
 }
 
 function formatMonthLabel(date) {
@@ -110,6 +122,8 @@ async function fetchStudyUpdateSettings() {
         emptyIntroText,
         outroText,
         signature,
+        scheduleOccurrence,
+        scheduleDayOfWeek,
         maxStudies,
         sendEmpty
       },
@@ -126,18 +140,14 @@ async function fetchStudyUpdateSettings() {
   }
 }
 
-async function fetchSubscribers({ monthStartIso, force }) {
+async function fetchSubscribers() {
   const fetcher = writeClient.config().token ? writeClient.fetch.bind(writeClient) : sanityFetch
-  const monthFilter = force
-    ? ''
-    : ' && (!defined(lastStudyUpdateSentAt) || lastStudyUpdateSentAt < $monthStartIso)'
   const query = `
     *[_type == "updateSubscriber"
       && subscriptionStatus == "subscribed"
       && deliveryStatus != "suppressed"
       && "${STUDY_UPDATES_PREF}" in correspondencePreferences
       && defined(email)
-      ${monthFilter}
     ]{
       _id,
       name,
@@ -150,10 +160,10 @@ async function fetchSubscribers({ monthStartIso, force }) {
       lastStudyUpdateSentAt
     }
   `
-  return fetcher(query, { monthStartIso })
+  return fetcher(query)
 }
 
-async function runDispatch({ force = false } = {}) {
+async function runDispatch({ force = false, settingsPayload } = {}) {
   if (!writeClient.config().token) {
     return {
       ok: false,
@@ -164,19 +174,18 @@ async function runDispatch({ force = false } = {}) {
 
   const now = new Date()
   const monthLabel = formatMonthLabel(now)
-  const monthStartIso = getMonthStartIso()
+  const resolvedSettingsPayload = settingsPayload || await fetchStudyUpdateSettings()
 
-  const [studiesRaw, subscribersRaw, settingsPayload, areasRaw] = await Promise.all([
+  const [studiesRaw, subscribersRaw, areasRaw] = await Promise.all([
     fetchStudies(),
-    fetchSubscribers({ monthStartIso, force }),
-    fetchStudyUpdateSettings(),
+    fetchSubscribers(),
     fetchTherapeuticAreas(),
   ])
 
   const studies = Array.isArray(studiesRaw) ? studiesRaw : []
   const areas = Array.isArray(areasRaw) ? areasRaw : []
-  const updateSettings = settingsPayload?.settings || {}
-  const testSettings = normalizeUpdateEmailTesting(settingsPayload?.testing)
+  const updateSettings = resolvedSettingsPayload?.settings || {}
+  const testSettings = normalizeUpdateEmailTesting(resolvedSettingsPayload?.testing)
   if (testSettings.enabled && testSettings.recipients.length === 0) {
     return {
       ok: false,
@@ -187,6 +196,9 @@ async function runDispatch({ force = false } = {}) {
   let subscribers = Array.isArray(subscribersRaw) ? subscribersRaw : []
   if (testSettings.enabled) {
     subscribers = filterSubscribersByTestEmails(subscribers, testSettings.recipients)
+  }
+  if (!force) {
+    subscribers = subscribers.filter((subscriber) => !hasStudyUpdateBeenSentThisMonth(subscriber?.lastStudyUpdateSentAt, now))
   }
   const maxStudies = Number.isFinite(Number(updateSettings.maxStudies)) && Number(updateSettings.maxStudies) > 0
     ? Number(updateSettings.maxStudies)
@@ -272,20 +284,23 @@ export async function GET(request) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
-  const skipTimeCheck = process.env.CRON_SKIP_TIME_CHECK === 'true'
-  if (!skipTimeCheck && !shouldRunNow()) {
+  const settingsPayload = await fetchStudyUpdateSettings()
+  const schedule = resolveSchedule(settingsPayload?.settings)
+
+  if (!shouldRunNow(schedule)) {
     return NextResponse.json(
       {
         ok: true,
         skipped: true,
-        reason: 'Outside scheduled local-time window',
+        reason: 'Today does not match the configured scheduled day',
         timezone: CRON_TIMEZONE,
+        schedule,
       },
       { headers: CORS_HEADERS }
     )
   }
 
-  const result = await runDispatch({ force: false })
+  const result = await runDispatch({ force: false, settingsPayload })
   const status = result.ok ? 200 : result.status || 500
   return NextResponse.json(result, { status, headers: CORS_HEADERS })
 }

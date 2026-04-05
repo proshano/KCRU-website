@@ -47,14 +47,17 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 
 ## Study Updates
 - Subscriber management uses `app/api/updates/manage/route.js` with `manageToken`.
-- Dispatch runs via `/api/updates/study-email/dispatch` (cron is daily; handler sends on the 1st in local time).
+- Dispatch runs via `/api/updates/study-email/dispatch`; scheduled sends are triggered from `.github/workflows/study-email.yml`, which runs daily at 11:00 UTC (morning Eastern time) and lets the route enforce only the configured nth weekday from Sanity.
 - Requires `SANITY_API_TOKEN` to record send status.
 - Interest area options come from active `therapeuticArea` docs; subscribers store `interestAreas` references plus `allTherapeuticAreas` for opt-in-all.
+- `siteSettings.studyUpdates` includes `scheduleOccurrence` and `scheduleDayOfWeek` so staff can choose schedules like 1st Monday.
 
 ## Newsletters
 - Publication newsletter dispatch lives at `/api/updates/publication-newsletter/dispatch` with admin endpoints `/api/updates/publication-newsletter/admin` and `/api/updates/publication-newsletter/send`.
 - Custom one-off newsletters send via `/api/updates/custom-newsletter` (filters by role/specialty/interest areas).
 - Settings live in `siteSettings.publicationNewsletter`; send tracking uses `updateSubscriber.lastPublicationNewsletterSentAt` and `updateSubscriber.lastNewsletterSentAt`.
+- Scheduled publication sends run from `.github/workflows/publication-newsletter.yml`; the workflow runs daily at 11:00 UTC (morning Eastern time) and the route checks only the configured nth weekday in Sanity before sending.
+- `siteSettings.publicationNewsletter` includes `scheduleOccurrence` and `scheduleDayOfWeek` for staff-managed timing.
 
 ## Admin Access
 - Admin hub at `/admin` with module-specific entry points at `/admin/approvals` and `/admin/updates`.
@@ -102,7 +105,9 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - Scheduled routes are defined in `vercel.json`.
 - `/api/pubmed/refresh` uses `CRON_SECRET` (cron) or `PUBMED_REFRESH_TOKEN` (manual POST).
 - `/api/seo/refresh` auto-generates SEO/LLM summaries and snapshots publication topics/highlights for llms.txt/markdown (manual via `SEO_REFRESH_TOKEN`; requires `SANITY_API_TOKEN`). To keep within the 2-cron limit, enable optional piggybacking on `/api/pubmed/refresh` by setting `SEO_REFRESH_ON_PUBMED_CRON=true`.
-- `/api/updates/study-email/dispatch` is the daily email dispatch cron.
+- Study email scheduling uses GitHub Actions rather than `vercel.json`; scheduled runs authenticate with `CRON_SECRET` and flow through the route's nth-weekday guard.
+- Publication newsletter scheduling uses GitHub Actions rather than `vercel.json`; scheduled runs authenticate with `CRON_SECRET` and flow through the route's nth-weekday guard.
+- Shared nth-weekday scheduling helpers live in `lib/cronUtils.js`.
 
 ## Dependency Upgrades
 - **Pin `next` to an exact version** in `package.json` (no `^` or `~`). Turbopack regressions in minor releases have caused production-wide 500 errors on all server-rendered pages. Only upgrade Next.js intentionally, test the build, and verify at least one dynamic page works locally before pushing.
