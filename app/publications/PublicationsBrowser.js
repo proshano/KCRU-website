@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { buildOutboundRedirectUrl } from '@/lib/outboundLinks'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 import { urlFor } from '@/lib/sanity'
-import { findResearchersForPublication } from '@/lib/publicationUtils'
+import { comparePublicationsByDisplayDate, findResearchersForPublication } from '@/lib/publicationUtils'
 
 const DEFAULT_VISIBLE_TAGS = 5
 const METHODS_VISIBLE_TAGS = 4
@@ -152,16 +152,7 @@ export default function PublicationsBrowser({
 
   // Build display from filtered publications
   const { byYear, years } = useMemo(() => {
-    const pubs = [...filteredPublications].sort((a, b) => {
-      const yearDiff = (b.year || 0) - (a.year || 0)
-      if (yearDiff !== 0) return yearDiff
-      const pmidA = parseInt(a.pmid, 10)
-      const pmidB = parseInt(b.pmid, 10)
-      if (!Number.isNaN(pmidA) && !Number.isNaN(pmidB)) {
-        return pmidB - pmidA
-      }
-      return (a.title || '').localeCompare(b.title || '')
-    })
+    const pubs = [...filteredPublications].sort(comparePublicationsByDisplayDate)
 
     const byYear = pubs.reduce((acc, pub) => {
       const year = pub.year || 'Unknown'

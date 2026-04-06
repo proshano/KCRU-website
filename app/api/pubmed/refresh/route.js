@@ -10,10 +10,11 @@ import { getSiteBaseUrl } from '@/lib/seo'
 const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN
 const CRON_SECRET = process.env.CRON_SECRET || ''
 
-// Vercel cron schedules are UTC-only. To run at 3am Eastern year-round (DST-aware),
-// we schedule both 07:00 and 08:00 UTC and only execute when it's 03:00 in America/New_York.
+// Vercel cron schedules are UTC-only. This route is scheduled once daily at 13:00 UTC,
+// which maps to 09:00 in America/New_York during EDT and 08:00 during EST.
+// The local-time window accepts the target hour and the prior hour so one UTC slot works year-round.
 const CRON_TIMEZONE = process.env.CRON_TIMEZONE || 'America/New_York'
-const CRON_TARGET_HOUR = Number(process.env.CRON_TARGET_HOUR || 3)
+const CRON_TARGET_HOUR = Number(process.env.CRON_TARGET_HOUR || 9)
 // Allow a small window in case of minor scheduling drift.
 const CRON_ALLOWED_MINUTES = Number(process.env.CRON_ALLOWED_MINUTES || 10)
 
@@ -57,7 +58,7 @@ export async function GET(request) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
-  // Run only at 3:00am America/New_York (DST-aware), otherwise skip.
+  // Run only within the configured local-time window for the once-daily UTC cron, otherwise skip.
   // Set CRON_SKIP_TIME_CHECK=true to bypass for debugging
   const skipTimeCheck = process.env.CRON_SKIP_TIME_CHECK === 'true'
   if (

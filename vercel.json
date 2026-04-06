@@ -8,11 +8,7 @@
   "crons": [
     {
       "path": "/api/pubmed/refresh",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/pubmed/refresh",
-      "schedule": "0 8 * * *"
+      "schedule": "0 13 * * *"
     }
   ]
 }
