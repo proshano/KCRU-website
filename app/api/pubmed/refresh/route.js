@@ -4,19 +4,13 @@ import { sanityFetch, queries } from '@/lib/sanity'
 import { refreshPubmedCache } from '@/lib/publications'
 import { readCache } from '@/lib/pubmedCache'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
-import { getZonedParts, isCronAuthorized, isVercelCronRequest, isWithinCronWindow, sameLocalDate } from '@/lib/cronUtils'
+import { getZonedParts, isCronAuthorized, isVercelCronRequest, sameLocalDate } from '@/lib/cronUtils'
 import { getSiteBaseUrl } from '@/lib/seo'
 
 const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN
 const CRON_SECRET = process.env.CRON_SECRET || ''
 
-// Vercel cron schedules are UTC-only. This route is scheduled once daily at 13:00 UTC,
-// which maps to 09:00 in America/New_York during EDT and 08:00 during EST.
-// The local-time window accepts the target hour and the prior hour so one UTC slot works year-round.
 const CRON_TIMEZONE = process.env.CRON_TIMEZONE || 'America/New_York'
-const CRON_TARGET_HOUR = Number(process.env.CRON_TARGET_HOUR || 9)
-// Allow a small window in case of minor scheduling drift.
-const CRON_ALLOWED_MINUTES = Number(process.env.CRON_ALLOWED_MINUTES || 10)
 
 // Cron refresh can generate a small number of summaries to avoid needing a second cron job.
 // Set CRON_SUMMARIES_LIMIT=0 to disable summary generation during cron runs.
@@ -58,34 +52,8 @@ export async function GET(request) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS })
   }
 
-  // Run only within the configured local-time window for the once-daily UTC cron, otherwise skip.
-  // Set CRON_SKIP_TIME_CHECK=true to bypass for debugging
-  const skipTimeCheck = process.env.CRON_SKIP_TIME_CHECK === 'true'
-  if (
-    !skipTimeCheck &&
-    !isWithinCronWindow({
-      timeZone: CRON_TIMEZONE,
-      targetHour: CRON_TARGET_HOUR,
-      allowedMinutes: CRON_ALLOWED_MINUTES,
-      date: now,
-    })
-  ) {
-    console.info('[pubmed] Cron skipped: outside time window', {
-      nowLocal: nowParts,
-      targetHour: CRON_TARGET_HOUR,
-      allowedMinutes: CRON_ALLOWED_MINUTES,
-    })
-    return NextResponse.json({
-      ok: true,
-      skipped: true,
-      reason: 'Outside scheduled local-time window',
-      timezone: CRON_TIMEZONE,
-      nowLocal: nowParts,
-      target: { hour: CRON_TARGET_HOUR, minuteWindow: [0, CRON_ALLOWED_MINUTES - 1] },
-    }, { headers: CORS_HEADERS })
-  }
-
-  // Avoid accidental double-runs (retries / duplicate schedules) within the same local day.
+  // Accept delayed cron invocations and only skip once we've already refreshed
+  // on the current local day. The lock inside refreshPubmedCache handles overlap.
   try {
     const existing = await readCache()
     const last = existing?.generatedAt ? new Date(existing.generatedAt) : null
