@@ -471,6 +471,21 @@ const siteSettings = {
       ]
     },
     {
+      name: 'trialMatchingAssistant',
+      title: 'Trial Matching Assistant',
+      type: 'object',
+      description: 'Control whether the public trial conversational assistant is available.',
+      fields: [
+        {
+          name: 'enabled',
+          title: 'Enable trial conversational assistant',
+          type: 'boolean',
+          description: 'When disabled, the floating public trial assistant, `/trials/find`, and the matching chat API are unavailable to visitors.',
+          initialValue: false
+        }
+      ]
+    },
+    {
       name: 'studyApprovals',
       title: 'Study Approvals',
       type: 'object',

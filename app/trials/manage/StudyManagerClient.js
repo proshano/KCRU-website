@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import AuthButtons from '@/app/components/AuthButtons'
+import TrialPrescreenEditor from '@/app/trials/components/TrialPrescreenEditor'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
+import { createEmptyTrialPrescreen, mergeTrialPrescreenFormValue } from '@/lib/trialPrescreen'
 
 const STATUS_OPTIONS = [
   { value: 'recruiting', label: 'Recruiting' },
@@ -56,6 +58,7 @@ const EMPTY_FORM = {
     phone: '',
     displayPublicly: false,
   },
+  prescreen: createEmptyTrialPrescreen(),
   principalInvestigatorId: '',
   principalInvestigatorName: '',
   ctGovData: null,
@@ -104,6 +107,41 @@ function normalizeNctId(value) {
   return String(value || '').trim().toUpperCase()
 }
 
+function mergeSyncedPrescreen(currentValue, incomingValue, currentCtGovData) {
+  const current = mergeTrialPrescreenFormValue(currentValue)
+  const incoming = mergeTrialPrescreenFormValue(incomingValue)
+
+  if (currentCtGovData?.lastSyncedAt) {
+    return current
+  }
+
+  return mergeTrialPrescreenFormValue({
+    ...incoming,
+    enabled: current.enabled,
+    screeningSummary: current.screeningSummary || incoming.screeningSummary,
+    sexAllowed: current.sexAllowed !== 'all' ? current.sexAllowed : incoming.sexAllowed,
+    minimumAgeYears: current.minimumAgeYears !== '' ? current.minimumAgeYears : incoming.minimumAgeYears,
+    maximumAgeYears: current.maximumAgeYears !== '' ? current.maximumAgeYears : incoming.maximumAgeYears,
+    populationTags: current.populationTags.length ? current.populationTags : incoming.populationTags,
+    ckdStages: current.ckdStages.length ? current.ckdStages : incoming.ckdStages,
+    dialysisStatus:
+      current.dialysisStatus !== 'not_applicable' ? current.dialysisStatus : incoming.dialysisStatus,
+    transplantStatus:
+      current.transplantStatus !== 'not_applicable' ? current.transplantStatus : incoming.transplantStatus,
+    diabetesRequirement:
+      current.diabetesRequirement !== 'not_applicable'
+        ? current.diabetesRequirement
+        : incoming.diabetesRequirement,
+    egfrMin: current.egfrMin !== '' ? current.egfrMin : incoming.egfrMin,
+    egfrMax: current.egfrMax !== '' ? current.egfrMax : incoming.egfrMax,
+    requiresAlbuminuria: current.requiresAlbuminuria || incoming.requiresAlbuminuria,
+    requiresProteinuria: current.requiresProteinuria || incoming.requiresProteinuria,
+    exclusionTags: current.exclusionTags.length ? current.exclusionTags : incoming.exclusionTags,
+    mustAsk: current.mustAsk.length ? current.mustAsk : incoming.mustAsk,
+    optionalQuestions: current.optionalQuestions.length ? current.optionalQuestions : incoming.optionalQuestions,
+  })
+}
+
 function mapTrialToForm(trial) {
   return {
     id: trial?._id || '',
@@ -129,9 +167,10 @@ function mapTrialToForm(trial) {
       phone: trial?.localContact?.phone || '',
       displayPublicly: Boolean(trial?.localContact?.displayPublicly),
     },
+    prescreen: mergeTrialPrescreenFormValue(trial?.prescreen),
     principalInvestigatorId: trial?.principalInvestigatorId || '',
     principalInvestigatorName: trial?.principalInvestigatorName || '',
-    ctGovData: null,
+    ctGovData: trial?.ctGovData || null,
   }
 }
 
@@ -147,6 +186,7 @@ function mergeDraft(data) {
       ...EMPTY_FORM.localContact,
       ...(payload.localContact || {}),
     },
+    prescreen: mergeTrialPrescreenFormValue(payload.prescreen),
   }
 }
 
@@ -587,6 +627,32 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     }))
   }
 
+  function updatePrescreenField(key, value) {
+    setForm((prev) => ({
+      ...prev,
+      prescreen: {
+        ...prev.prescreen,
+        [key]: value,
+      },
+    }))
+  }
+
+  function togglePrescreenArrayValue(key, value) {
+    setForm((prev) => {
+      const existing = Array.isArray(prev.prescreen?.[key]) ? prev.prescreen[key] : []
+      const next = existing.includes(value)
+        ? existing.filter((item) => item !== value)
+        : [...existing, value]
+      return {
+        ...prev,
+        prescreen: {
+          ...prev.prescreen,
+          [key]: next,
+        },
+      }
+    })
+  }
+
   function toggleMultiSelect(key, id) {
     setForm((prev) => {
       const existing = prev[key] || []
@@ -721,6 +787,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
           : splitList(form.exclusionCriteria),
         laySummary: synced.laySummary || form.laySummary,
         ctGovData: synced.ctGovData || form.ctGovData,
+        prescreen: mergeSyncedPrescreen(form.prescreen, synced.prescreen, form.ctGovData),
       }
       setForm(nextForm)
       setSuccess('ClinicalTrials.gov data pulled in. Review and save when ready.')
@@ -810,6 +877,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
         acceptsReferrals: form.acceptsReferrals,
         featured: form.featured,
         localContact: form.localContact,
+        prescreen: form.prescreen,
         principalInvestigatorId: form.principalInvestigatorId || '',
         principalInvestigatorName: form.principalInvestigatorName || '',
         ctGovData: form.ctGovData || undefined,
@@ -1726,6 +1794,12 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
               </div>
             </div>
           </div>
+
+          <TrialPrescreenEditor
+            value={form.prescreen}
+            onFieldChange={updatePrescreenField}
+            onToggleArrayValue={togglePrescreenArrayValue}
+          />
 
           <div className="flex items-center justify-end gap-3">
             <button

@@ -21,10 +21,6 @@ const STATIC_ROUTES = [
 export default async function sitemap() {
   const baseUrl = getSiteBaseUrl()
   const now = new Date()
-  const staticEntries = STATIC_ROUTES.map((route) => ({
-    url: `${baseUrl}${route}`,
-    lastModified: now
-  }))
 
   try {
     const [researchers, trials, news] = await Promise.all([
@@ -32,6 +28,10 @@ export default async function sitemap() {
       sanityFetch(queries.sitemapTrials),
       sanityFetch(queries.sitemapNews)
     ])
+    const staticEntries = STATIC_ROUTES.map((route) => ({
+      url: `${baseUrl}${route}`,
+      lastModified: now
+    }))
 
     const teamEntries = (researchers || []).map((person) => ({
       url: `${baseUrl}/team/${person.slug}`,
@@ -55,6 +55,9 @@ export default async function sitemap() {
     return [...staticEntries, ...teamEntries, ...trialEntries, ...newsEntries]
   } catch (err) {
     console.error('Failed to generate sitemap', err)
-    return staticEntries
+    return STATIC_ROUTES.map((route) => ({
+      url: `${baseUrl}${route}`,
+      lastModified: now
+    }))
   }
 }

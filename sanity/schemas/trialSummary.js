@@ -14,6 +14,19 @@
 
 import NctIdInput from '../components/NctIdInput'
 import AutoSlugInput from '../components/AutoSlugInput'
+import {
+  TRIAL_PRESCREEN_CKD_STAGE_OPTIONS,
+  TRIAL_PRESCREEN_DIABETES_OPTIONS,
+  TRIAL_PRESCREEN_DIALYSIS_STATUS_OPTIONS,
+  TRIAL_PRESCREEN_EXCLUSION_OPTIONS,
+  TRIAL_PRESCREEN_MUST_ASK_OPTIONS,
+  TRIAL_PRESCREEN_POPULATION_OPTIONS,
+  TRIAL_PRESCREEN_SEX_OPTIONS,
+  TRIAL_PRESCREEN_TRANSPLANT_STATUS_OPTIONS,
+} from '../../lib/trialPrescreen.js'
+
+const asSanityOptions = (options) =>
+  options.map((option) => ({ title: option.label, value: option.value }))
 
 const trialSummary = {
   name: 'trialSummary',
@@ -22,6 +35,7 @@ const trialSummary = {
   groups: [
     { name: 'basic', title: 'Basic Info', default: true },
     { name: 'eligibility', title: 'Eligibility' },
+    { name: 'matching', title: 'Trial Matching' },
     { name: 'localInfo', title: 'Local Info' },
     { name: 'email', title: 'Clinical Communications' },
     { name: 'syncedData', title: 'ClinicalTrials.gov Data' },
@@ -285,6 +299,128 @@ const trialSummary = {
       group: 'eligibility',
       of: [{ type: 'string' }],
       description: 'Key exclusion criteria (fetched from ClinicalTrials.gov or entered manually)'
+    },
+    {
+      name: 'prescreen',
+      title: 'Matching Assistant Prescreen',
+      type: 'object',
+      group: 'matching',
+      description:
+        'Reviewed fields for the public trial-matching assistant. All active studies participate; these fields improve ranking and follow-up questions. Keep them high-level and patient-safe.',
+      options: { collapsible: true, collapsed: false },
+      fields: [
+        {
+          name: 'screeningSummary',
+          title: 'Public matching summary',
+          type: 'text',
+          rows: 3,
+          description:
+            '1-2 sentence patient-safe summary shown in assistant results. Keep it factual and avoid any promise of eligibility.'
+        },
+        {
+          name: 'sexAllowed',
+          title: 'Sex requirement',
+          type: 'string',
+          initialValue: 'all',
+          options: { list: asSanityOptions(TRIAL_PRESCREEN_SEX_OPTIONS), layout: 'radio' }
+        },
+        {
+          name: 'minimumAgeYears',
+          title: 'Minimum age (years)',
+          type: 'number',
+          validation: (Rule) => Rule.min(0).max(120)
+        },
+        {
+          name: 'maximumAgeYears',
+          title: 'Maximum age (years)',
+          type: 'number',
+          validation: (Rule) => Rule.min(0).max(120)
+        },
+        {
+          name: 'populationTags',
+          title: 'Target populations',
+          type: 'array',
+          of: [{ type: 'string' }],
+          options: { list: asSanityOptions(TRIAL_PRESCREEN_POPULATION_OPTIONS) },
+          description: 'Select the main kidney populations this study targets.'
+        },
+        {
+          name: 'ckdStages',
+          title: 'CKD stages',
+          type: 'array',
+          of: [{ type: 'string' }],
+          options: { list: asSanityOptions(TRIAL_PRESCREEN_CKD_STAGE_OPTIONS) },
+          description: 'Use only when CKD stage is central to matching.'
+        },
+        {
+          name: 'dialysisStatus',
+          title: 'Dialysis requirement',
+          type: 'string',
+          initialValue: 'not_applicable',
+          options: { list: asSanityOptions(TRIAL_PRESCREEN_DIALYSIS_STATUS_OPTIONS), layout: 'radio' }
+        },
+        {
+          name: 'transplantStatus',
+          title: 'Transplant requirement',
+          type: 'string',
+          initialValue: 'not_applicable',
+          options: { list: asSanityOptions(TRIAL_PRESCREEN_TRANSPLANT_STATUS_OPTIONS), layout: 'radio' }
+        },
+        {
+          name: 'diabetesRequirement',
+          title: 'Diabetes requirement',
+          type: 'string',
+          initialValue: 'not_applicable',
+          options: { list: asSanityOptions(TRIAL_PRESCREEN_DIABETES_OPTIONS), layout: 'radio' }
+        },
+        {
+          name: 'egfrMin',
+          title: 'Minimum eGFR',
+          type: 'number',
+          validation: (Rule) => Rule.min(0).max(200)
+        },
+        {
+          name: 'egfrMax',
+          title: 'Maximum eGFR',
+          type: 'number',
+          validation: (Rule) => Rule.min(0).max(200)
+        },
+        {
+          name: 'requiresAlbuminuria',
+          title: 'Requires albuminuria',
+          type: 'boolean',
+          initialValue: false
+        },
+        {
+          name: 'requiresProteinuria',
+          title: 'Requires proteinuria',
+          type: 'boolean',
+          initialValue: false
+        },
+        {
+          name: 'exclusionTags',
+          title: 'Major exclusion flags',
+          type: 'array',
+          of: [{ type: 'string' }],
+          options: { list: asSanityOptions(TRIAL_PRESCREEN_EXCLUSION_OPTIONS) },
+          description: 'Use only for broad, common exclusions that are easy to ask without nuance.'
+        },
+        {
+          name: 'mustAsk',
+          title: 'Must-ask questions',
+          type: 'array',
+          of: [{ type: 'string' }],
+          options: { list: asSanityOptions(TRIAL_PRESCREEN_MUST_ASK_OPTIONS) },
+          description: 'The assistant will prioritize these follow-up questions before it labels a study as a strong match.'
+        },
+        {
+          name: 'optionalQuestions',
+          title: 'Optional follow-up questions',
+          type: 'array',
+          of: [{ type: 'string' }],
+          description: 'Custom plain-language questions the assistant can use if more detail is needed.'
+        }
+      ]
     },
 
     // ============================================

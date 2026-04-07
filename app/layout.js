@@ -5,7 +5,9 @@ import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import AltmetricScript from './components/AltmetricScript'
 import JsonLd from './components/JsonLd'
+import TrialAssistantWidget from './components/TrialAssistantWidget'
 import './globals.css'
+import { isTrialMatchingAssistantEnabled } from '@/lib/trialMatchingSettings'
 
 function collectTopicKeywords(settings) {
   const baseTopics = Array.isArray(settings?.seo?.llmTopics) ? settings.seo.llmTopics : []
@@ -70,6 +72,7 @@ export default async function RootLayout({ children }) {
   // Strip Sanity data to plain JSON to break any circular references
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
   const altmetricEnabled = settings?.altmetric?.enabled === true
+  const trialMatchingEnabled = isTrialMatchingAssistantEnabled(settings)
   const siteTitle = resolveSiteTitle(settings)
   const siteDescription = normalizeDescription(resolveSiteDescription(settings))
   const baseUrl = getSiteBaseUrl()
@@ -161,7 +164,7 @@ export default async function RootLayout({ children }) {
           </nav>
 
           {/* Main content */}
-          <main className="flex-1">{children}</main>
+          <main className={trialMatchingEnabled ? 'flex-1 pb-24 sm:pb-0' : 'flex-1'}>{children}</main>
 
           {/* Footer */}
           <footer className="border-t border-black/[0.08] py-12 px-6 md:px-12 text-sm text-[#888] font-medium mt-6">
@@ -184,6 +187,7 @@ export default async function RootLayout({ children }) {
             </div>
           </footer>
         </div>
+        {trialMatchingEnabled && <TrialAssistantWidget />}
         <SpeedInsights />
         <Analytics />
       </body>

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { sanityFetch, queries } from '@/lib/sanity'
 import TrialsClient from './TrialsClient'
 import { buildOpenGraph, buildTwitterMetadata, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
+import { isTrialMatchingAssistantEnabled } from '@/lib/trialMatchingSettings'
 
 // Revalidate every 30 minutes
 export const revalidate = 1800
@@ -45,15 +46,18 @@ export default async function TrialsPage({ searchParams }) {
   // In Next.js 15+, searchParams is a Promise
   const params = await searchParams
   
-  const [trialsRaw, areasRaw, pageContentRaw] = await Promise.all([
+  const [trialsRaw, areasRaw, pageContentRaw, settingsRaw] = await Promise.all([
     sanityFetch(queries.trialSummaries),
     sanityFetch(queries.therapeuticAreas),
-    sanityFetch(queries.pageContent)
+    sanityFetch(queries.pageContent),
+    sanityFetch(queries.siteSettings),
   ])
   
   const allTrials = JSON.parse(JSON.stringify(trialsRaw || []))
   const areas = JSON.parse(JSON.stringify(areasRaw || []))
   const content = JSON.parse(JSON.stringify(pageContentRaw || {}))
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  const isTrialMatchingEnabled = isTrialMatchingAssistantEnabled(settings)
 
   // Get selected area filter from URL
   const selectedArea = params?.area || null
@@ -86,7 +90,12 @@ export default async function TrialsPage({ searchParams }) {
             {description}
           </p>
         )}
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          {isTrialMatchingEnabled && (
+            <p className="text-sm text-gray-600">
+              Use the trial matching assistant in the bottom-right corner to narrow down actively recruiting studies.
+            </p>
+          )}
           <Link
             href="/trials/manage"
             prefetch={false}
