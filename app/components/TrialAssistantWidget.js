@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const INITIAL_ASSISTANT_MESSAGE =
-  'Give de-identified clinical facts: primary kidney diagnosis (e.g. IgAN); eGFR (mL/min/1.73 m²); UPCR or UACR (mg/mmol) if known; key comorbidities (e.g. diabetes, hypertension); and relevant meds (e.g. RAASi). Then we can narrow recruiting trials. Do not include names, exact DOB, MRN, phone, or email.'
+  'Does your patient qualify for a trial? Give de-identified clinical facts: primary kidney diagnosis (e.g. IgAN); eGFR (mL/min/1.73 m²); UPCR or UACR (mg/mmol) if known; key comorbidities (e.g. diabetes, hypertension); and relevant meds (e.g. RAASi).'
 
 const MAX_INPUT_LENGTH = 600
 
