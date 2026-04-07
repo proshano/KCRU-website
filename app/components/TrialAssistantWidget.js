@@ -14,7 +14,7 @@ function getSpeechRecognitionConstructor() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null
 }
 
-const AUTO_OPEN_PATHS = new Set(['/', '/trials/find'])
+const AUTO_OPEN_PATHS = new Set([])
 const HIDDEN_PATH_PREFIXES = [
   '/admin',
   '/login',
@@ -92,6 +92,7 @@ export default function TrialAssistantWidget() {
   const shouldAutoOpenInitially = AUTO_OPEN_PATHS.has(pathname)
   const launcherRef = useRef(null)
   const inputRef = useRef(null)
+  const formRef = useRef(null)
   const recognitionRef = useRef(null)
   const voiceBaseRef = useRef('')
   const voiceSessionFinalRef = useRef('')
@@ -416,7 +417,7 @@ export default function TrialAssistantWidget() {
                 {error}
               </p>
             )}
-            <form onSubmit={handleSubmit} className="space-y-3">
+            <form ref={formRef} onSubmit={handleSubmit} className="space-y-3">
               <label htmlFor={INPUT_ID} className="sr-only">
                 Describe non-identifying patient characteristics
               </label>
@@ -427,6 +428,14 @@ export default function TrialAssistantWidget() {
                   aria-describedby={error ? `${HELP_ID} ${ERROR_ID}` : HELP_ID}
                   value={input}
                   onChange={(event) => setInput(event.target.value.slice(0, MAX_INPUT_LENGTH))}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter') return
+                    if (event.shiftKey) return
+                    if (event.isComposing) return
+                    event.preventDefault()
+                    if (loading || !input.trim()) return
+                    formRef.current?.requestSubmit?.()
+                  }}
                   rows={3}
                   maxLength={MAX_INPUT_LENGTH}
                   placeholder="De-identified: diagnosis, eGFR, UPCR/UACR, key meds, comorbidities."

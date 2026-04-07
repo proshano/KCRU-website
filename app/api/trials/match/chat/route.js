@@ -23,6 +23,91 @@ function sanitizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
 }
 
+function tokenizeQuery(text) {
+  return sanitizeText(text)
+    .toLowerCase()
+    .split(/[^a-z0-9]+/g)
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .filter((t) => t.length >= 4)
+}
+
+function buildStudyHaystack(study) {
+  const prescreenSummary = study?.prescreen?.screeningSummary || ''
+  const inc = Array.isArray(study?.inclusionCriteria) ? study.inclusionCriteria.join(' ') : ''
+  const exc = Array.isArray(study?.exclusionCriteria) ? study.exclusionCriteria.join(' ') : ''
+  return sanitizeText([study?.title, study?.laySummary, prescreenSummary, inc, exc].filter(Boolean).join(' '))
+}
+
+function quickTextRankStudies(studies, queryText) {
+  const tokens = tokenizeQuery(queryText)
+  if (!tokens.length) return []
+
+  const rows = studies
+    .map((study) => {
+      const haystack = buildStudyHaystack(study).toLowerCase()
+      if (!haystack) return null
+
+      let hits = 0
+      for (const token of tokens) {
+        if (haystack.includes(token)) hits += 1
+      }
+
+      if (hits === 0) return null
+
+      return {
+        _id: study?._id,
+        title: study?.title || 'Untitled study',
+        slug: study?.slug || '',
+        status: study?.status || 'recruiting',
+        statusLabel: study?.status === 'recruiting' ? 'Recruiting' : 'Status unavailable',
+        decision: 'possible',
+        screeningSummary: study?.prescreen?.screeningSummary || study?.laySummary || '',
+        matchedReasons: [`Mentions ${tokens.slice(0, 3).join(', ')}.`],
+        missingReasons: [],
+        mismatchReasons: [],
+        score: hits * 10,
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))
+
+  return sliceRankedTrialMatches(rows, MAX_RESULTS)
+}
+
+function extractDiagnosisHintFromText(text) {
+  const t = sanitizeText(text).toLowerCase()
+  if (!t) return null
+  if (/\blupus\s+nephritis\b|\bactive\s+lupus\s+nephritis\b/.test(t)) return 'lupus nephritis'
+  if (/\biga\s+nephropathy\b|\bigan\b/.test(t)) return 'IgA nephropathy'
+  if (/\bfsgs\b|\bfocal\s+segmental\s+glomerulosclerosis\b/.test(t)) return 'FSGS'
+  if (/\bminimal\s+change\s+disease\b|\bmcd\b/.test(t)) return 'minimal change disease'
+  if (/\bc3\s+glomerulopathy\b|\bc3g\b/.test(t)) return 'C3 glomerulopathy'
+  if (/\badpkd\b|\bpolycystic\s+kidney\s+disease\b/.test(t)) return 'ADPKD'
+  if (/\balport\b/.test(t)) return 'Alport syndrome'
+  if (/\bantibody[-\s]?mediated\s+rejection\b|\bamr\b/.test(t)) return 'antibody-mediated rejection'
+  return null
+}
+
+function extractDiagnosisHintFromMessages(messages) {
+  if (!Array.isArray(messages) || !messages.length) return null
+  const lastUser = [...messages].reverse().find((m) => m?.role === 'user' && m?.content)
+  return extractDiagnosisHintFromText(lastUser?.content || '')
+}
+
+function mergeRankedResults(primary = [], secondary = [], maxResults = MAX_RESULTS) {
+  const out = []
+  const seen = new Set()
+  for (const row of [...(primary || []), ...(secondary || [])]) {
+    const id = row?._id
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    out.push(row)
+    if (out.length >= maxResults) break
+  }
+  return out
+}
+
 function getClientIp(headers) {
   const forwarded = headers.get('x-forwarded-for')
   if (forwarded) {
@@ -205,19 +290,26 @@ export async function POST(request) {
     )
 
     const updatedProfile = sanitizePatientProfile(llmTurn?.patientProfile || currentProfile)
-    const shouldRankMatches = llmTurn?.readyForMatching || hasMeaningfulPatientProfile(updatedProfile)
+    const diagnosisHint = extractDiagnosisHintFromMessages(messages)
+    const enrichedProfile =
+      updatedProfile.diagnosis || !diagnosisHint ? updatedProfile : { ...updatedProfile, diagnosis: diagnosisHint }
+
+    const shouldRankMatches = llmTurn?.readyForMatching || hasMeaningfulPatientProfile(enrichedProfile)
     const llmOpts = buildLlmOptions(settings)
     let rankedResults = []
     if (shouldRankMatches) {
       try {
         rankedResults = await generateTrialMatchStudyRanking(
-          { profile: updatedProfile, studies },
+          { profile: enrichedProfile, studies },
           { ...llmOpts, maxTokens: 1200, temperature: 0.35 }
         )
       } catch (rankError) {
         console.error('[trial-match-chat] LLM study ranking failed, using rule-based fallback', rankError)
-        rankedResults = sliceRankedTrialMatches(rankTrialMatches(studies, updatedProfile), MAX_RESULTS)
+        rankedResults = sliceRankedTrialMatches(rankTrialMatches(studies, enrichedProfile), MAX_RESULTS)
       }
+    } else {
+      const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user')
+      rankedResults = quickTextRankStudies(studies, lastUserMessage?.content || '')
     }
 
     const privacyPrefix = hadRedaction
@@ -227,7 +319,7 @@ export async function POST(request) {
     return buildResponse({
       ok: true,
       reply: `${privacyPrefix}${llmTurn?.assistantReply || ''}`.trim(),
-      profile: updatedProfile,
+      profile: enrichedProfile,
       results: rankedResults,
     })
   } catch (error) {
