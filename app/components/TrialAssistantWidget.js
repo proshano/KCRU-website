@@ -371,7 +371,7 @@ export default function TrialAssistantWidget() {
       >
         <div className="flex items-start justify-between gap-3 border-b border-black/5 px-4 py-4 bg-gray-50">
           <div>
-            <h2 id={TITLE_ID} className="text-base font-semibold tracking-tight text-gray-900">Trial matching assistant</h2>
+            <h2 id={TITLE_ID} className="text-base font-semibold tracking-tight text-gray-900">Trial assistant</h2>
             <p className="text-sm text-gray-600">Diagnosis plus eGFR, or say the patient is on dialysis.</p>
           </div>
           <div className="flex items-center gap-2">
