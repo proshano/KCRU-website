@@ -501,7 +501,7 @@ export default function TrialAssistantWidget() {
           onClick={openAssistant}
           aria-haspopup="dialog"
           aria-expanded="false"
-          className="relative flex w-full max-w-[18rem] min-h-[2.875rem] touch-manipulation items-center gap-[0.45rem] rounded-full border border-white/15 bg-purple px-3 py-[0.6125rem] text-left text-white shadow-lg transition duration-200 active:scale-[0.99] active:bg-purple/95 hover:bg-purple/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/40 focus-visible:ring-offset-1 sm:max-w-[15.4rem] sm:min-h-[2.8rem] sm:gap-[0.7rem] sm:px-[1.05rem] sm:py-[0.7rem]"
+          className="relative flex w-full max-w-[18rem] min-h-[2.875rem] touch-manipulation items-center gap-[0.45rem] rounded-full border border-white/15 bg-purple px-3 py-[0.6125rem] text-left text-white shadow-lg transition duration-200 active:scale-[0.99] active:bg-purple/95 hover:bg-purple/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/40 focus-visible:ring-offset-1 sm:w-auto sm:min-w-[22rem] sm:max-w-none sm:min-h-[2.8rem] sm:gap-[0.7rem] sm:px-[1.05rem] sm:py-[0.7rem]"
         >
           {launcherPulse ? (
             <span
