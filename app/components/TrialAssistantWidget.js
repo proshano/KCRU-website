@@ -146,6 +146,7 @@ export default function TrialAssistantWidget() {
   const [results, setResults] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [conversationComplete, setConversationComplete] = useState(false)
   const [isExpanded, setIsExpanded] = useState(shouldAutoOpenInitially)
   const [hasAutoOpened, setHasAutoOpened] = useState(shouldAutoOpenInitially)
   const [shouldFocusInput, setShouldFocusInput] = useState(false)
@@ -155,7 +156,7 @@ export default function TrialAssistantWidget() {
 
   const visibleResults = results.filter((result) => result.decision !== 'unlikely')
   const fallbackResults = visibleResults.length ? visibleResults : results
-  const chatLocked = fallbackResults.length > 0 && !loading
+  const chatLocked = conversationComplete && !loading
   const isHidden = shouldHideWidget(pathname)
   useEffect(() => {
     if (hasAutoOpened || !AUTO_OPEN_PATHS.has(pathname)) return
@@ -311,6 +312,7 @@ export default function TrialAssistantWidget() {
     setInput('')
     setProfile({})
     setResults([])
+    setConversationComplete(false)
     setError('')
     setLoading(false)
     setIsExpanded(true)
@@ -360,6 +362,7 @@ export default function TrialAssistantWidget() {
       setMessages([...nextMessages, assistantMessage])
       setProfile(data.profile || {})
       setResults(Array.isArray(data.results) ? data.results : [])
+      setConversationComplete(Boolean(data.conversationComplete))
       setIsExpanded(true)
     } catch (err) {
       setError(err.message || 'Unable to continue the chat right now.')

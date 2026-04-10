@@ -310,6 +310,7 @@ export async function POST(request) {
         ok: true,
         reply: 'No active studies are available for the matching assistant yet. Please browse the studies page or contact the research team.',
         profile: currentProfile,
+        conversationComplete: false,
         results: [],
       })
     }
@@ -362,9 +363,11 @@ export async function POST(request) {
       shouldRankMatches && rankedResults.length
         ? RESULTS_READY_REPLY
         : llmTurn?.assistantReply || ''
+    const conversationComplete = Boolean(shouldRankMatches && rankedResults.length)
 
     return buildResponse({
       ok: true,
+      conversationComplete,
       reply: `${privacyPrefix}${reply}`.trim(),
       profile: enrichedProfile,
       results: rankedResults,
