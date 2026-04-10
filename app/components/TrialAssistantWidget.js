@@ -235,6 +235,7 @@ export default function TrialAssistantWidget() {
     if (!previousPathname || previousPathname === pathname) return
     if (!isExpanded || !floatingViewport.isSmallScreen) return
 
+    blurAssistantInput()
     stopVoiceRecognition()
     setShouldFocusInput(false)
     setInputFocused(false)
@@ -291,6 +292,15 @@ export default function TrialAssistantWidget() {
     }
     recognitionRef.current = null
     setVoiceListening(false)
+  }
+
+  function blurAssistantInput() {
+    if (typeof window === 'undefined') return
+    inputRef.current?.blur()
+    const activeElement = document.activeElement
+    if (activeElement instanceof HTMLElement) {
+      activeElement.blur()
+    }
   }
 
   function toggleVoiceRecognition() {
@@ -361,6 +371,7 @@ export default function TrialAssistantWidget() {
   }
 
   function minimizeAssistant() {
+    blurAssistantInput()
     stopVoiceRecognition()
     setShouldFocusInput(false)
     setInputFocused(false)
@@ -371,6 +382,7 @@ export default function TrialAssistantWidget() {
   }
 
   function resetAssistant() {
+    blurAssistantInput()
     stopVoiceRecognition()
     autoScrollTargetRef.current = 'response'
     setMessages(createInitialMessages())
@@ -387,6 +399,9 @@ export default function TrialAssistantWidget() {
 
   const isMobileSheet = floatingViewport.isSmallScreen
   const floatingBottomBase = floatingViewport.isSmallScreen ? 16 : 24
+  const launcherDockStyle = {
+    bottom: `calc(env(safe-area-inset-bottom) + ${floatingBottomBase + floatingViewport.bottomOffset}px)`,
+  }
   const floatingDockStyle = isMobileSheet
     ? {
         bottom: `${floatingViewport.bottomOffset}px`,
@@ -412,6 +427,7 @@ export default function TrialAssistantWidget() {
 
   function handleAssistantNavigation() {
     if (!isMobileSheet) return
+    blurAssistantInput()
     stopVoiceRecognition()
     setShouldFocusInput(false)
     setInputFocused(false)
@@ -423,6 +439,9 @@ export default function TrialAssistantWidget() {
     const trimmed = input.trim()
     if (!trimmed || loading || chatLocked) return
 
+    if (isMobileSheet) {
+      blurAssistantInput()
+    }
     stopVoiceRecognition()
 
     const userMessage = { role: 'user', content: trimmed }
@@ -474,7 +493,7 @@ export default function TrialAssistantWidget() {
     return (
       <div
         className="fixed z-[60] flex justify-center [left:max(0.75rem,env(safe-area-inset-left))] [right:max(0.75rem,env(safe-area-inset-right))] sm:left-auto sm:right-6 sm:justify-end"
-        style={floatingDockStyle}
+        style={launcherDockStyle}
       >
         <button
           ref={launcherRef}
