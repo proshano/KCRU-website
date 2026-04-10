@@ -13,6 +13,8 @@ import { buildTrialCatalogForPrompt, rankTrialMatches } from '@/lib/trialMatcher
 const MAX_MESSAGES = 12
 const MAX_MESSAGE_LENGTH = 600
 const MAX_RESULTS = 6
+const MAX_LLM_RANK_STUDIES = 12
+const MIN_USER_TURNS_BEFORE_LLM_RANKING = 2
 /** When at least one match/possible exists, limit how many insufficient_info rows appear in the top list. */
 const MAX_INSUFFICIENT_WHEN_BETTER_EXISTS = 2
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
@@ -105,6 +107,31 @@ function mergeRankedResults(primary = [], secondary = [], maxResults = MAX_RESUL
     if (out.length >= maxResults) break
   }
   return out
+}
+
+function countUserMessages(messages) {
+  if (!Array.isArray(messages)) return 0
+  return messages.filter((message) => message?.role === 'user').length
+}
+
+function getLastUserMessage(messages) {
+  if (!Array.isArray(messages) || !messages.length) return null
+  return [...messages].reverse().find((message) => message?.role === 'user')
+}
+
+function buildLlmRankingShortlist(studies, profile, messages) {
+  if (!Array.isArray(studies) || !studies.length) return []
+
+  const byId = new Map(studies.map((study) => [study?._id, study]))
+  const deterministic = rankTrialMatches(studies, profile)
+    .filter((row) => row?.decision !== 'unlikely')
+    .slice(0, MAX_LLM_RANK_STUDIES)
+  const textRanked = quickTextRankStudies(studies, getLastUserMessage(messages)?.content || '')
+  const merged = mergeRankedResults(deterministic, textRanked, MAX_LLM_RANK_STUDIES)
+  const shortlist = merged.map((row) => byId.get(row?._id)).filter(Boolean)
+
+  if (shortlist.length) return shortlist
+  return studies.slice(0, MAX_LLM_RANK_STUDIES)
 }
 
 function getClientIp(headers) {
@@ -303,22 +330,26 @@ export async function POST(request) {
     const enrichedProfile =
       updatedProfile.diagnosis || !diagnosisHint ? updatedProfile : { ...updatedProfile, diagnosis: diagnosisHint }
 
-    const shouldRankMatches = llmTurn?.readyForMatching || hasMeaningfulPatientProfile(enrichedProfile)
+    const userTurns = countUserMessages(messages)
+    const wantsImmediateRanking = body?.requestMatches === true
+    const hasEnoughTurnsForRanking = wantsImmediateRanking || userTurns >= MIN_USER_TURNS_BEFORE_LLM_RANKING
+    const shouldRankMatches =
+      (llmTurn?.readyForMatching || hasMeaningfulPatientProfile(enrichedProfile)) && hasEnoughTurnsForRanking
     const llmOpts = buildLlmOptions(settings)
     let rankedResults = []
     if (shouldRankMatches) {
+      const rankingShortlist = buildLlmRankingShortlist(assistantStudies, enrichedProfile, messages)
       try {
         rankedResults = await generateTrialMatchStudyRanking(
-          { profile: enrichedProfile, studies: assistantStudies },
+          { profile: enrichedProfile, studies: rankingShortlist },
           { ...llmOpts, maxTokens: 1200, temperature: 0.35 }
         )
       } catch (rankError) {
         console.error('[trial-match-chat] LLM study ranking failed, using rule-based fallback', rankError)
-        rankedResults = sliceRankedTrialMatches(rankTrialMatches(assistantStudies, enrichedProfile), MAX_RESULTS)
+        rankedResults = sliceRankedTrialMatches(rankTrialMatches(rankingShortlist, enrichedProfile), MAX_RESULTS)
       }
     } else {
-      const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user')
-      rankedResults = quickTextRankStudies(assistantStudies, lastUserMessage?.content || '')
+      rankedResults = quickTextRankStudies(assistantStudies, getLastUserMessage(messages)?.content || '')
     }
 
     const privacyPrefix = hadRedaction

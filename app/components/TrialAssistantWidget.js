@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const INITIAL_ASSISTANT_MESSAGE =
-  'Does your patient qualify for a trial? Share de-identified major inclusion details: primary kidney diagnosis (for example IgAN or lupus nephritis), eGFR (mL/min/1.73 m²) if known, key comorbidities (for example diabetes, hypertension), and relevant medications.'
+  'Does your patient qualify for a trial?'
 
 const MAX_INPUT_LENGTH = 600
 
@@ -70,6 +70,27 @@ function decisionBadge(decision) {
 function statusLabel(status) {
   if (status === 'recruiting') return 'Recruiting'
   return 'Status unavailable'
+}
+
+function LauncherIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-6 w-6"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="6" />
+      <path d="m20 20-4.2-4.2" />
+      <path d="M11 8.5v5" />
+      <path d="M8.5 11h5" />
+    </svg>
+  )
 }
 
 function ResultReasonList({ title, reasons }) {
@@ -278,18 +299,34 @@ export default function TrialAssistantWidget() {
   if (!isExpanded) {
     return (
       <div className="fixed z-[60] [bottom:max(1rem,env(safe-area-inset-bottom))] [right:max(1rem,env(safe-area-inset-right))] sm:bottom-6 sm:right-6">
-        <button
-          ref={launcherRef}
-          type="button"
-          onClick={openAssistant}
-          aria-controls={PANEL_ID}
-          aria-expanded="false"
-          aria-label="Open trial assistant"
-          className="min-h-11 rounded-full border border-black/10 bg-white px-4 py-3 shadow-lg transition hover:border-purple/30 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30"
-        >
-          <span className="block text-sm font-semibold text-gray-900 text-left">Trial assistant</span>
-          <span className="block text-sm text-gray-600 text-left">Find studies for your patients</span>
-        </button>
+        <div className="group relative flex items-center justify-end">
+          <div className="pointer-events-none absolute bottom-full right-0 mb-3 sm:bottom-auto sm:right-16 sm:mb-0">
+            <span className="flex max-w-[calc(100vw-2rem)] overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-purple/15 bg-white/95 px-4 py-2 text-sm font-semibold text-gray-800 shadow-lg ring-1 ring-black/5 backdrop-blur-sm sm:max-w-none sm:translate-x-2 sm:opacity-0 sm:transition sm:duration-200 sm:group-hover:translate-x-0 sm:group-hover:opacity-100 sm:group-focus-within:translate-x-0 sm:group-focus-within:opacity-100">
+              Find studies for your patients
+            </span>
+          </div>
+          <button
+            ref={launcherRef}
+            type="button"
+            onClick={openAssistant}
+            aria-haspopup="dialog"
+            aria-expanded="false"
+            aria-label="Find studies for your patients"
+            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-purple text-white shadow-xl transition duration-200 hover:scale-[1.03] hover:bg-purple/90 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 focus-visible:ring-offset-2"
+          >
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full bg-purple/30 opacity-70 animate-ping motion-reduce:animate-none [animation-duration:2.8s]"
+            />
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full ring-1 ring-white/20"
+            />
+            <span className="relative flex h-14 w-14 items-center justify-center">
+              <LauncherIcon />
+            </span>
+          </button>
+        </div>
       </div>
     )
   }
@@ -354,7 +391,14 @@ export default function TrialAssistantWidget() {
             {loading && (
               <div className="flex justify-start">
                 <div className="rounded-2xl border border-black/5 bg-gray-50 px-4 py-3 text-sm text-gray-500">
-                  Thinking...
+                  <span className="inline-flex items-center gap-2">
+                    <span className="animate-pulse">Looking for studies</span>
+                    <span className="inline-flex gap-1" aria-hidden="true">
+                      <span className="h-1 w-1 rounded-full bg-gray-400 animate-bounce [animation-delay:0ms]" />
+                      <span className="h-1 w-1 rounded-full bg-gray-400 animate-bounce [animation-delay:150ms]" />
+                      <span className="h-1 w-1 rounded-full bg-gray-400 animate-bounce [animation-delay:300ms]" />
+                    </span>
+                  </span>
                 </div>
               </div>
             )}
@@ -470,7 +514,7 @@ export default function TrialAssistantWidget() {
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <p id={HELP_ID} className="text-sm leading-relaxed text-gray-600">
-                  Non-identifying details only. Avoid names, birth dates, phone numbers, and record numbers.
+                  Non-identifying details only. Avoid names, birth dates, phone numbers, and record numbers. Information is not stored.
                 </p>
                 <button
                   type="submit"
