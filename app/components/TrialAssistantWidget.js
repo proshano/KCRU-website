@@ -132,8 +132,10 @@ export default function TrialAssistantWidget() {
   const launcherRef = useRef(null)
   const inputRef = useRef(null)
   const formRef = useRef(null)
+  const logRef = useRef(null)
   const loadingMessageRef = useRef(null)
   const latestAssistantMessageRef = useRef(null)
+  const resultsSectionRef = useRef(null)
   const autoScrollTargetRef = useRef(null)
   const recognitionRef = useRef(null)
   const voiceBaseRef = useRef('')
@@ -172,16 +174,20 @@ export default function TrialAssistantWidget() {
     if (typeof window === 'undefined') return
 
     const frame = window.requestAnimationFrame(() => {
+      const logNode = logRef.current
       const target =
         autoScrollTargetRef.current === 'loading'
           ? loadingMessageRef.current
-          : latestAssistantMessageRef.current || loadingMessageRef.current
+          : autoScrollTargetRef.current === 'results'
+            ? resultsSectionRef.current || latestAssistantMessageRef.current
+            : latestAssistantMessageRef.current || loadingMessageRef.current
 
-      target?.scrollIntoView({
-        behavior: 'smooth',
-        block: autoScrollTargetRef.current === 'loading' ? 'end' : 'start',
-        inline: 'nearest',
-      })
+      if (logNode && target) {
+        const targetTop = Math.max(0, target.offsetTop - logNode.offsetTop - 12)
+        const targetBottom = Math.max(0, target.offsetTop - logNode.offsetTop - logNode.clientHeight + target.clientHeight + 16)
+        const nextTop = autoScrollTargetRef.current === 'loading' ? targetBottom : targetTop
+        logNode.scrollTo({ top: nextTop, behavior: 'smooth' })
+      }
 
       if (!loading) {
         autoScrollTargetRef.current = null
@@ -348,6 +354,8 @@ export default function TrialAssistantWidget() {
           'Share the diagnosis and the eGFR, or just say the patient is on dialysis.',
       }
 
+      autoScrollTargetRef.current =
+        Array.isArray(data.results) && data.results.length > 0 ? 'results' : 'response'
       setMessages([...nextMessages, assistantMessage])
       setProfile(data.profile || {})
       setResults(Array.isArray(data.results) ? data.results : [])
@@ -361,14 +369,14 @@ export default function TrialAssistantWidget() {
 
   if (!isExpanded) {
     return (
-      <div className="fixed z-[60] [bottom:max(1rem,env(safe-area-inset-bottom))] [right:max(1rem,env(safe-area-inset-right))] sm:bottom-6 sm:right-6">
+      <div className="fixed z-[60] flex justify-center [bottom:max(1rem,env(safe-area-inset-bottom))] [left:max(1rem,env(safe-area-inset-left))] [right:max(1rem,env(safe-area-inset-right))] sm:bottom-6 sm:left-auto sm:right-6 sm:justify-end">
         <button
           ref={launcherRef}
           type="button"
           onClick={openAssistant}
           aria-haspopup="dialog"
           aria-expanded="false"
-          className="relative flex w-[calc(100vw-2rem)] max-w-[15.4rem] min-h-[2.875rem] touch-manipulation items-center gap-[0.525rem] rounded-full border border-white/15 bg-purple px-3.5 py-[0.6125rem] text-left text-white shadow-lg transition duration-200 active:scale-[0.99] active:bg-purple/95 hover:bg-purple/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/40 focus-visible:ring-offset-1 sm:min-h-[2.8rem] sm:gap-[0.7rem] sm:px-[1.05rem] sm:py-[0.7rem]"
+          className="relative flex w-full max-w-[15.4rem] min-h-[2.875rem] touch-manipulation items-center gap-[0.525rem] rounded-full border border-white/15 bg-purple px-3.5 py-[0.6125rem] text-left text-white shadow-lg transition duration-200 active:scale-[0.99] active:bg-purple/95 hover:bg-purple/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/40 focus-visible:ring-offset-1 sm:min-h-[2.8rem] sm:gap-[0.7rem] sm:px-[1.05rem] sm:py-[0.7rem]"
         >
           {launcherPulse ? (
             <span
@@ -392,11 +400,11 @@ export default function TrialAssistantWidget() {
   }
 
   return (
-    <div className="fixed z-[60] [bottom:max(1rem,env(safe-area-inset-bottom))] [right:max(1rem,env(safe-area-inset-right))] sm:bottom-6 sm:right-6">
+    <div className="fixed z-[60] flex justify-center [bottom:max(1rem,env(safe-area-inset-bottom))] [left:max(1rem,env(safe-area-inset-left))] [right:max(1rem,env(safe-area-inset-right))] sm:bottom-6 sm:left-auto sm:right-6 sm:justify-end">
       <aside
         id={PANEL_ID}
         aria-labelledby={TITLE_ID}
-        className="flex w-[calc(100vw-2rem)] max-w-[24rem] flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"
+        className="flex w-full max-w-[24rem] flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"
         style={{
           height: 'min(78dvh, 42rem)',
           maxHeight: 'calc(100dvh - env(safe-area-inset-top) - max(1.25rem, env(safe-area-inset-bottom)) - 1rem)',
@@ -428,6 +436,7 @@ export default function TrialAssistantWidget() {
 
         <div className="flex min-h-0 flex-1 flex-col">
           <div
+            ref={logRef}
             role="log"
             aria-live="polite"
             aria-relevant="additions text"
@@ -473,7 +482,7 @@ export default function TrialAssistantWidget() {
             )}
 
             {fallbackResults.length > 0 && (
-              <div className="space-y-3">
+              <div ref={resultsSectionRef} className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Possible studies</p>
                   <Link
