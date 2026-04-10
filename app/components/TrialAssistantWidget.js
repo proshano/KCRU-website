@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const INITIAL_ASSISTANT_MESSAGE =
-  'Does your patient qualify for a trial?'
+  "Start with the diagnosis and share the eGFR, or just say the patient is on dialysis. I'll narrow down the recruiting studies from there."
 
 const MAX_INPUT_LENGTH = 600
 
@@ -315,7 +315,7 @@ export default function TrialAssistantWidget() {
         role: 'assistant',
         content:
           data.reply ||
-          'Add diagnosis and eGFR if known.',
+          'Share the diagnosis and the eGFR, or just say the patient is on dialysis.',
       }
 
       setMessages([...nextMessages, assistantMessage])
@@ -372,7 +372,7 @@ export default function TrialAssistantWidget() {
         <div className="flex items-start justify-between gap-3 border-b border-black/5 px-4 py-4 bg-gray-50">
           <div>
             <h2 id={TITLE_ID} className="text-base font-semibold tracking-tight text-gray-900">Trial matching assistant</h2>
-            <p className="text-sm text-gray-600">Minimize to keep browsing</p>
+            <p className="text-sm text-gray-600">Diagnosis plus eGFR, or say the patient is on dialysis.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -493,7 +493,7 @@ export default function TrialAssistantWidget() {
             )}
             <form ref={formRef} onSubmit={handleSubmit} className="space-y-3">
               <label htmlFor={INPUT_ID} className="sr-only">
-                Describe non-identifying patient characteristics
+                Enter non-identifying diagnosis and eGFR, or say the patient is on dialysis
               </label>
               <div className="flex gap-2">
                 <textarea
@@ -512,7 +512,7 @@ export default function TrialAssistantWidget() {
                   }}
                   rows={3}
                   maxLength={MAX_INPUT_LENGTH}
-                  placeholder="De-identified: diagnosis, eGFR, key meds, comorbidities."
+                  placeholder="Diagnosis and eGFR, or say the patient is on dialysis."
                   className="min-h-[5.5rem] flex-1 rounded-xl border border-black/10 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple/30 focus:border-purple"
                 />
                 {voiceSupported ? (
@@ -544,7 +544,7 @@ export default function TrialAssistantWidget() {
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <p id={HELP_ID} className="text-sm leading-relaxed text-gray-600">
-                  Non-identifying details only. Avoid names, birth dates, phone numbers, and record numbers. Information is not stored.
+                  Non-identifying details only. No names, birth dates, phone numbers, or record numbers.
                 </p>
                 <button
                   type="submit"
