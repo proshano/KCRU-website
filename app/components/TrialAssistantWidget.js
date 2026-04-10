@@ -132,6 +132,9 @@ export default function TrialAssistantWidget() {
   const launcherRef = useRef(null)
   const inputRef = useRef(null)
   const formRef = useRef(null)
+  const loadingMessageRef = useRef(null)
+  const latestAssistantMessageRef = useRef(null)
+  const autoScrollTargetRef = useRef(null)
   const recognitionRef = useRef(null)
   const voiceBaseRef = useRef('')
   const voiceSessionFinalRef = useRef('')
@@ -162,6 +165,31 @@ export default function TrialAssistantWidget() {
     inputRef.current?.focus()
     setShouldFocusInput(false)
   }, [isExpanded, shouldFocusInput])
+
+  useEffect(() => {
+    if (!isExpanded) return
+    if (!autoScrollTargetRef.current) return
+    if (typeof window === 'undefined') return
+
+    const frame = window.requestAnimationFrame(() => {
+      const target =
+        autoScrollTargetRef.current === 'loading'
+          ? loadingMessageRef.current
+          : latestAssistantMessageRef.current || loadingMessageRef.current
+
+      target?.scrollIntoView({
+        behavior: 'smooth',
+        block: autoScrollTargetRef.current === 'loading' ? 'end' : 'start',
+        inline: 'nearest',
+      })
+
+      if (!loading) {
+        autoScrollTargetRef.current = null
+      }
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [isExpanded, loading, messages, results])
 
   useEffect(() => {
     setVoiceSupported(!!getSpeechRecognitionConstructor())
@@ -271,6 +299,7 @@ export default function TrialAssistantWidget() {
 
   function resetAssistant() {
     stopVoiceRecognition()
+    autoScrollTargetRef.current = 'response'
     setMessages(createInitialMessages())
     setInput('')
     setProfile({})
@@ -291,6 +320,7 @@ export default function TrialAssistantWidget() {
     const userMessage = { role: 'user', content: trimmed }
     const nextMessages = [...messages, userMessage]
 
+    autoScrollTargetRef.current = 'loading'
     setMessages(nextMessages)
     setInput('')
     setError('')
@@ -338,7 +368,7 @@ export default function TrialAssistantWidget() {
           onClick={openAssistant}
           aria-haspopup="dialog"
           aria-expanded="false"
-          className="relative flex w-[calc(100vw-2rem)] max-w-[15.4rem] min-h-[2.625rem] items-center gap-[0.525rem] rounded-full border border-white/15 bg-purple px-3.5 py-[0.6125rem] text-left text-white shadow-lg transition duration-200 hover:bg-purple/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/40 focus-visible:ring-offset-1 sm:min-h-[2.8rem] sm:gap-[0.7rem] sm:px-[1.05rem] sm:py-[0.7rem]"
+          className="relative flex w-[calc(100vw-2rem)] max-w-[15.4rem] min-h-[2.875rem] touch-manipulation items-center gap-[0.525rem] rounded-full border border-white/15 bg-purple px-3.5 py-[0.6125rem] text-left text-white shadow-lg transition duration-200 active:scale-[0.99] active:bg-purple/95 hover:bg-purple/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/40 focus-visible:ring-offset-1 sm:min-h-[2.8rem] sm:gap-[0.7rem] sm:px-[1.05rem] sm:py-[0.7rem]"
         >
           {launcherPulse ? (
             <span
@@ -367,25 +397,28 @@ export default function TrialAssistantWidget() {
         id={PANEL_ID}
         aria-labelledby={TITLE_ID}
         className="flex w-[calc(100vw-2rem)] max-w-[24rem] flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"
-        style={{ height: 'min(72vh, 42rem)' }}
+        style={{
+          height: 'min(78dvh, 42rem)',
+          maxHeight: 'calc(100dvh - env(safe-area-inset-top) - max(1.25rem, env(safe-area-inset-bottom)) - 1rem)',
+        }}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-black/5 px-4 py-4 bg-gray-50">
-          <div>
+        <div className="flex items-start justify-between gap-3 border-b border-black/5 bg-gray-50 px-4 py-4">
+          <div className="min-w-0 flex-1">
             <h2 id={TITLE_ID} className="text-base font-semibold tracking-tight text-gray-900">Trial assistant</h2>
             <p className="text-sm text-gray-600">Diagnosis plus eGFR, or say the patient is on dialysis.</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={resetAssistant}
-              className="min-h-11 rounded-lg px-3 text-sm font-medium text-gray-600 transition hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30"
+              className="min-h-11 touch-manipulation rounded-xl border border-black/10 bg-white px-3.5 text-sm font-medium text-gray-700 transition active:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30"
             >
               Reset
             </button>
             <button
               type="button"
               onClick={minimizeAssistant}
-              className="min-h-11 rounded-lg px-3 text-sm font-medium text-gray-600 transition hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30"
+              className="min-h-11 touch-manipulation rounded-xl border border-black/10 bg-white px-3.5 text-sm font-medium text-gray-700 transition active:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30"
               aria-label="Minimize trial assistant"
             >
               Minimize
@@ -399,12 +432,18 @@ export default function TrialAssistantWidget() {
             aria-live="polite"
             aria-relevant="additions text"
             aria-busy={loading}
-            className="flex-1 overflow-y-auto px-4 py-4 space-y-4"
+            className="flex-1 space-y-4 overflow-y-auto overscroll-y-contain px-4 py-4"
+            style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {messages.map((message, index) => {
               const isAssistant = message.role === 'assistant'
+              const isLatestAssistantMessage = isAssistant && index === messages.length - 1
               return (
-                <div key={`${message.role}-${index}`} className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}>
+                <div
+                  key={`${message.role}-${index}`}
+                  ref={isLatestAssistantMessage ? latestAssistantMessageRef : null}
+                  className={`flex ${isAssistant ? 'justify-start' : 'justify-end'}`}
+                >
                   <div
                     className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                       isAssistant
@@ -419,7 +458,7 @@ export default function TrialAssistantWidget() {
             })}
 
             {loading && (
-              <div className="flex justify-start">
+              <div ref={loadingMessageRef} className="flex justify-start">
                 <div className="rounded-2xl border border-black/5 bg-gray-50 px-4 py-3 text-sm text-gray-500">
                   <span className="inline-flex items-center gap-2">
                     <span className="animate-pulse">Looking for studies</span>
@@ -440,7 +479,7 @@ export default function TrialAssistantWidget() {
                   <Link
                     href="/trials"
                     prefetch={false}
-                    className="text-sm font-medium text-purple hover:text-purple/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30"
+                    className="touch-manipulation text-sm font-medium text-purple hover:text-purple/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30"
                   >
                     View all studies
                   </Link>
@@ -457,7 +496,7 @@ export default function TrialAssistantWidget() {
                               <Link
                                 href={`/trials/${result.slug}`}
                                 prefetch={false}
-                                className="hover:text-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 rounded-sm"
+                                className="touch-manipulation rounded-sm hover:text-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30"
                               >
                                 {result.title}
                               </Link>
@@ -523,10 +562,10 @@ export default function TrialAssistantWidget() {
                     aria-pressed={voiceListening}
                     title={voiceListening ? 'Stop dictation' : 'Dictate with microphone'}
                     aria-label={voiceListening ? 'Stop voice input' : 'Start voice input'}
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center self-start rounded-xl border text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 disabled:opacity-50 ${
+                    className={`flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center self-start rounded-xl border text-sm font-semibold transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 disabled:opacity-50 ${
                       voiceListening
                         ? 'border-red-200 bg-red-50 text-red-800'
-                        : 'border-black/10 bg-white text-gray-700 hover:border-purple/30'
+                        : 'border-black/10 bg-white text-gray-700 active:bg-gray-50 hover:border-purple/30'
                     }`}
                   >
                     <span className="sr-only">{voiceListening ? 'Stop' : 'Microphone'}</span>
@@ -549,7 +588,7 @@ export default function TrialAssistantWidget() {
                 <button
                   type="submit"
                   disabled={loading || !input.trim()}
-                  className="min-h-11 self-end rounded-lg bg-purple px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 disabled:opacity-50 sm:shrink-0"
+                  className="min-h-11 w-full touch-manipulation rounded-xl bg-purple px-4 py-2 text-sm font-semibold text-white transition active:scale-[0.99] active:bg-purple/95 hover:bg-purple/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 disabled:opacity-50 sm:w-auto sm:shrink-0"
                 >
                   {loading ? 'Sending...' : 'Send'}
                 </button>
