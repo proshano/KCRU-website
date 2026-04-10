@@ -414,7 +414,7 @@ export default function TrialAssistantWidget() {
           maxHeight: 'calc(100dvh - env(safe-area-inset-top) - max(1.25rem, env(safe-area-inset-bottom)) - 1rem)',
         }}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-black/5 bg-gray-50 px-4 py-4">
+        <div className="flex items-start justify-between gap-2 border-b border-black/5 bg-gray-50 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4">
           <div className="min-w-0 flex-1">
             <h2 id={TITLE_ID} className="text-base font-semibold tracking-tight text-gray-900">Trial assistant</h2>
           </div>
@@ -422,14 +422,14 @@ export default function TrialAssistantWidget() {
             <button
               type="button"
               onClick={resetAssistant}
-              className="min-h-11 touch-manipulation rounded-xl border border-black/10 bg-white px-3.5 text-sm font-medium text-gray-700 transition active:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30"
+              className="min-h-9 touch-manipulation whitespace-nowrap rounded-lg border border-black/10 bg-white px-2.5 text-[13px] font-medium text-gray-700 transition active:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 sm:min-h-11 sm:rounded-xl sm:px-3.5 sm:text-sm"
             >
               Reset
             </button>
             <button
               type="button"
               onClick={minimizeAssistant}
-              className="min-h-11 touch-manipulation rounded-xl border border-black/10 bg-white px-3.5 text-sm font-medium text-gray-700 transition active:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30"
+              className="min-h-9 touch-manipulation whitespace-nowrap rounded-lg border border-black/10 bg-white px-2.5 text-[13px] font-medium text-gray-700 transition active:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 sm:min-h-11 sm:rounded-xl sm:px-3.5 sm:text-sm"
               aria-label="Minimize trial assistant"
             >
               Minimize
@@ -444,7 +444,7 @@ export default function TrialAssistantWidget() {
             aria-live="polite"
             aria-relevant="additions text"
             aria-busy={loading}
-            className="flex-1 space-y-4 overflow-y-auto overscroll-y-contain px-4 py-4"
+            className="flex-1 space-y-3 overflow-y-auto overscroll-y-contain px-3 py-3 sm:space-y-4 sm:px-4 sm:py-4"
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {messages.map((message, index) => {
@@ -491,7 +491,7 @@ export default function TrialAssistantWidget() {
                   <Link
                     href="/trials"
                     prefetch={false}
-                    className="touch-manipulation text-sm font-medium text-purple hover:text-purple/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30"
+                    className="touch-manipulation text-xs font-medium text-purple hover:text-purple/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 sm:text-sm"
                   >
                     View all studies
                   </Link>
@@ -500,7 +500,7 @@ export default function TrialAssistantWidget() {
                 {fallbackResults.map((result) => {
                   const badge = decisionBadge(result.decision)
                   return (
-                    <article key={result._id} className="rounded-xl border border-black/5 bg-gray-50 p-4 space-y-3">
+                    <article key={result._id} className="space-y-3 rounded-xl border border-black/5 bg-gray-50 p-3 sm:p-4">
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           {result.slug ? (
@@ -518,7 +518,7 @@ export default function TrialAssistantWidget() {
                           )}
                           <p className="text-xs text-gray-600">{statusLabel(result.status)}</p>
                         </div>
-                        <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold ${badge.className}`}>
+                        <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold sm:text-[11px] ${badge.className}`}>
                           {badge.label}
                         </span>
                       </div>
@@ -536,83 +536,92 @@ export default function TrialAssistantWidget() {
             )}
           </div>
 
-          <div className="border-t border-black/5 px-4 py-4 space-y-3">
+          <div className="space-y-3 border-t border-black/5 px-3 py-3 sm:px-4 sm:py-4">
             {error && (
               <p id={ERROR_ID} role="alert" className="text-sm font-medium text-red-700">
                 {error}
               </p>
             )}
-            <form ref={formRef} onSubmit={handleSubmit} className="space-y-3">
-              <label htmlFor={INPUT_ID} className="sr-only">
-                Enter non-identifying diagnosis and eGFR, or say the patient is on dialysis
-              </label>
-              <div className="flex gap-2">
-                <textarea
-                  ref={inputRef}
-                  id={INPUT_ID}
-                  aria-describedby={error ? `${HELP_ID} ${ERROR_ID}` : HELP_ID}
-                  disabled={chatLocked}
-                  value={input}
-                  onChange={(event) => setInput(event.target.value.slice(0, MAX_INPUT_LENGTH))}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter') return
-                    if (event.shiftKey) return
-                    if (event.isComposing) return
-                    event.preventDefault()
-                    if (loading || chatLocked || !input.trim()) return
-                    formRef.current?.requestSubmit?.()
-                  }}
-                  rows={3}
-                  maxLength={MAX_INPUT_LENGTH}
-                  placeholder={
-                    chatLocked
-                      ? 'Reset the assistant to start a new search.'
-                      : 'Diagnosis and eGFR, or say the patient is on dialysis.'
-                  }
-                  className="min-h-[5.5rem] flex-1 rounded-xl border border-black/10 px-4 py-3 text-sm disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 focus:outline-none focus:ring-2 focus:ring-purple/30 focus:border-purple"
-                />
-                {voiceSupported ? (
-                  <button
-                    type="button"
-                    onClick={toggleVoiceRecognition}
-                    disabled={loading || chatLocked}
-                    aria-pressed={voiceListening}
-                    title={voiceListening ? 'Stop dictation' : 'Dictate with microphone'}
-                    aria-label={voiceListening ? 'Stop voice input' : 'Start voice input'}
-                    className={`flex h-11 w-11 shrink-0 touch-manipulation items-center justify-center self-start rounded-xl border text-sm font-semibold transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 disabled:opacity-50 ${
-                      voiceListening
-                        ? 'border-red-200 bg-red-50 text-red-800'
-                        : 'border-black/10 bg-white text-gray-700 active:bg-gray-50 hover:border-purple/30'
-                    }`}
-                  >
-                    <span className="sr-only">{voiceListening ? 'Stop' : 'Microphone'}</span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className="h-5 w-5"
-                      aria-hidden
-                    >
-                      <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 1 1-10 0H5a7 7 0 0 0 6 6.92V20H9v2h6v-2h-2v-2.08A7 7 0 0 0 19 11h-2z" />
-                    </svg>
-                  </button>
-                ) : null}
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            {chatLocked ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p id={HELP_ID} className="text-sm leading-relaxed text-gray-600">
-                  {chatLocked
-                    ? 'Results are shown above. Press Reset to start a new search.'
-                    : 'Non-identifying details only. No names, birth dates, phone numbers, or record numbers.'}
+                  Results are shown above. Press Reset to start a new search.
                 </p>
                 <button
-                  type="submit"
-                  disabled={loading || chatLocked || !input.trim()}
-                  className="min-h-11 w-full touch-manipulation rounded-xl bg-purple px-4 py-2 text-sm font-semibold text-white transition active:scale-[0.99] active:bg-purple/95 hover:bg-purple/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 disabled:scale-100 disabled:bg-gray-300 disabled:text-white disabled:opacity-100 sm:w-auto sm:shrink-0"
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  className="min-h-10 w-full rounded-xl bg-gray-300 px-4 py-2 text-sm font-semibold text-white sm:min-h-11 sm:w-auto sm:shrink-0"
                 >
-                  {loading ? 'Sending...' : 'Send'}
+                  Send
                 </button>
               </div>
-            </form>
+            ) : (
+              <form ref={formRef} onSubmit={handleSubmit} className="space-y-3">
+                <label htmlFor={INPUT_ID} className="sr-only">
+                  Enter non-identifying diagnosis and eGFR, or say the patient is on dialysis
+                </label>
+                <div className="flex gap-2">
+                  <textarea
+                    ref={inputRef}
+                    id={INPUT_ID}
+                    aria-describedby={error ? `${HELP_ID} ${ERROR_ID}` : HELP_ID}
+                    value={input}
+                    onChange={(event) => setInput(event.target.value.slice(0, MAX_INPUT_LENGTH))}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter') return
+                      if (event.shiftKey) return
+                      if (event.isComposing) return
+                      event.preventDefault()
+                      if (loading || chatLocked || !input.trim()) return
+                      formRef.current?.requestSubmit?.()
+                    }}
+                    rows={3}
+                    maxLength={MAX_INPUT_LENGTH}
+                    placeholder="Diagnosis and eGFR, or say the patient is on dialysis."
+                    className="min-h-[4.5rem] flex-1 rounded-xl border border-black/10 px-4 py-3 text-sm focus:border-purple focus:outline-none focus:ring-2 focus:ring-purple/30 sm:min-h-[5.5rem]"
+                  />
+                  {voiceSupported ? (
+                    <button
+                      type="button"
+                      onClick={toggleVoiceRecognition}
+                      disabled={loading}
+                      aria-pressed={voiceListening}
+                      title={voiceListening ? 'Stop dictation' : 'Dictate with microphone'}
+                      aria-label={voiceListening ? 'Stop voice input' : 'Start voice input'}
+                      className={`flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center self-start rounded-xl border text-sm font-semibold transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 disabled:opacity-50 sm:h-11 sm:w-11 ${
+                        voiceListening
+                          ? 'border-red-200 bg-red-50 text-red-800'
+                          : 'border-black/10 bg-white text-gray-700 active:bg-gray-50 hover:border-purple/30'
+                      }`}
+                    >
+                      <span className="sr-only">{voiceListening ? 'Stop' : 'Microphone'}</span>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="h-5 w-5"
+                        aria-hidden
+                      >
+                        <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 1 1-10 0H5a7 7 0 0 0 6 6.92V20H9v2h6v-2h-2v-2.08A7 7 0 0 0 19 11h-2z" />
+                      </svg>
+                    </button>
+                  ) : null}
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <p id={HELP_ID} className="text-sm leading-relaxed text-gray-600">
+                    Non-identifying details only. No names, birth dates, phone numbers, or record numbers.
+                  </p>
+                  <button
+                    type="submit"
+                    disabled={loading || !input.trim()}
+                    className="min-h-10 w-full touch-manipulation rounded-xl bg-purple px-4 py-2 text-sm font-semibold text-white transition active:scale-[0.99] active:bg-purple/95 hover:bg-purple/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 disabled:scale-100 disabled:bg-gray-300 disabled:text-white disabled:opacity-100 sm:min-h-11 sm:w-auto sm:shrink-0"
+                  >
+                    {loading ? 'Sending...' : 'Send'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       </aside>
