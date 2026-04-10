@@ -35,8 +35,7 @@ function tokenizeQuery(text) {
 function buildStudyHaystack(study) {
   const prescreenSummary = study?.prescreen?.screeningSummary || ''
   const inc = Array.isArray(study?.inclusionCriteria) ? study.inclusionCriteria.join(' ') : ''
-  const exc = Array.isArray(study?.exclusionCriteria) ? study.exclusionCriteria.join(' ') : ''
-  return sanitizeText([study?.title, study?.laySummary, prescreenSummary, inc, exc].filter(Boolean).join(' '))
+  return sanitizeText([study?.title, study?.laySummary, prescreenSummary, inc].filter(Boolean).join(' '))
 }
 
 function quickTextRankStudies(studies, queryText) {
@@ -199,6 +198,15 @@ function buildLlmOptions(settings) {
   }
 }
 
+function stripExclusionCriteriaForAssistant(studies = []) {
+  if (!Array.isArray(studies)) return []
+  return studies.map((study) => {
+    if (!study || typeof study !== 'object') return study
+    const { exclusionCriteria: _excluded, ...safeStudy } = study
+    return safeStudy
+  })
+}
+
 function buildResponse(body, status = 200) {
   return NextResponse.json(body, {
     status,
@@ -270,6 +278,7 @@ export async function POST(request) {
     }
 
     const studies = JSON.parse(JSON.stringify(studiesRaw || []))
+    const assistantStudies = stripExclusionCriteriaForAssistant(studies)
     if (!studies.length) {
       return buildResponse({
         ok: true,
@@ -283,8 +292,8 @@ export async function POST(request) {
       {
         currentProfile,
         messages,
-        trialCatalog: buildTrialCatalogForPrompt(studies),
-        trialEligibilityCatalog: buildTrialEligibilityCatalogForPrompt(studies),
+        trialCatalog: buildTrialCatalogForPrompt(assistantStudies),
+        trialEligibilityCatalog: buildTrialEligibilityCatalogForPrompt(assistantStudies),
       },
       buildLlmOptions(settings)
     )
@@ -300,16 +309,16 @@ export async function POST(request) {
     if (shouldRankMatches) {
       try {
         rankedResults = await generateTrialMatchStudyRanking(
-          { profile: enrichedProfile, studies },
+          { profile: enrichedProfile, studies: assistantStudies },
           { ...llmOpts, maxTokens: 1200, temperature: 0.35 }
         )
       } catch (rankError) {
         console.error('[trial-match-chat] LLM study ranking failed, using rule-based fallback', rankError)
-        rankedResults = sliceRankedTrialMatches(rankTrialMatches(studies, enrichedProfile), MAX_RESULTS)
+        rankedResults = sliceRankedTrialMatches(rankTrialMatches(assistantStudies, enrichedProfile), MAX_RESULTS)
       }
     } else {
       const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user')
-      rankedResults = quickTextRankStudies(studies, lastUserMessage?.content || '')
+      rankedResults = quickTextRankStudies(assistantStudies, lastUserMessage?.content || '')
     }
 
     const privacyPrefix = hadRedaction
