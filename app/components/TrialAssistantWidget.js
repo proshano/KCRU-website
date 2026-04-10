@@ -136,6 +136,7 @@ export default function TrialAssistantWidget() {
   const loadingMessageRef = useRef(null)
   const latestAssistantMessageRef = useRef(null)
   const resultsSectionRef = useRef(null)
+  const lastPathnameRef = useRef(pathname)
   const autoScrollTargetRef = useRef(null)
   const recognitionRef = useRef(null)
   const voiceBaseRef = useRef('')
@@ -153,6 +154,7 @@ export default function TrialAssistantWidget() {
   const [voiceSupported, setVoiceSupported] = useState(false)
   const [voiceListening, setVoiceListening] = useState(false)
   const [launcherPulse, setLauncherPulse] = useState(false)
+  const [inputFocused, setInputFocused] = useState(false)
   const [floatingViewport, setFloatingViewport] = useState({
     bottomOffset: 0,
     viewportHeight: null,
@@ -225,6 +227,19 @@ export default function TrialAssistantWidget() {
     if (readLauncherPulseSuppressed()) return
     setLauncherPulse(true)
   }, [])
+
+  useEffect(() => {
+    const previousPathname = lastPathnameRef.current
+    lastPathnameRef.current = pathname
+
+    if (!previousPathname || previousPathname === pathname) return
+    if (!isExpanded || !floatingViewport.isSmallScreen) return
+
+    stopVoiceRecognition()
+    setShouldFocusInput(false)
+    setInputFocused(false)
+    setIsExpanded(false)
+  }, [floatingViewport.isSmallScreen, isExpanded, pathname])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -346,6 +361,9 @@ export default function TrialAssistantWidget() {
   }
 
   function minimizeAssistant() {
+    stopVoiceRecognition()
+    setShouldFocusInput(false)
+    setInputFocused(false)
     setIsExpanded(false)
     window.requestAnimationFrame(() => {
       launcherRef.current?.focus()
@@ -362,17 +380,43 @@ export default function TrialAssistantWidget() {
     setConversationComplete(false)
     setError('')
     setLoading(false)
+    setInputFocused(false)
     setIsExpanded(true)
     setShouldFocusInput(true)
   }
 
+  const isMobileSheet = floatingViewport.isSmallScreen
   const floatingBottomBase = floatingViewport.isSmallScreen ? 16 : 24
-  const floatingDockStyle = {
-    bottom: `calc(env(safe-area-inset-bottom) + ${floatingBottomBase + floatingViewport.bottomOffset}px)`,
-  }
+  const floatingDockStyle = isMobileSheet
+    ? {
+        bottom: `${floatingViewport.bottomOffset}px`,
+      }
+    : {
+        bottom: `calc(env(safe-area-inset-bottom) + ${floatingBottomBase + floatingViewport.bottomOffset}px)`,
+      }
   const panelMaxHeight = floatingViewport.viewportHeight
     ? `calc(${floatingViewport.viewportHeight}px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - ${floatingBottomBase + floatingViewport.bottomOffset + 16}px)`
     : 'calc(100dvh - env(safe-area-inset-top) - max(1.25rem, env(safe-area-inset-bottom)) - 1rem)'
+  const mobileSheetHeight = floatingViewport.viewportHeight
+    ? `${Math.max(0, floatingViewport.viewportHeight - 8)}px`
+    : 'calc(100dvh - 0.5rem)'
+  const panelStyle = isMobileSheet
+    ? {
+        height: mobileSheetHeight,
+        maxHeight: mobileSheetHeight,
+      }
+    : {
+        height: 'min(78dvh, 42rem)',
+        maxHeight: panelMaxHeight,
+      }
+
+  function handleAssistantNavigation() {
+    if (!isMobileSheet) return
+    stopVoiceRecognition()
+    setShouldFocusInput(false)
+    setInputFocused(false)
+    setIsExpanded(false)
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -463,19 +507,24 @@ export default function TrialAssistantWidget() {
 
   return (
     <div
-      className="fixed z-[60] flex justify-center [left:max(0.75rem,env(safe-area-inset-left))] [right:max(0.75rem,env(safe-area-inset-right))] sm:left-auto sm:right-6 sm:justify-end"
+      className={`fixed z-[60] flex justify-center ${isMobileSheet ? 'inset-x-0 top-0 items-end' : '[left:max(0.75rem,env(safe-area-inset-left))] [right:max(0.75rem,env(safe-area-inset-right))] sm:left-auto sm:right-6 sm:justify-end'}`}
       style={floatingDockStyle}
     >
+      {isMobileSheet ? (
+        <button
+          type="button"
+          onClick={minimizeAssistant}
+          aria-label="Close trial assistant"
+          className="absolute inset-0 bg-black/10 backdrop-blur-[1.5px]"
+        />
+      ) : null}
       <aside
         id={PANEL_ID}
         aria-labelledby={TITLE_ID}
-        className="flex w-full max-w-[22rem] flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl sm:max-w-[24rem]"
-        style={{
-          height: 'min(78dvh, 42rem)',
-          maxHeight: panelMaxHeight,
-        }}
+        className={`relative flex w-full flex-col overflow-hidden border border-black/10 bg-white ${isMobileSheet ? 'max-w-none rounded-t-[1.5rem] rounded-b-none border-x-0 border-b-0 shadow-[0_-18px_48px_rgba(0,0,0,0.18)]' : 'max-w-[22rem] rounded-2xl shadow-2xl sm:max-w-[24rem]'}`}
+        style={panelStyle}
       >
-        <div className="flex items-start justify-between gap-2 border-b border-black/5 bg-gray-50 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4">
+        <div className={`flex items-start justify-between gap-2 border-b border-black/5 bg-gray-50 ${isMobileSheet ? 'px-4 py-3' : 'px-3 py-3 sm:gap-3 sm:px-4 sm:py-4'}`}>
           <div className="min-w-0 flex-1">
             <h2 id={TITLE_ID} className="text-base font-semibold tracking-tight text-gray-900">Trial assistant</h2>
           </div>
@@ -483,14 +532,14 @@ export default function TrialAssistantWidget() {
             <button
               type="button"
               onClick={resetAssistant}
-              className="min-h-9 touch-manipulation whitespace-nowrap rounded-lg border border-black/10 bg-white px-2.5 text-[13px] font-medium text-gray-700 transition active:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 sm:min-h-11 sm:rounded-xl sm:px-3.5 sm:text-sm"
+              className={`touch-manipulation whitespace-nowrap border border-black/10 bg-white font-medium text-gray-700 transition active:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 ${isMobileSheet ? 'min-h-10 rounded-xl px-3 text-[13px]' : 'min-h-9 rounded-lg px-2.5 text-[13px] sm:min-h-11 sm:rounded-xl sm:px-3.5 sm:text-sm'}`}
             >
               Reset
             </button>
             <button
               type="button"
               onClick={minimizeAssistant}
-              className="min-h-9 touch-manipulation whitespace-nowrap rounded-lg border border-black/10 bg-white px-2.5 text-[13px] font-medium text-gray-700 transition active:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 sm:min-h-11 sm:rounded-xl sm:px-3.5 sm:text-sm"
+              className={`touch-manipulation whitespace-nowrap border border-black/10 bg-white font-medium text-gray-700 transition active:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 ${isMobileSheet ? 'min-h-10 rounded-xl px-3 text-[13px]' : 'min-h-9 rounded-lg px-2.5 text-[13px] sm:min-h-11 sm:rounded-xl sm:px-3.5 sm:text-sm'}`}
               aria-label="Minimize trial assistant"
             >
               Minimize
@@ -505,7 +554,7 @@ export default function TrialAssistantWidget() {
             aria-live="polite"
             aria-relevant="additions text"
             aria-busy={loading}
-            className="flex-1 space-y-3 overflow-y-auto overscroll-y-contain px-3 py-3 sm:space-y-4 sm:px-4 sm:py-4"
+            className={`flex-1 overflow-y-auto overscroll-y-contain ${isMobileSheet ? 'space-y-3 px-4 py-4' : 'space-y-3 px-3 py-3 sm:space-y-4 sm:px-4 sm:py-4'}`}
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {messages.map((message, index) => {
@@ -552,6 +601,7 @@ export default function TrialAssistantWidget() {
                   <Link
                     href="/trials"
                     prefetch={false}
+                    onClick={handleAssistantNavigation}
                     className="touch-manipulation text-xs font-medium text-purple hover:text-purple/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 sm:text-sm"
                   >
                     View all studies
@@ -569,6 +619,7 @@ export default function TrialAssistantWidget() {
                               <Link
                                 href={`/trials/${result.slug}`}
                                 prefetch={false}
+                                onClick={handleAssistantNavigation}
                                 className="touch-manipulation rounded-sm hover:text-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30"
                               >
                                 {result.title}
@@ -597,7 +648,10 @@ export default function TrialAssistantWidget() {
             )}
           </div>
 
-          <div className="space-y-3 border-t border-black/5 px-3 py-3 sm:px-4 sm:py-4">
+          <div
+            className={`space-y-3 border-t border-black/5 bg-white ${isMobileSheet ? 'px-4 pt-3' : 'px-3 py-3 sm:px-4 sm:py-4'}`}
+            style={isMobileSheet ? { paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' } : undefined}
+          >
             {error && (
               <p id={ERROR_ID} role="alert" className="text-sm font-medium text-red-700">
                 {error}
@@ -622,13 +676,15 @@ export default function TrialAssistantWidget() {
                 <label htmlFor={INPUT_ID} className="sr-only">
                   Enter non-identifying diagnosis and eGFR, or say the patient is on dialysis
                 </label>
-                <div className="flex gap-2">
+                <div className="flex items-start gap-2">
                   <textarea
                     ref={inputRef}
                     id={INPUT_ID}
                     aria-describedby={error ? `${HELP_ID} ${ERROR_ID}` : HELP_ID}
                     value={input}
                     onChange={(event) => setInput(event.target.value.slice(0, MAX_INPUT_LENGTH))}
+                    onFocus={() => setInputFocused(true)}
+                    onBlur={() => setInputFocused(false)}
                     onKeyDown={(event) => {
                       if (event.key !== 'Enter') return
                       if (event.shiftKey) return
@@ -637,10 +693,10 @@ export default function TrialAssistantWidget() {
                       if (loading || chatLocked || !input.trim()) return
                       formRef.current?.requestSubmit?.()
                     }}
-                    rows={3}
+                    rows={isMobileSheet ? 2 : 3}
                     maxLength={MAX_INPUT_LENGTH}
                     placeholder="Diagnosis and eGFR, or say the patient is on dialysis."
-                    className="min-h-[4.5rem] flex-1 rounded-xl border border-black/10 px-4 py-3 text-sm focus:border-purple focus:outline-none focus:ring-2 focus:ring-purple/30 sm:min-h-[5.5rem]"
+                    className={`flex-1 rounded-xl border border-black/10 px-4 py-3 text-sm focus:border-purple focus:outline-none focus:ring-2 focus:ring-purple/30 ${isMobileSheet ? 'min-h-[4rem]' : 'min-h-[4.5rem] sm:min-h-[5.5rem]'}`}
                   />
                   {voiceSupported ? (
                     <button
@@ -650,7 +706,7 @@ export default function TrialAssistantWidget() {
                       aria-pressed={voiceListening}
                       title={voiceListening ? 'Stop dictation' : 'Dictate with microphone'}
                       aria-label={voiceListening ? 'Stop voice input' : 'Start voice input'}
-                      className={`flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center self-start rounded-xl border text-sm font-semibold transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 disabled:opacity-50 sm:h-11 sm:w-11 ${
+                      className={`flex shrink-0 touch-manipulation items-center justify-center self-start rounded-xl border text-sm font-semibold transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 disabled:opacity-50 ${isMobileSheet ? 'h-11 w-11' : 'h-10 w-10 sm:h-11 sm:w-11'} ${
                         voiceListening
                           ? 'border-red-200 bg-red-50 text-red-800'
                           : 'border-black/10 bg-white text-gray-700 active:bg-gray-50 hover:border-purple/30'
@@ -670,9 +726,15 @@ export default function TrialAssistantWidget() {
                   ) : null}
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                  <p id={HELP_ID} className="text-sm leading-relaxed text-gray-600">
-                    Non-identifying details only. No names, birth dates, phone numbers, or record numbers.
-                  </p>
+                  {!(isMobileSheet && inputFocused) ? (
+                    <p id={HELP_ID} className="text-sm leading-relaxed text-gray-600">
+                      Non-identifying details only. No names, birth dates, phone numbers, or record numbers. Data are not stored.
+                    </p>
+                  ) : (
+                    <p id={HELP_ID} className="sr-only">
+                      Non-identifying details only. No names, birth dates, phone numbers, or record numbers. Data are not stored.
+                    </p>
+                  )}
                   <button
                     type="submit"
                     disabled={loading || !input.trim()}
