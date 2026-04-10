@@ -11,6 +11,13 @@
   --color-background: #FAFAF8;
 }
 
+html {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -21,10 +28,20 @@ body {
   font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   background-color: var(--color-background);
   color: #1a1a1a;
+  width: 100%;
+  max-width: 100%;
   line-height: 1.5;
   overflow-x: hidden;
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
 }
 
 a {
@@ -147,20 +164,6 @@ a {
   font-size: 12px;
   color: #aaaaaa !important;
   line-height: 1.5;
-}
-
-/* Recruiting ribbon */
-.recruiting-ribbon {
-  position: absolute;
-  top: 14px;
-  right: -42px;
-  background-color: var(--color-purple);
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  padding: 5px 45px;
-  transform: rotate(45deg);
 }
 
 /* Team member hover effect */

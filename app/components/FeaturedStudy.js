@@ -48,36 +48,35 @@ export default function FeaturedStudy({ trials = [] }) {
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick() }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="block mt-8 p-7 bg-gradient-to-br from-[#F5F3F0] to-[#EEEBE6] relative overflow-hidden cursor-pointer transition-all"
+      className="relative mt-8 block cursor-pointer overflow-hidden bg-gradient-to-br from-[#F5F3F0] to-[#EEEBE6] p-5 transition-all sm:p-7"
       style={{ 
-        height: '250px', 
-        minHeight: '250px', 
-        maxHeight: '250px', 
+        minHeight: '250px',
         flexShrink: 0, 
         touchAction: 'manipulation',
         border: isHovered ? '1.5px solid #5B21B6' : '1.5px solid transparent'
       }}
     >
-      {/* Recruiting ribbon */}
-      {trial.status === 'recruiting' && (
-        <div className="recruiting-ribbon pointer-events-none">RECRUITING</div>
-      )}
-
       <div className={`pointer-events-none transition-opacity duration-300 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
+        {trial.status === 'recruiting' && (
+          <div className="-mx-5 -mt-5 mb-5 bg-purple px-5 py-2.5 text-[11px] font-bold tracking-[0.12em] text-white sm:-mx-7 sm:-mt-7 sm:px-7 sm:py-3">
+            RECRUITING
+          </div>
+        )}
+
         {/* Title area - fixed height */}
-        <div style={{ height: '150px', overflow: 'hidden' }}>
+        <div className="overflow-hidden sm:h-[150px]">
           <div className="text-xl font-bold tracking-tight leading-[1.4] line-clamp-4">
             {title}
           </div>
         </div>
 
         {/* Bottom row: Investigator chip + Learn more */}
-        <div className="mt-4 flex items-center gap-4">
+        <div className="mt-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
           {/* Investigator chip */}
           {piName && (
-            <span className="inline-flex items-center gap-2 text-sm font-medium text-purple bg-white/60 px-3 py-1.5 rounded-full border border-black/[0.06]">
+            <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-black/[0.06] bg-white/60 px-3 py-1.5 text-sm font-medium text-purple">
               <Avatar photo={piPhoto} name={piName} />
-              {piName}
+              <span className="truncate">{piName}</span>
             </span>
           )}
 

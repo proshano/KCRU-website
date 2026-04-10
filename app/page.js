@@ -175,8 +175,8 @@ export default async function HomePage() {
   return (
     <>
       {/* Hero Section */}
-      <section className="px-6 md:px-12 pt-12 pb-4 max-w-[1400px] mx-auto">
-        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+      <section className="px-4 sm:px-6 md:px-12 pt-12 pb-4 max-w-[1400px] mx-auto">
+        <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 items-start">
           {/* Left side - Hero content */}
           <div className="flex flex-col">
             <h1 className="text-4xl sm:text-5xl font-bold leading-[1.1] tracking-tight mb-5">
@@ -187,7 +187,7 @@ export default async function HomePage() {
             </p>
 
             {/* CTA Buttons */}
-            <div className="flex gap-3.5 mb-0">
+            <div className="mb-0 flex flex-col gap-3 sm:flex-row sm:gap-3.5">
               <Link href="/trials" prefetch={false} className="btn-primary text-center flex-1">
                 View Active Studies
               </Link>
@@ -229,7 +229,7 @@ export default async function HomePage() {
 
           {/* Right side - Team showcase */}
           <div>
-            <div className="flex justify-between items-center mb-6">
+            <div className="mb-6 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-sm font-semibold text-[#888] uppercase tracking-[0.08em]">
                 Clinical Investigators
               </h2>
@@ -242,7 +242,7 @@ export default async function HomePage() {
             </div>
 
             {/* Team Grid - 4x3 */}
-            <div className="grid grid-cols-4 gap-x-3 gap-y-2">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-4 sm:gap-x-3 sm:gap-y-2">
               {featuredResearchers.slice(0, 12).map((researcher) => {
                 const slugValue = typeof researcher.slug === 'string' ? researcher.slug : researcher.slug?.current
                 const href = slugValue ? `/team/${slugValue}` : '/team'
@@ -255,7 +255,10 @@ export default async function HomePage() {
 
                 return (
                   <Link key={researcher._id} href={href} prefetch={false} className="team-member flex flex-col items-center">
-                    <div className="team-photo" style={{ width: 135, height: 135 }}>
+                    <div
+                      className="team-photo"
+                      style={{ width: 'clamp(6rem, 28vw, 8.4375rem)', height: 'clamp(6rem, 28vw, 8.4375rem)' }}
+                    >
                       {researcher.photo ? (
                         <Image
                           src={urlFor(researcher.photo).width(170).height(170).fit('crop').url()}
@@ -373,6 +376,12 @@ export default async function HomePage() {
 	              -webkit-animation-duration: 55s;
 	            }
 	          }
+	          @media (max-width: 640px) {
+	            .ticker-track {
+	              gap: 14px;
+	              padding: 4px 16px 8px;
+	            }
+	          }
 	          @media (prefers-reduced-motion: reduce) {
 	            .ticker-track {
 	              animation-duration: 140s;
@@ -419,6 +428,18 @@ export default async function HomePage() {
             font-size: 11px;
             color: #888;
             line-height: 1.4;
+          }
+          @media (max-width: 640px) {
+            .ticker-card {
+              width: min(17rem, calc(100vw - 2.5rem));
+              min-width: min(17rem, calc(100vw - 2.5rem));
+              padding: 14px 16px;
+            }
+            .ticker-title,
+            .ticker-journal,
+            .ticker-authors {
+              width: 100%;
+            }
           }
         `}</style>
         <div style={{ background: '#1a1a1a', padding: '10px 0', overflow: 'hidden' }}>

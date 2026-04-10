@@ -153,6 +153,11 @@ export default function TrialAssistantWidget() {
   const [voiceSupported, setVoiceSupported] = useState(false)
   const [voiceListening, setVoiceListening] = useState(false)
   const [launcherPulse, setLauncherPulse] = useState(false)
+  const [floatingViewport, setFloatingViewport] = useState({
+    bottomOffset: 0,
+    viewportHeight: null,
+    isSmallScreen: false,
+  })
 
   const visibleResults = results.filter((result) => result.decision !== 'unlikely')
   const fallbackResults = visibleResults.length ? visibleResults : results
@@ -219,6 +224,48 @@ export default function TrialAssistantWidget() {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     if (readLauncherPulseSuppressed()) return
     setLauncherPulse(true)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const updateFloatingViewport = () => {
+      const visualViewport = window.visualViewport
+      const isSmallScreen = window.innerWidth < 640
+
+      if (!visualViewport) {
+        setFloatingViewport({
+          bottomOffset: 0,
+          viewportHeight: window.innerHeight,
+          isSmallScreen,
+        })
+        return
+      }
+
+      const bottomOffset = Math.max(
+        0,
+        Math.round(window.innerHeight - (visualViewport.height + visualViewport.offsetTop))
+      )
+
+      setFloatingViewport({
+        bottomOffset,
+        viewportHeight: Math.round(visualViewport.height),
+        isSmallScreen,
+      })
+    }
+
+    updateFloatingViewport()
+
+    const visualViewport = window.visualViewport
+    visualViewport?.addEventListener('resize', updateFloatingViewport)
+    visualViewport?.addEventListener('scroll', updateFloatingViewport)
+    window.addEventListener('resize', updateFloatingViewport)
+
+    return () => {
+      visualViewport?.removeEventListener('resize', updateFloatingViewport)
+      visualViewport?.removeEventListener('scroll', updateFloatingViewport)
+      window.removeEventListener('resize', updateFloatingViewport)
+    }
   }, [])
 
   function stopVoiceRecognition() {
@@ -319,6 +366,14 @@ export default function TrialAssistantWidget() {
     setShouldFocusInput(true)
   }
 
+  const floatingBottomBase = floatingViewport.isSmallScreen ? 16 : 24
+  const floatingDockStyle = {
+    bottom: `calc(env(safe-area-inset-bottom) + ${floatingBottomBase + floatingViewport.bottomOffset}px)`,
+  }
+  const panelMaxHeight = floatingViewport.viewportHeight
+    ? `calc(${floatingViewport.viewportHeight}px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - ${floatingBottomBase + floatingViewport.bottomOffset + 16}px)`
+    : 'calc(100dvh - env(safe-area-inset-top) - max(1.25rem, env(safe-area-inset-bottom)) - 1rem)'
+
   async function handleSubmit(event) {
     event.preventDefault()
     const trimmed = input.trim()
@@ -373,14 +428,17 @@ export default function TrialAssistantWidget() {
 
   if (!isExpanded) {
     return (
-      <div className="fixed z-[60] flex justify-center [bottom:max(1rem,env(safe-area-inset-bottom))] [left:max(1rem,env(safe-area-inset-left))] [right:max(1rem,env(safe-area-inset-right))] sm:bottom-6 sm:left-auto sm:right-6 sm:justify-end">
+      <div
+        className="fixed z-[60] flex justify-center [left:max(0.75rem,env(safe-area-inset-left))] [right:max(0.75rem,env(safe-area-inset-right))] sm:left-auto sm:right-6 sm:justify-end"
+        style={floatingDockStyle}
+      >
         <button
           ref={launcherRef}
           type="button"
           onClick={openAssistant}
           aria-haspopup="dialog"
           aria-expanded="false"
-          className="relative flex w-full max-w-[15.4rem] min-h-[2.875rem] touch-manipulation items-center gap-[0.525rem] rounded-full border border-white/15 bg-purple px-3.5 py-[0.6125rem] text-left text-white shadow-lg transition duration-200 active:scale-[0.99] active:bg-purple/95 hover:bg-purple/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/40 focus-visible:ring-offset-1 sm:min-h-[2.8rem] sm:gap-[0.7rem] sm:px-[1.05rem] sm:py-[0.7rem]"
+          className="relative flex w-full max-w-[18rem] min-h-[2.875rem] touch-manipulation items-center gap-[0.45rem] rounded-full border border-white/15 bg-purple px-3 py-[0.6125rem] text-left text-white shadow-lg transition duration-200 active:scale-[0.99] active:bg-purple/95 hover:bg-purple/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/40 focus-visible:ring-offset-1 sm:max-w-[15.4rem] sm:min-h-[2.8rem] sm:gap-[0.7rem] sm:px-[1.05rem] sm:py-[0.7rem]"
         >
           {launcherPulse ? (
             <span
@@ -390,11 +448,11 @@ export default function TrialAssistantWidget() {
             />
           ) : null}
           <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-white/25" />
-          <span className="relative flex min-w-0 flex-1 items-center gap-[0.525rem] sm:gap-[0.7rem]">
-            <span className="flex h-[1.925rem] w-[1.925rem] shrink-0 items-center justify-center rounded-full bg-white/15 sm:h-[2.1rem] sm:w-[2.1rem]">
-              <LauncherIcon className="h-[1.05rem] w-[1.05rem] sm:h-[1.225rem] sm:w-[1.225rem]" />
+          <span className="relative flex min-w-0 flex-1 items-center gap-[0.45rem] sm:gap-[0.7rem]">
+            <span className="flex h-[1.85rem] w-[1.85rem] shrink-0 items-center justify-center rounded-full bg-white/15 sm:h-[2.1rem] sm:w-[2.1rem]">
+              <LauncherIcon className="h-[1rem] w-[1rem] sm:h-[1.225rem] sm:w-[1.225rem]" />
             </span>
-            <span className="min-w-0 text-sm font-semibold leading-snug sm:text-base">
+            <span className="min-w-0 whitespace-nowrap text-[0.9rem] font-semibold leading-none tracking-[-0.01em] sm:text-base sm:leading-snug sm:tracking-normal">
               Find studies for your patients
             </span>
           </span>
@@ -404,14 +462,17 @@ export default function TrialAssistantWidget() {
   }
 
   return (
-    <div className="fixed z-[60] flex justify-center [bottom:max(1rem,env(safe-area-inset-bottom))] [left:max(1rem,env(safe-area-inset-left))] [right:max(1rem,env(safe-area-inset-right))] sm:bottom-6 sm:left-auto sm:right-6 sm:justify-end">
+    <div
+      className="fixed z-[60] flex justify-center [left:max(0.75rem,env(safe-area-inset-left))] [right:max(0.75rem,env(safe-area-inset-right))] sm:left-auto sm:right-6 sm:justify-end"
+      style={floatingDockStyle}
+    >
       <aside
         id={PANEL_ID}
         aria-labelledby={TITLE_ID}
-        className="flex w-full max-w-[24rem] flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl"
+        className="flex w-full max-w-[22rem] flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-2xl sm:max-w-[24rem]"
         style={{
           height: 'min(78dvh, 42rem)',
-          maxHeight: 'calc(100dvh - env(safe-area-inset-top) - max(1.25rem, env(safe-area-inset-bottom)) - 1rem)',
+          maxHeight: panelMaxHeight,
         }}
       >
         <div className="flex items-start justify-between gap-2 border-b border-black/5 bg-gray-50 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4">

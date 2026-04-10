@@ -143,7 +143,7 @@ export default async function RootLayout({ children }) {
           <div className="bg-purple h-10"></div>
 
           {/* Navigation */}
-          <nav className="sticky top-0 z-50 bg-background border-b border-black/[0.06] px-6 md:px-12 py-5">
+          <nav className="sticky top-0 z-50 bg-background border-b border-black/[0.06] px-4 sm:px-6 md:px-12 py-5">
             <div className="max-w-[1400px] mx-auto flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <Link href="/" className="font-bold text-base tracking-tight text-[#444]">
                 {settings?.unitName || 'London Kidney Clinical Research'}
@@ -167,9 +167,9 @@ export default async function RootLayout({ children }) {
           <main className={trialMatchingEnabled ? 'flex-1 pb-24 sm:pb-0' : 'flex-1'}>{children}</main>
 
           {/* Footer */}
-          <footer className="border-t border-black/[0.08] py-12 px-6 md:px-12 text-sm text-[#888] font-medium mt-6">
-            <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="flex flex-wrap items-center gap-3">
+          <footer className={`border-t border-black/[0.08] px-4 sm:px-6 md:px-12 text-sm text-[#888] font-medium mt-6 ${trialMatchingEnabled ? 'pt-12 pb-24 sm:py-12' : 'py-12'}`}>
+            <div className="max-w-[1400px] mx-auto">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
                 <span>© {new Date().getFullYear()}</span>
                 <a
                   href="https://github.com/proshano/KCRU-website"
@@ -179,8 +179,6 @@ export default async function RootLayout({ children }) {
                 >
                   read technical information about this site
                 </a>
-              </div>
-              <div className="flex gap-6">
                 <Link href="/privacy" prefetch={false} className="hover:text-purple transition-colors">Privacy</Link>
                 <Link href="/accessibility" prefetch={false} className="hover:text-purple transition-colors">Accessibility</Link>
               </div>
