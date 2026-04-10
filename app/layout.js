@@ -148,13 +148,13 @@ export default async function RootLayout({ children }) {
               <Link href="/" className="font-bold text-base tracking-tight text-[#444]">
                 {settings?.unitName || 'London Kidney Clinical Research'}
               </Link>
-              <div className="flex flex-wrap gap-4 text-sm font-medium text-[#444] md:gap-9 md:text-base">
+              <div className="grid w-full grid-cols-3 gap-x-4 gap-y-3 text-sm font-medium text-[#444] sm:flex sm:w-auto sm:flex-wrap sm:gap-4 md:gap-9 md:text-base">
                 {navLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
                     prefetch={false}
-                    className="nav-link"
+                    className="nav-link justify-self-start"
                   >
                     {link.label}
                   </Link>
@@ -164,7 +164,7 @@ export default async function RootLayout({ children }) {
           </nav>
 
           {/* Main content */}
-          <main className={trialMatchingEnabled ? 'flex-1 pb-24 sm:pb-0' : 'flex-1'}>{children}</main>
+          <main className={trialMatchingEnabled ? 'flex-1 pb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:pb-0' : 'flex-1'}>{children}</main>
 
           {/* Footer */}
           <footer className={`border-t border-black/[0.08] px-4 sm:px-6 md:px-12 text-sm text-[#888] font-medium mt-6 ${trialMatchingEnabled ? 'pt-12 pb-24 sm:py-12' : 'py-12'}`}>
