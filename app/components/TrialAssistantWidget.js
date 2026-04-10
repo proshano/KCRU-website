@@ -696,7 +696,7 @@ export default function TrialAssistantWidget() {
                     rows={isMobileSheet ? 2 : 3}
                     maxLength={MAX_INPUT_LENGTH}
                     placeholder="Diagnosis and eGFR, or say the patient is on dialysis."
-                    className={`flex-1 rounded-xl border border-black/10 px-4 py-3 text-sm focus:border-purple focus:outline-none focus:ring-2 focus:ring-purple/30 ${isMobileSheet ? 'min-h-[4rem]' : 'min-h-[4.5rem] sm:min-h-[5.5rem]'}`}
+                    className={`flex-1 rounded-xl border border-black/10 px-4 py-3 text-base focus:border-purple focus:outline-none focus:ring-2 focus:ring-purple/30 sm:text-sm ${isMobileSheet ? 'min-h-[4rem]' : 'min-h-[4.5rem] sm:min-h-[5.5rem]'}`}
                   />
                   {voiceSupported ? (
                     <button
