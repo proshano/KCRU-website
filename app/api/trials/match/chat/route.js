@@ -8,7 +8,7 @@ import {
   generateTrialMatchStudyRanking,
 } from '@/lib/summaries'
 import { isTrialMatchingAssistantEnabled } from '@/lib/trialMatchingSettings'
-import { buildTrialCatalogForPrompt, rankTrialMatches } from '@/lib/trialMatcher'
+import { buildTrialCatalogForPrompt, matchTrialToPatient, rankTrialMatches } from '@/lib/trialMatcher'
 
 const MAX_MESSAGES = 12
 const MAX_MESSAGE_LENGTH = 600
@@ -40,12 +40,15 @@ function buildStudyHaystack(study) {
   return sanitizeText([study?.title, study?.laySummary, prescreenSummary, inc].filter(Boolean).join(' '))
 }
 
-function quickTextRankStudies(studies, queryText) {
+function quickTextRankStudies(studies, queryText, profile = {}) {
   const tokens = tokenizeQuery(queryText)
   if (!tokens.length) return []
 
   const rows = studies
     .map((study) => {
+      const fallbackMatch = matchTrialToPatient(study, profile)
+      if (fallbackMatch?.decision === 'unlikely') return null
+
       const haystack = buildStudyHaystack(study).toLowerCase()
       if (!haystack) return null
 
@@ -57,17 +60,11 @@ function quickTextRankStudies(studies, queryText) {
       if (hits === 0) return null
 
       return {
-        _id: study?._id,
-        title: study?.title || 'Untitled study',
-        slug: study?.slug || '',
-        status: study?.status || 'recruiting',
-        statusLabel: study?.status === 'recruiting' ? 'Recruiting' : 'Status unavailable',
-        decision: 'possible',
-        screeningSummary: study?.prescreen?.screeningSummary || study?.laySummary || '',
-        matchedReasons: [`Mentions ${tokens.slice(0, 3).join(', ')}.`],
-        missingReasons: [],
-        mismatchReasons: [],
-        score: hits * 10,
+        ...fallbackMatch,
+        matchedReasons: fallbackMatch.matchedReasons.length
+          ? fallbackMatch.matchedReasons
+          : [`Mentions ${tokens.slice(0, 3).join(', ')}.`],
+        score: fallbackMatch.score + hits * 10,
       }
     })
     .filter(Boolean)
@@ -80,6 +77,7 @@ function extractDiagnosisHintFromText(text) {
   const t = sanitizeText(text).toLowerCase()
   if (!t) return null
   if (/\blupus\s+nephritis\b|\bactive\s+lupus\s+nephritis\b/.test(t)) return 'lupus nephritis'
+  if (/\bdiabetic\s+nephropathy\b|\bdiabetic\s+kidney\s+disease\b|\bdkd\b/.test(t)) return 'diabetic nephropathy'
   if (/\biga\s+nephropathy\b|\bigan\b/.test(t)) return 'IgA nephropathy'
   if (/\bfsgs\b|\bfocal\s+segmental\s+glomerulosclerosis\b/.test(t)) return 'FSGS'
   if (/\bminimal\s+change\s+disease\b|\bmcd\b/.test(t)) return 'minimal change disease'
@@ -126,7 +124,7 @@ function buildLlmRankingShortlist(studies, profile, messages) {
   const deterministic = rankTrialMatches(studies, profile)
     .filter((row) => row?.decision !== 'unlikely')
     .slice(0, MAX_LLM_RANK_STUDIES)
-  const textRanked = quickTextRankStudies(studies, getLastUserMessage(messages)?.content || '')
+  const textRanked = quickTextRankStudies(studies, getLastUserMessage(messages)?.content || '', profile)
   const merged = mergeRankedResults(deterministic, textRanked, MAX_LLM_RANK_STUDIES)
   const shortlist = merged.map((row) => byId.get(row?._id)).filter(Boolean)
 
@@ -349,7 +347,11 @@ export async function POST(request) {
         rankedResults = sliceRankedTrialMatches(rankTrialMatches(rankingShortlist, enrichedProfile), MAX_RESULTS)
       }
     } else {
-      rankedResults = quickTextRankStudies(assistantStudies, getLastUserMessage(messages)?.content || '')
+      rankedResults = quickTextRankStudies(
+        assistantStudies,
+        getLastUserMessage(messages)?.content || '',
+        enrichedProfile
+      )
     }
 
     const privacyPrefix = hadRedaction

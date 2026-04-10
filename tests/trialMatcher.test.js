@@ -147,6 +147,28 @@ test('returns unlikely from title text when prescreen is blank but study clearly
   assert.ok(result.mismatchReasons.some((r) => r.includes('different kidney disease')))
 })
 
+test('returns unlikely from title text for IgA-specific study when diagnosis text says diabetic nephropathy', () => {
+  const result = matchTrialToPatient(
+    {
+      _id: 'trial-ican',
+      title: 'Study of Ravulizumab in Immunoglobulin A Nephropathy (IgAN) (ICAN)',
+      slug: 'ican',
+      status: 'recruiting',
+      laySummary: 'Study in participants with IgA nephropathy.',
+      prescreen: {},
+    },
+    {
+      ageYears: 62,
+      diagnosis: 'diabetic nephropathy',
+      hasDiabetes: true,
+      egfr: 26,
+    }
+  )
+
+  assert.equal(result.decision, 'unlikely')
+  assert.ok(result.mismatchReasons.some((r) => r.includes('different kidney disease')))
+})
+
 test('returns unlikely from title text for dialysis-focused study when patient is predialysis (eGFR, not on dialysis)', () => {
   const result = matchTrialToPatient(
     {

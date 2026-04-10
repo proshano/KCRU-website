@@ -72,7 +72,7 @@ function statusLabel(status) {
   return 'Status unavailable'
 }
 
-function LauncherIcon() {
+function LauncherIcon({ className = 'h-6 w-6' }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -82,7 +82,7 @@ function LauncherIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="h-6 w-6"
+      className={className}
       aria-hidden="true"
     >
       <circle cx="11" cy="11" r="6" />
@@ -299,34 +299,28 @@ export default function TrialAssistantWidget() {
   if (!isExpanded) {
     return (
       <div className="fixed z-[60] [bottom:max(1rem,env(safe-area-inset-bottom))] [right:max(1rem,env(safe-area-inset-right))] sm:bottom-6 sm:right-6">
-        <div className="group relative flex items-center justify-end">
-          <div className="pointer-events-none absolute bottom-full right-0 mb-3 sm:bottom-auto sm:right-16 sm:mb-0">
-            <span className="flex max-w-[calc(100vw-2rem)] overflow-hidden text-ellipsis whitespace-nowrap rounded-full border border-purple/15 bg-white/95 px-4 py-2 text-sm font-semibold text-gray-800 shadow-lg ring-1 ring-black/5 backdrop-blur-sm sm:max-w-none sm:translate-x-2 sm:opacity-0 sm:transition sm:duration-200 sm:group-hover:translate-x-0 sm:group-hover:opacity-100 sm:group-focus-within:translate-x-0 sm:group-focus-within:opacity-100">
+        <button
+          ref={launcherRef}
+          type="button"
+          onClick={openAssistant}
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          className="relative flex w-[calc(100vw-2rem)] max-w-[22rem] min-h-[3.75rem] items-center gap-3 rounded-full border border-white/15 bg-purple px-5 py-3.5 text-left text-white shadow-xl transition duration-200 hover:bg-purple/90 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/40 focus-visible:ring-offset-2 sm:min-h-[4rem] sm:gap-4 sm:px-6 sm:py-4"
+        >
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 rounded-full bg-purple/35 opacity-60 animate-ping motion-reduce:animate-none [animation-duration:2.8s]"
+          />
+          <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-white/25" />
+          <span className="relative flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 sm:h-12 sm:w-12">
+              <LauncherIcon className="h-6 w-6 sm:h-7 sm:w-7" />
+            </span>
+            <span className="min-w-0 text-base font-semibold leading-snug sm:text-lg">
               Find studies for your patients
             </span>
-          </div>
-          <button
-            ref={launcherRef}
-            type="button"
-            onClick={openAssistant}
-            aria-haspopup="dialog"
-            aria-expanded="false"
-            aria-label="Find studies for your patients"
-            className="relative flex h-14 w-14 items-center justify-center rounded-full bg-purple text-white shadow-xl transition duration-200 hover:scale-[1.03] hover:bg-purple/90 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 focus-visible:ring-offset-2"
-          >
-            <span
-              aria-hidden="true"
-              className="absolute inset-0 rounded-full bg-purple/30 opacity-70 animate-ping motion-reduce:animate-none [animation-duration:2.8s]"
-            />
-            <span
-              aria-hidden="true"
-              className="absolute inset-0 rounded-full ring-1 ring-white/20"
-            />
-            <span className="relative flex h-14 w-14 items-center justify-center">
-              <LauncherIcon />
-            </span>
-          </button>
-        </div>
+          </span>
+        </button>
       </div>
     )
   }
