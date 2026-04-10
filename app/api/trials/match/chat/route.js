@@ -17,6 +17,7 @@ const MAX_LLM_RANK_STUDIES = 12
 const MIN_USER_TURNS_BEFORE_LLM_RANKING = 2
 /** When at least one match/possible exists, limit how many insufficient_info rows appear in the top list. */
 const MAX_INSUFFICIENT_WHEN_BETTER_EXISTS = 2
+const RESULTS_READY_REPLY = 'See the potential studies below. A coordinator would confirm final eligibility.'
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
 const MAX_REQUESTS_PER_WINDOW = 20
 const rateLimitStore = new Map()
@@ -357,10 +358,14 @@ export async function POST(request) {
     const privacyPrefix = hadRedaction
       ? 'I removed some obvious identifying details before continuing. Please avoid names, contact information, exact birth dates, or record numbers. '
       : ''
+    const reply =
+      shouldRankMatches && rankedResults.length
+        ? RESULTS_READY_REPLY
+        : llmTurn?.assistantReply || ''
 
     return buildResponse({
       ok: true,
-      reply: `${privacyPrefix}${llmTurn?.assistantReply || ''}`.trim(),
+      reply: `${privacyPrefix}${reply}`.trim(),
       profile: enrichedProfile,
       results: rankedResults,
     })

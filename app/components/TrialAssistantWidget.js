@@ -344,7 +344,7 @@ export default function TrialAssistantWidget() {
             <span
               aria-hidden="true"
               onAnimationEnd={handleLauncherPulseEnd}
-              className="pointer-events-none absolute inset-0 rounded-full bg-purple/35 opacity-60 motion-reduce:animate-none motion-reduce:opacity-0 animate-[ping_2.8s_cubic-bezier(0,0,0.2,1)_3]"
+              className="pointer-events-none absolute inset-0 rounded-full bg-purple/35 opacity-60 motion-reduce:animate-none motion-reduce:opacity-0 animate-[ping_2.8s_cubic-bezier(0,0,0.2,1)_1]"
             />
           ) : null}
           <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-white/25" />
