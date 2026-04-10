@@ -155,6 +155,7 @@ export default function TrialAssistantWidget() {
 
   const visibleResults = results.filter((result) => result.decision !== 'unlikely')
   const fallbackResults = visibleResults.length ? visibleResults : results
+  const chatLocked = fallbackResults.length > 0 && !loading
   const isHidden = shouldHideWidget(pathname)
   useEffect(() => {
     if (hasAutoOpened || !AUTO_OPEN_PATHS.has(pathname)) return
@@ -231,7 +232,7 @@ export default function TrialAssistantWidget() {
 
   function toggleVoiceRecognition() {
     const SpeechRecognition = getSpeechRecognitionConstructor()
-    if (!SpeechRecognition || loading) return
+    if (!SpeechRecognition || loading || chatLocked) return
 
     if (voiceListening) {
       stopVoiceRecognition()
@@ -319,7 +320,7 @@ export default function TrialAssistantWidget() {
   async function handleSubmit(event) {
     event.preventDefault()
     const trimmed = input.trim()
-    if (!trimmed || loading) return
+    if (!trimmed || loading || chatLocked) return
 
     stopVoiceRecognition()
 
@@ -413,7 +414,6 @@ export default function TrialAssistantWidget() {
         <div className="flex items-start justify-between gap-3 border-b border-black/5 bg-gray-50 px-4 py-4">
           <div className="min-w-0 flex-1">
             <h2 id={TITLE_ID} className="text-base font-semibold tracking-tight text-gray-900">Trial assistant</h2>
-            <p className="text-sm text-gray-600">Diagnosis plus eGFR, or say the patient is on dialysis.</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button
@@ -548,6 +548,7 @@ export default function TrialAssistantWidget() {
                   ref={inputRef}
                   id={INPUT_ID}
                   aria-describedby={error ? `${HELP_ID} ${ERROR_ID}` : HELP_ID}
+                  disabled={chatLocked}
                   value={input}
                   onChange={(event) => setInput(event.target.value.slice(0, MAX_INPUT_LENGTH))}
                   onKeyDown={(event) => {
@@ -555,19 +556,23 @@ export default function TrialAssistantWidget() {
                     if (event.shiftKey) return
                     if (event.isComposing) return
                     event.preventDefault()
-                    if (loading || !input.trim()) return
+                    if (loading || chatLocked || !input.trim()) return
                     formRef.current?.requestSubmit?.()
                   }}
                   rows={3}
                   maxLength={MAX_INPUT_LENGTH}
-                  placeholder="Diagnosis and eGFR, or say the patient is on dialysis."
-                  className="min-h-[5.5rem] flex-1 rounded-xl border border-black/10 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple/30 focus:border-purple"
+                  placeholder={
+                    chatLocked
+                      ? 'Reset the assistant to start a new search.'
+                      : 'Diagnosis and eGFR, or say the patient is on dialysis.'
+                  }
+                  className="min-h-[5.5rem] flex-1 rounded-xl border border-black/10 px-4 py-3 text-sm disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400 focus:outline-none focus:ring-2 focus:ring-purple/30 focus:border-purple"
                 />
                 {voiceSupported ? (
                   <button
                     type="button"
                     onClick={toggleVoiceRecognition}
-                    disabled={loading}
+                    disabled={loading || chatLocked}
                     aria-pressed={voiceListening}
                     title={voiceListening ? 'Stop dictation' : 'Dictate with microphone'}
                     aria-label={voiceListening ? 'Stop voice input' : 'Start voice input'}
@@ -592,12 +597,14 @@ export default function TrialAssistantWidget() {
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <p id={HELP_ID} className="text-sm leading-relaxed text-gray-600">
-                  Non-identifying details only. No names, birth dates, phone numbers, or record numbers.
+                  {chatLocked
+                    ? 'Results are shown above. Press Reset to start a new search.'
+                    : 'Non-identifying details only. No names, birth dates, phone numbers, or record numbers.'}
                 </p>
                 <button
                   type="submit"
-                  disabled={loading || !input.trim()}
-                  className="min-h-11 w-full touch-manipulation rounded-xl bg-purple px-4 py-2 text-sm font-semibold text-white transition active:scale-[0.99] active:bg-purple/95 hover:bg-purple/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 disabled:opacity-50 sm:w-auto sm:shrink-0"
+                  disabled={loading || chatLocked || !input.trim()}
+                  className="min-h-11 w-full touch-manipulation rounded-xl bg-purple px-4 py-2 text-sm font-semibold text-white transition active:scale-[0.99] active:bg-purple/95 hover:bg-purple/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 disabled:scale-100 disabled:bg-gray-300 disabled:text-white disabled:opacity-100 sm:w-auto sm:shrink-0"
                 >
                   {loading ? 'Sending...' : 'Send'}
                 </button>
