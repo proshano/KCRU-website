@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const INITIAL_ASSISTANT_MESSAGE =
-  'Does your patient qualify for a trial? Give de-identified clinical facts: primary kidney diagnosis (e.g. IgAN); eGFR (mL/min/1.73 m²); UPCR or UACR (mg/mmol) if known; key comorbidities (e.g. diabetes, hypertension); and relevant meds (e.g. RAASi).'
+  'Does your patient qualify for a trial? Share de-identified major inclusion details: primary kidney diagnosis (for example IgAN or lupus nephritis), eGFR (mL/min/1.73 m²) if known, key comorbidities (for example diabetes, hypertension), and relevant medications.'
 
 const MAX_INPUT_LENGTH = 600
 
@@ -261,7 +261,7 @@ export default function TrialAssistantWidget() {
         role: 'assistant',
         content:
           data.reply ||
-          'Add diagnosis, eGFR, UPCR/UACR if known.',
+          'Add diagnosis and eGFR if known.',
       }
 
       setMessages([...nextMessages, assistantMessage])
@@ -438,7 +438,7 @@ export default function TrialAssistantWidget() {
                   }}
                   rows={3}
                   maxLength={MAX_INPUT_LENGTH}
-                  placeholder="De-identified: diagnosis, eGFR, UPCR/UACR, key meds, comorbidities."
+                  placeholder="De-identified: diagnosis, eGFR, key meds, comorbidities."
                   className="min-h-[5.5rem] flex-1 rounded-xl border border-black/10 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple/30 focus:border-purple"
                 />
                 {voiceSupported ? (
