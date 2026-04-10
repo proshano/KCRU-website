@@ -338,7 +338,7 @@ export default function TrialAssistantWidget() {
           onClick={openAssistant}
           aria-haspopup="dialog"
           aria-expanded="false"
-          className="relative flex w-[calc(100vw-2rem)] max-w-[22rem] min-h-[3.75rem] items-center gap-3 rounded-full border border-white/15 bg-purple px-5 py-3.5 text-left text-white shadow-xl transition duration-200 hover:bg-purple/90 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/40 focus-visible:ring-offset-2 sm:min-h-[4rem] sm:gap-4 sm:px-6 sm:py-4"
+          className="relative flex w-[calc(100vw-2rem)] max-w-[15.4rem] min-h-[2.625rem] items-center gap-[0.525rem] rounded-full border border-white/15 bg-purple px-3.5 py-[0.6125rem] text-left text-white shadow-lg transition duration-200 hover:bg-purple/90 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/40 focus-visible:ring-offset-1 sm:min-h-[2.8rem] sm:gap-[0.7rem] sm:px-[1.05rem] sm:py-[0.7rem]"
         >
           {launcherPulse ? (
             <span
@@ -348,11 +348,11 @@ export default function TrialAssistantWidget() {
             />
           ) : null}
           <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-white/25" />
-          <span className="relative flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 sm:h-12 sm:w-12">
-              <LauncherIcon className="h-6 w-6 sm:h-7 sm:w-7" />
+          <span className="relative flex min-w-0 flex-1 items-center gap-[0.525rem] sm:gap-[0.7rem]">
+            <span className="flex h-[1.925rem] w-[1.925rem] shrink-0 items-center justify-center rounded-full bg-white/15 sm:h-[2.1rem] sm:w-[2.1rem]">
+              <LauncherIcon className="h-[1.05rem] w-[1.05rem] sm:h-[1.225rem] sm:w-[1.225rem]" />
             </span>
-            <span className="min-w-0 text-base font-semibold leading-snug sm:text-lg">
+            <span className="min-w-0 text-sm font-semibold leading-snug sm:text-base">
               Find studies for your patients
             </span>
           </span>
