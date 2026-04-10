@@ -29,6 +29,24 @@ const TITLE_ID = 'trial-assistant-title'
 const INPUT_ID = 'trial-assistant-input'
 const HELP_ID = 'trial-assistant-help'
 const ERROR_ID = 'trial-assistant-error'
+const LAUNCHER_PULSE_SESSION_KEY = 'kcruTrialAssistantLauncherPulseDone'
+
+function readLauncherPulseSuppressed() {
+  if (typeof window === 'undefined') return true
+  try {
+    return sessionStorage.getItem(LAUNCHER_PULSE_SESSION_KEY) === '1'
+  } catch {
+    return true
+  }
+}
+
+function writeLauncherPulseSuppressed() {
+  try {
+    sessionStorage.setItem(LAUNCHER_PULSE_SESSION_KEY, '1')
+  } catch {
+    /* ignore */
+  }
+}
 
 function createInitialMessages() {
   return [{ role: 'assistant', content: INITIAL_ASSISTANT_MESSAGE }]
@@ -128,6 +146,7 @@ export default function TrialAssistantWidget() {
   const [shouldFocusInput, setShouldFocusInput] = useState(false)
   const [voiceSupported, setVoiceSupported] = useState(false)
   const [voiceListening, setVoiceListening] = useState(false)
+  const [launcherPulse, setLauncherPulse] = useState(false)
 
   const visibleResults = results.filter((result) => result.decision !== 'unlikely')
   const fallbackResults = visibleResults.length ? visibleResults : results
@@ -157,6 +176,13 @@ export default function TrialAssistantWidget() {
       }
       recognitionRef.current = null
     }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    if (readLauncherPulseSuppressed()) return
+    setLauncherPulse(true)
   }, [])
 
   function stopVoiceRecognition() {
@@ -225,8 +251,15 @@ export default function TrialAssistantWidget() {
   }
 
   function openAssistant() {
+    writeLauncherPulseSuppressed()
+    setLauncherPulse(false)
     setIsExpanded(true)
     setShouldFocusInput(true)
+  }
+
+  function handleLauncherPulseEnd() {
+    writeLauncherPulseSuppressed()
+    setLauncherPulse(false)
   }
 
   function minimizeAssistant() {
@@ -307,10 +340,13 @@ export default function TrialAssistantWidget() {
           aria-expanded="false"
           className="relative flex w-[calc(100vw-2rem)] max-w-[22rem] min-h-[3.75rem] items-center gap-3 rounded-full border border-white/15 bg-purple px-5 py-3.5 text-left text-white shadow-xl transition duration-200 hover:bg-purple/90 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/40 focus-visible:ring-offset-2 sm:min-h-[4rem] sm:gap-4 sm:px-6 sm:py-4"
         >
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 rounded-full bg-purple/35 opacity-60 animate-ping motion-reduce:animate-none [animation-duration:2.8s]"
-          />
+          {launcherPulse ? (
+            <span
+              aria-hidden="true"
+              onAnimationEnd={handleLauncherPulseEnd}
+              className="pointer-events-none absolute inset-0 rounded-full bg-purple/35 opacity-60 motion-reduce:animate-none motion-reduce:opacity-0 animate-[ping_2.8s_cubic-bezier(0,0,0.2,1)_3]"
+            />
+          ) : null}
           <span aria-hidden="true" className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-white/25" />
           <span className="relative flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 sm:h-12 sm:w-12">
