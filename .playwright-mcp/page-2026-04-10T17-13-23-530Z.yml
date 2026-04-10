@@ -1,0 +1,341 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - link "London Kidney Clinical Research" [ref=e6] [cursor=pointer]:
+          - /url: /
+        - generic [ref=e7]:
+          - link "Home" [ref=e8] [cursor=pointer]:
+            - /url: /
+          - link "Studies" [ref=e9] [cursor=pointer]:
+            - /url: /trials
+          - link "Team" [ref=e10] [cursor=pointer]:
+            - /url: /team
+          - link "Publications" [ref=e11] [cursor=pointer]:
+            - /url: /publications
+          - link "Subscribe" [ref=e12] [cursor=pointer]:
+            - /url: /updates
+          - link "Contact" [ref=e13] [cursor=pointer]:
+            - /url: /contact
+    - main [ref=e14]:
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - heading "Kidney care through research." [level=1] [ref=e18]
+          - paragraph [ref=e19]: We conduct clinical studies to improve the lives of people with kidney disease.
+          - generic [ref=e20]:
+            - link "View Active Studies" [ref=e21] [cursor=pointer]:
+              - /url: /trials
+            - link "Donate" [ref=e22] [cursor=pointer]:
+              - /url: /contact?reason=donation
+            - link "Partner With Us" [ref=e23] [cursor=pointer]:
+              - /url: /contact?reason=industry
+          - link "RECRUITING A Phase III Renal Outcomes and Cardiovascular Mortality Study to Investigate the Efficacy and Safety of Baxdrostat in Combination With Dapagliflozin in Participants With Chronic Kidney Disease and High Blood Pressure (BaxDuo-Pacific) Matthew Weir Matthew Weir Learn more →" [ref=e24] [cursor=pointer]:
+            - generic: RECRUITING
+            - generic:
+              - generic:
+                - generic: A Phase III Renal Outcomes and Cardiovascular Mortality Study to Investigate the Efficacy and Safety of Baxdrostat in Combination With Dapagliflozin in Participants With Chronic Kidney Disease and High Blood Pressure (BaxDuo-Pacific)
+              - generic:
+                - generic:
+                  - img "Matthew Weir"
+                  - text: Matthew Weir
+                - generic:
+                  - text: Learn more
+                  - generic: →
+          - generic [ref=e26]:
+            - link "54 Active studies" [ref=e27] [cursor=pointer]:
+              - /url: /trials
+              - generic [ref=e28]: "54"
+              - generic [ref=e29]: Active studies
+            - link "347 Publications since 2022" [ref=e30] [cursor=pointer]:
+              - /url: /publications
+              - generic [ref=e31]: "347"
+              - generic [ref=e32]: Publications since 2022
+        - generic [ref=e33]:
+          - generic [ref=e34]:
+            - heading "Clinical Investigators" [level=2] [ref=e35]
+            - link "All profiles" [ref=e36] [cursor=pointer]:
+              - /url: /team
+              - text: All profiles
+              - img [ref=e37]
+          - generic [ref=e39]:
+            - link "Louise Moist" [ref=e40] [cursor=pointer]:
+              - /url: /team/louise-moist
+              - img "Louise Moist" [ref=e42]
+            - link "Christopher McIntyre" [ref=e43] [cursor=pointer]:
+              - /url: /team/christopher-mcintyre
+              - img "Christopher McIntyre" [ref=e45]
+            - link "Dervla Connaughton" [ref=e46] [cursor=pointer]:
+              - /url: /team/dervla-connaughton
+              - img "Dervla Connaughton" [ref=e48]
+            - link "Matthew Weir" [ref=e49] [cursor=pointer]:
+              - /url: /team/matthew-weir
+              - img "Matthew Weir" [ref=e51]
+            - link "Susan Huang" [ref=e52] [cursor=pointer]:
+              - /url: /team/susan-huang
+              - img "Susan Huang" [ref=e54]
+            - link "Andrew House" [ref=e55] [cursor=pointer]:
+              - /url: /team/andrew-house
+              - img "Andrew House" [ref=e57]
+            - link "Lakshman Gunaratnam" [ref=e58] [cursor=pointer]:
+              - /url: /team/lakshman-gunaratnam
+              - img "Lakshman Gunaratnam" [ref=e60]
+            - link "Arsh Jain" [ref=e61] [cursor=pointer]:
+              - /url: /team/arsh-jain
+              - img "Arsh Jain" [ref=e63]
+            - link "Amit Garg" [ref=e64] [cursor=pointer]:
+              - /url: /team/amit-garg
+              - img "Amit Garg" [ref=e66]
+            - link "Andrea Cowan" [ref=e67] [cursor=pointer]:
+              - /url: /team/andrea-cowan
+              - img "Andrea Cowan" [ref=e69]
+            - link "Pavel Roshanov" [ref=e70] [cursor=pointer]:
+              - /url: /team/pavel-roshanov
+              - img "Pavel Roshanov" [ref=e72]
+            - link "Peter Blake" [ref=e73] [cursor=pointer]:
+              - /url: /team/peter-blake
+              - img "Peter Blake" [ref=e75]
+          - generic [ref=e76]:
+            - heading "Investigator Affiliations" [level=3] [ref=e77]
+            - generic [ref=e78]:
+              - link "Western University" [ref=e79] [cursor=pointer]:
+                - /url: https://www.schulich.uwo.ca
+                - img "Western University" [ref=e80]
+              - link "LHSCRI" [ref=e81] [cursor=pointer]:
+                - /url: https://www.lhscri.ca
+                - img "LHSCRI" [ref=e82]
+              - link "ICES" [ref=e83] [cursor=pointer]:
+                - /url: https://www.ices.on.ca
+                - img "ICES" [ref=e84]
+              - link "Population Health Research Institute" [ref=e85] [cursor=pointer]:
+                - /url: https://www.phri.ca
+                - img "Population Health Research Institute" [ref=e86]
+              - link "Ontario Renal Network" [ref=e87] [cursor=pointer]:
+                - /url: https://www.ontariorenalnetwork.ca/en
+                - img "Ontario Renal Network" [ref=e88]
+              - link "Trillium Gift of Life Networ" [ref=e89] [cursor=pointer]:
+                - /url: https://www.giftoflife.on.ca/en/
+                - img "Trillium Gift of Life Networ" [ref=e90]
+              - link "World Health Research" [ref=e91] [cursor=pointer]:
+                - /url: https://www.worldhealthresearch.ca
+                - img "World Health Research" [ref=e92]
+      - generic [ref=e93]:
+        - generic [ref=e94]: Recent research
+        - generic [ref=e95]:
+          - link "Genetic testing in kidney transplantation and living kidney donor risk assessment. Kidney Int Dervla Connaughton, Matthew Weir, Andrew House, Lakshman Gunaratnam, Amit Garg, Pavel Roshanov" [ref=e96] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41903706%2F
+            - generic [ref=e97]: Genetic testing in kidney transplantation and living kidney donor risk assessment.
+            - generic [ref=e98]: Kidney Int
+            - generic [ref=e99]: Dervla Connaughton, Matthew Weir, Andrew House, Lakshman Gunaratnam, Amit Garg, Pavel Roshanov
+          - link "Effect of a Change in the Eligibility Criteria for Multidisciplinary Kidney Care. J Am Soc Nephrol Arsh Jain, Danielle Nash, Amit Garg, Peter Blake" [ref=e100] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41854725%2F
+            - generic [ref=e101]: Effect of a Change in the Eligibility Criteria for Multidisciplinary Kidney Care.
+            - generic [ref=e102]: J Am Soc Nephrol
+            - generic [ref=e103]: Arsh Jain, Danielle Nash, Amit Garg, Peter Blake
+          - link "Long-Term Risk of Major Coronary Artery Disease Events After Thrombotic Microangiopathy Treated With Plasma Exchange. Am J Hematol Susan Huang, Amit Garg" [ref=e104] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41803631%2F
+            - generic [ref=e105]: Long-Term Risk of Major Coronary Artery Disease Events After Thrombotic Microangiopathy Treated With Plasma Exchange.
+            - generic [ref=e106]: Am J Hematol
+            - generic [ref=e107]: Susan Huang, Amit Garg
+          - 'link "Peritoneal dialysis patients exhibit cognitive deficits but not ischemic brain injury: A magnetic resonance spectroscopy & diffusion tensor imaging study. Perit Dial Int Christopher McIntyre, Arsh Jain" [ref=e108] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41796443%2F
+            - generic [ref=e109]: "Peritoneal dialysis patients exhibit cognitive deficits but not ischemic brain injury: A magnetic resonance spectroscopy & diffusion tensor imaging study."
+            - generic [ref=e110]: Perit Dial Int
+            - generic [ref=e111]: Christopher McIntyre, Arsh Jain
+          - 'link "Statistical analysis of Likert-based ordinal scales: a guide for clinical trialists. BMC Med Res Methodol Amit Garg, Pavel Roshanov" [ref=e112] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41723363%2F
+            - generic [ref=e113]: "Statistical analysis of Likert-based ordinal scales: a guide for clinical trialists."
+            - generic [ref=e114]: BMC Med Res Methodol
+            - generic [ref=e115]: Amit Garg, Pavel Roshanov
+          - 'link "Increasing Access to Living Donor Kidney Transplantation: A Program Report. Can J Kidney Health Dis Kyla Naylor, Amit Garg" [ref=e116] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41641402%2F
+            - generic [ref=e117]: "Increasing Access to Living Donor Kidney Transplantation: A Program Report."
+            - generic [ref=e118]: Can J Kidney Health Dis
+            - generic [ref=e119]: Kyla Naylor, Amit Garg
+          - 'link "Objective and subjective measures of sleep quality in patients with end stage kidney disease: A cross-sectional study. Sleep Med Louise Moist" [ref=e120] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41880883%2F
+            - generic [ref=e121]: "Objective and subjective measures of sleep quality in patients with end stage kidney disease: A cross-sectional study."
+            - generic [ref=e122]: Sleep Med
+            - generic [ref=e123]: Louise Moist
+          - link "Progressive White Matter Injury Dominates in Patients Receiving Hemodialysis Over Peritoneal Dialysis After One Year of Dialysis. Kidney360 Christopher McIntyre" [ref=e124] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41854748%2F
+            - generic [ref=e125]: Progressive White Matter Injury Dominates in Patients Receiving Hemodialysis Over Peritoneal Dialysis After One Year of Dialysis.
+            - generic [ref=e126]: Kidney360
+            - generic [ref=e127]: Christopher McIntyre
+          - link "Valve Replacement With Decellularized Homografts may Impede Solid Organ Transplantation. Transplantation Lakshman Gunaratnam" [ref=e128] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41842831%2F
+            - generic [ref=e129]: Valve Replacement With Decellularized Homografts may Impede Solid Organ Transplantation.
+            - generic [ref=e130]: Transplantation
+            - generic [ref=e131]: Lakshman Gunaratnam
+          - link "Visceral adipose tissue is associated with changes in leptin, FGF-23 and vitamin D metabolism in chronic kidney disease. J Bone Miner Res Louise Moist" [ref=e132] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41834101%2F
+            - generic [ref=e133]: Visceral adipose tissue is associated with changes in leptin, FGF-23 and vitamin D metabolism in chronic kidney disease.
+            - generic [ref=e134]: J Bone Miner Res
+            - generic [ref=e135]: Louise Moist
+          - link "In adults with severe metabolic acidosis and moderate to severe AKI, IV sodium bicarbonate did not reduce mortality at 90 d. Ann Intern Med Amit Garg" [ref=e136] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41771120%2F
+            - generic [ref=e137]: In adults with severe metabolic acidosis and moderate to severe AKI, IV sodium bicarbonate did not reduce mortality at 90 d.
+            - generic [ref=e138]: Ann Intern Med
+            - generic [ref=e139]: Amit Garg
+          - link "Practice patterns and outcomes in cancer patients developing immune checkpoint inhibitors-related AKI. Nephrol Dial Transplant Amit Garg" [ref=e140] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41014247%2F
+            - generic [ref=e141]: Practice patterns and outcomes in cancer patients developing immune checkpoint inhibitors-related AKI.
+            - generic [ref=e142]: Nephrol Dial Transplant
+            - generic [ref=e143]: Amit Garg
+          - 'link "Development of a Mortality Risk Prediction Tool for People With Kidney Failure: A Nominal Group Technique Study of End-User Priorities. Am J Kidney Dis Amit Garg" [ref=e144] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41722887%2F
+            - generic [ref=e145]: "Development of a Mortality Risk Prediction Tool for People With Kidney Failure: A Nominal Group Technique Study of End-User Priorities."
+            - generic [ref=e146]: Am J Kidney Dis
+            - generic [ref=e147]: Amit Garg
+          - 'link "The Canadian Anatomic Kidney Score: Assessment of reproducibility among surgeons and trainees across Canada. Can Urol Assoc J Pavel Roshanov" [ref=e148] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41701884%2F
+            - generic [ref=e149]: "The Canadian Anatomic Kidney Score: Assessment of reproducibility among surgeons and trainees across Canada."
+            - generic [ref=e150]: Can Urol Assoc J
+            - generic [ref=e151]: Pavel Roshanov
+          - link "Adenosine deaminase acting on RNA 1 and receptor-interacting serine/threonine-protein kinase-1 orchestrate the Z-DNA-binding protein 1-mediated PANoptosis and mouse heart transplant rejection. Am J Transplant Lakshman Gunaratnam" [ref=e152] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41692363%2F
+            - generic [ref=e153]: Adenosine deaminase acting on RNA 1 and receptor-interacting serine/threonine-protein kinase-1 orchestrate the Z-DNA-binding protein 1-mediated PANoptosis and mouse heart transplant rejection.
+            - generic [ref=e154]: Am J Transplant
+            - generic [ref=e155]: Lakshman Gunaratnam
+          - 'link "Methods Article for a Study Protocol: Study Design and Baseline Characteristics of the Treatment of Cardiovascular Disease with Low Dose Rivaroxaban in Advanced Chronic Kidney Disease (TRACK) Trial. Am J Nephrol Amit Garg" [ref=e156] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41662295%2F
+            - generic [ref=e157]: "Methods Article for a Study Protocol: Study Design and Baseline Characteristics of the Treatment of Cardiovascular Disease with Low Dose Rivaroxaban in Advanced Chronic Kidney Disease (TRACK) Trial."
+            - generic [ref=e158]: Am J Nephrol
+            - generic [ref=e159]: Amit Garg
+          - 'link "Team-based care within community health centres in Ontario, Canada and the association with emergency department visits: a population-based retrospective study. BMC Prim Care Danielle Nash" [ref=e160] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41652370%2F
+            - generic [ref=e161]: "Team-based care within community health centres in Ontario, Canada and the association with emergency department visits: a population-based retrospective study."
+            - generic [ref=e162]: BMC Prim Care
+            - generic [ref=e163]: Danielle Nash
+          - link "Association of Kidney Volume With Patient-Reported Outcomes in ADPKD. Kidney Int Rep Louise Moist" [ref=e164] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41767623%2F
+            - generic [ref=e165]: Association of Kidney Volume With Patient-Reported Outcomes in ADPKD.
+            - generic [ref=e166]: Kidney Int Rep
+            - generic [ref=e167]: Louise Moist
+          - 'link "Positive B cell flow cytometry crossmatch without detectable donor-specific antibodies: true or false reactivity? Front Immunol Lakshman Gunaratnam" [ref=e168] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41660611%2F
+            - generic [ref=e169]: "Positive B cell flow cytometry crossmatch without detectable donor-specific antibodies: true or false reactivity?"
+            - generic [ref=e170]: Front Immunol
+            - generic [ref=e171]: Lakshman Gunaratnam
+          - link "Cumulative exposure to tacrolimus is associated with increased risk of malignancy for solid organ transplant recipients. Int J Cancer Kyla Naylor" [ref=e172] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41607022%2F
+            - generic [ref=e173]: Cumulative exposure to tacrolimus is associated with increased risk of malignancy for solid organ transplant recipients.
+            - generic [ref=e174]: Int J Cancer
+            - generic [ref=e175]: Kyla Naylor
+          - link "Genetic testing in kidney transplantation and living kidney donor risk assessment. Kidney Int Dervla Connaughton, Matthew Weir, Andrew House, Lakshman Gunaratnam, Amit Garg, Pavel Roshanov" [ref=e176] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41903706%2F
+            - generic [ref=e177]: Genetic testing in kidney transplantation and living kidney donor risk assessment.
+            - generic [ref=e178]: Kidney Int
+            - generic [ref=e179]: Dervla Connaughton, Matthew Weir, Andrew House, Lakshman Gunaratnam, Amit Garg, Pavel Roshanov
+          - link "Effect of a Change in the Eligibility Criteria for Multidisciplinary Kidney Care. J Am Soc Nephrol Arsh Jain, Danielle Nash, Amit Garg, Peter Blake" [ref=e180] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41854725%2F
+            - generic [ref=e181]: Effect of a Change in the Eligibility Criteria for Multidisciplinary Kidney Care.
+            - generic [ref=e182]: J Am Soc Nephrol
+            - generic [ref=e183]: Arsh Jain, Danielle Nash, Amit Garg, Peter Blake
+          - link "Long-Term Risk of Major Coronary Artery Disease Events After Thrombotic Microangiopathy Treated With Plasma Exchange. Am J Hematol Susan Huang, Amit Garg" [ref=e184] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41803631%2F
+            - generic [ref=e185]: Long-Term Risk of Major Coronary Artery Disease Events After Thrombotic Microangiopathy Treated With Plasma Exchange.
+            - generic [ref=e186]: Am J Hematol
+            - generic [ref=e187]: Susan Huang, Amit Garg
+          - 'link "Peritoneal dialysis patients exhibit cognitive deficits but not ischemic brain injury: A magnetic resonance spectroscopy & diffusion tensor imaging study. Perit Dial Int Christopher McIntyre, Arsh Jain" [ref=e188] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41796443%2F
+            - generic [ref=e189]: "Peritoneal dialysis patients exhibit cognitive deficits but not ischemic brain injury: A magnetic resonance spectroscopy & diffusion tensor imaging study."
+            - generic [ref=e190]: Perit Dial Int
+            - generic [ref=e191]: Christopher McIntyre, Arsh Jain
+          - 'link "Statistical analysis of Likert-based ordinal scales: a guide for clinical trialists. BMC Med Res Methodol Amit Garg, Pavel Roshanov" [ref=e192] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41723363%2F
+            - generic [ref=e193]: "Statistical analysis of Likert-based ordinal scales: a guide for clinical trialists."
+            - generic [ref=e194]: BMC Med Res Methodol
+            - generic [ref=e195]: Amit Garg, Pavel Roshanov
+          - 'link "Increasing Access to Living Donor Kidney Transplantation: A Program Report. Can J Kidney Health Dis Kyla Naylor, Amit Garg" [ref=e196] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41641402%2F
+            - generic [ref=e197]: "Increasing Access to Living Donor Kidney Transplantation: A Program Report."
+            - generic [ref=e198]: Can J Kidney Health Dis
+            - generic [ref=e199]: Kyla Naylor, Amit Garg
+          - 'link "Objective and subjective measures of sleep quality in patients with end stage kidney disease: A cross-sectional study. Sleep Med Louise Moist" [ref=e200] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41880883%2F
+            - generic [ref=e201]: "Objective and subjective measures of sleep quality in patients with end stage kidney disease: A cross-sectional study."
+            - generic [ref=e202]: Sleep Med
+            - generic [ref=e203]: Louise Moist
+          - link "Progressive White Matter Injury Dominates in Patients Receiving Hemodialysis Over Peritoneal Dialysis After One Year of Dialysis. Kidney360 Christopher McIntyre" [ref=e204] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41854748%2F
+            - generic [ref=e205]: Progressive White Matter Injury Dominates in Patients Receiving Hemodialysis Over Peritoneal Dialysis After One Year of Dialysis.
+            - generic [ref=e206]: Kidney360
+            - generic [ref=e207]: Christopher McIntyre
+          - link "Valve Replacement With Decellularized Homografts may Impede Solid Organ Transplantation. Transplantation Lakshman Gunaratnam" [ref=e208] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41842831%2F
+            - generic [ref=e209]: Valve Replacement With Decellularized Homografts may Impede Solid Organ Transplantation.
+            - generic [ref=e210]: Transplantation
+            - generic [ref=e211]: Lakshman Gunaratnam
+          - link "Visceral adipose tissue is associated with changes in leptin, FGF-23 and vitamin D metabolism in chronic kidney disease. J Bone Miner Res Louise Moist" [ref=e212] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41834101%2F
+            - generic [ref=e213]: Visceral adipose tissue is associated with changes in leptin, FGF-23 and vitamin D metabolism in chronic kidney disease.
+            - generic [ref=e214]: J Bone Miner Res
+            - generic [ref=e215]: Louise Moist
+          - link "In adults with severe metabolic acidosis and moderate to severe AKI, IV sodium bicarbonate did not reduce mortality at 90 d. Ann Intern Med Amit Garg" [ref=e216] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41771120%2F
+            - generic [ref=e217]: In adults with severe metabolic acidosis and moderate to severe AKI, IV sodium bicarbonate did not reduce mortality at 90 d.
+            - generic [ref=e218]: Ann Intern Med
+            - generic [ref=e219]: Amit Garg
+          - link "Practice patterns and outcomes in cancer patients developing immune checkpoint inhibitors-related AKI. Nephrol Dial Transplant Amit Garg" [ref=e220] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41014247%2F
+            - generic [ref=e221]: Practice patterns and outcomes in cancer patients developing immune checkpoint inhibitors-related AKI.
+            - generic [ref=e222]: Nephrol Dial Transplant
+            - generic [ref=e223]: Amit Garg
+          - 'link "Development of a Mortality Risk Prediction Tool for People With Kidney Failure: A Nominal Group Technique Study of End-User Priorities. Am J Kidney Dis Amit Garg" [ref=e224] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41722887%2F
+            - generic [ref=e225]: "Development of a Mortality Risk Prediction Tool for People With Kidney Failure: A Nominal Group Technique Study of End-User Priorities."
+            - generic [ref=e226]: Am J Kidney Dis
+            - generic [ref=e227]: Amit Garg
+          - 'link "The Canadian Anatomic Kidney Score: Assessment of reproducibility among surgeons and trainees across Canada. Can Urol Assoc J Pavel Roshanov" [ref=e228] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41701884%2F
+            - generic [ref=e229]: "The Canadian Anatomic Kidney Score: Assessment of reproducibility among surgeons and trainees across Canada."
+            - generic [ref=e230]: Can Urol Assoc J
+            - generic [ref=e231]: Pavel Roshanov
+          - link "Adenosine deaminase acting on RNA 1 and receptor-interacting serine/threonine-protein kinase-1 orchestrate the Z-DNA-binding protein 1-mediated PANoptosis and mouse heart transplant rejection. Am J Transplant Lakshman Gunaratnam" [ref=e232] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41692363%2F
+            - generic [ref=e233]: Adenosine deaminase acting on RNA 1 and receptor-interacting serine/threonine-protein kinase-1 orchestrate the Z-DNA-binding protein 1-mediated PANoptosis and mouse heart transplant rejection.
+            - generic [ref=e234]: Am J Transplant
+            - generic [ref=e235]: Lakshman Gunaratnam
+          - 'link "Methods Article for a Study Protocol: Study Design and Baseline Characteristics of the Treatment of Cardiovascular Disease with Low Dose Rivaroxaban in Advanced Chronic Kidney Disease (TRACK) Trial. Am J Nephrol Amit Garg" [ref=e236] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41662295%2F
+            - generic [ref=e237]: "Methods Article for a Study Protocol: Study Design and Baseline Characteristics of the Treatment of Cardiovascular Disease with Low Dose Rivaroxaban in Advanced Chronic Kidney Disease (TRACK) Trial."
+            - generic [ref=e238]: Am J Nephrol
+            - generic [ref=e239]: Amit Garg
+          - 'link "Team-based care within community health centres in Ontario, Canada and the association with emergency department visits: a population-based retrospective study. BMC Prim Care Danielle Nash" [ref=e240] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41652370%2F
+            - generic [ref=e241]: "Team-based care within community health centres in Ontario, Canada and the association with emergency department visits: a population-based retrospective study."
+            - generic [ref=e242]: BMC Prim Care
+            - generic [ref=e243]: Danielle Nash
+          - link "Association of Kidney Volume With Patient-Reported Outcomes in ADPKD. Kidney Int Rep Louise Moist" [ref=e244] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41767623%2F
+            - generic [ref=e245]: Association of Kidney Volume With Patient-Reported Outcomes in ADPKD.
+            - generic [ref=e246]: Kidney Int Rep
+            - generic [ref=e247]: Louise Moist
+          - 'link "Positive B cell flow cytometry crossmatch without detectable donor-specific antibodies: true or false reactivity? Front Immunol Lakshman Gunaratnam" [ref=e248] [cursor=pointer]':
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41660611%2F
+            - generic [ref=e249]: "Positive B cell flow cytometry crossmatch without detectable donor-specific antibodies: true or false reactivity?"
+            - generic [ref=e250]: Front Immunol
+            - generic [ref=e251]: Lakshman Gunaratnam
+          - link "Cumulative exposure to tacrolimus is associated with increased risk of malignancy for solid organ transplant recipients. Int J Cancer Kyla Naylor" [ref=e252] [cursor=pointer]:
+            - /url: /go?url=https%3A%2F%2Fpubmed.ncbi.nlm.nih.gov%2F41607022%2F
+            - generic [ref=e253]: Cumulative exposure to tacrolimus is associated with increased risk of malignancy for solid organ transplant recipients.
+            - generic [ref=e254]: Int J Cancer
+            - generic [ref=e255]: Kyla Naylor
+    - contentinfo [ref=e256]:
+      - generic [ref=e257]:
+        - generic [ref=e258]:
+          - generic [ref=e259]: © 2026
+          - link "read technical information about this site" [ref=e260] [cursor=pointer]:
+            - /url: https://github.com/proshano/KCRU-website
+        - generic [ref=e261]:
+          - link "Privacy" [ref=e262] [cursor=pointer]:
+            - /url: /privacy
+          - link "Accessibility" [ref=e263] [cursor=pointer]:
+            - /url: /accessibility
+  - button "Find studies for your patients" [ref=e265] [cursor=pointer]:
+    - generic [ref=e266]:
+      - img [ref=e268]
+      - generic [ref=e271]: Find studies for your patients
+  - button "Open Next.js Dev Tools" [ref=e277] [cursor=pointer]:
+    - img [ref=e278]
+  - alert [ref=e281]

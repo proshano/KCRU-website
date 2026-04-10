@@ -1,0 +1,117 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - navigation [ref=e4]:
+      - generic [ref=e5]:
+        - link "London Kidney Clinical Research" [ref=e6] [cursor=pointer]:
+          - /url: /
+        - generic [ref=e7]:
+          - link "Home" [ref=e8] [cursor=pointer]:
+            - /url: /
+          - link "Studies" [ref=e9] [cursor=pointer]:
+            - /url: /trials
+          - link "Team" [ref=e10] [cursor=pointer]:
+            - /url: /team
+          - link "Publications" [ref=e11] [cursor=pointer]:
+            - /url: /publications
+          - link "Subscribe" [ref=e12] [cursor=pointer]:
+            - /url: /updates
+          - link "Contact" [ref=e13] [cursor=pointer]:
+            - /url: /contact
+    - main [ref=e14]:
+      - main [ref=e15]:
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - heading "Contact us" [level=1] [ref=e19]
+            - generic [ref=e22]:
+              - generic [ref=e23]:
+                - generic [ref=e24]:
+                  - generic [ref=e25]: Name*
+                  - textbox [ref=e26]
+                - generic [ref=e27]:
+                  - generic [ref=e28]: Contact email*
+                  - textbox [ref=e29]
+              - generic [ref=e30]:
+                - generic [ref=e31]: Reason for contacting*
+                - combobox [ref=e32]:
+                  - option "Select a reason" [disabled] [selected]
+                  - option "Interested in donating to support research"
+                  - option "Industry interested in partnering on research"
+                  - option "Interested in research training opportunities"
+                  - option "Healthcare provider sending a clinic or research referral"
+                  - option "Feedback"
+              - generic [ref=e33]:
+                - button "Submit" [ref=e34] [cursor=pointer]
+                - paragraph [ref=e35]: We will use your email to follow up about this inquiry.
+          - complementary [ref=e36]:
+            - heading "Locations" [level=2] [ref=e37]
+            - generic [ref=e38]:
+              - generic [ref=e39]:
+                - paragraph [ref=e40]: London Health Sciences Centre – University Hospital
+                - paragraph [ref=e41]: 339 Windermere Rd B8-141 - Nephrology Research London, ON N6A 5A5
+                - generic [ref=e42]:
+                  - paragraph [ref=e43]:
+                    - text: "Phone:"
+                    - link "519-685-8500 x34769" [ref=e44] [cursor=pointer]:
+                      - /url: "tel:519-685-8500 x34769 "
+                  - paragraph [ref=e45]: "Fax: 519-663-3393"
+                  - link "Nephrology_Research@lhsc.on.ca" [ref=e46] [cursor=pointer]:
+                    - /url: mailto:Nephrology_Research@lhsc.on.ca
+              - generic [ref=e47]:
+                - paragraph [ref=e48]: London Health Sciences Centre – Victoria Hospital
+                - paragraph [ref=e49]: 800 Commissioners Rd E ELL-101 London, ON N6A 5W9
+                - generic [ref=e50]:
+                  - paragraph [ref=e51]:
+                    - text: "Phone:"
+                    - link "519-685-8502" [ref=e52] [cursor=pointer]:
+                      - /url: tel:519-685-8502
+                  - link "KCRU@lhsc.on.ca" [ref=e53] [cursor=pointer]:
+                    - /url: mailto:KCRU@lhsc.on.ca
+    - contentinfo [ref=e54]:
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - generic [ref=e57]: © 2026
+          - link "read technical information about this site" [ref=e58] [cursor=pointer]:
+            - /url: https://github.com/proshano/KCRU-website
+        - generic [ref=e59]:
+          - link "Privacy" [ref=e60] [cursor=pointer]:
+            - /url: /privacy
+          - link "Accessibility" [ref=e61] [cursor=pointer]:
+            - /url: /accessibility
+  - complementary "Trial assistant" [ref=e83]:
+    - generic [ref=e84]:
+      - heading "Trial assistant" [level=2] [ref=e86]
+      - generic [ref=e87]:
+        - button "Reset" [ref=e88] [cursor=pointer]
+        - button "Minimize trial assistant" [ref=e89] [cursor=pointer]: Minimize
+    - generic [ref=e90]:
+      - log [ref=e91]:
+        - generic [ref=e93]: Start with the diagnosis and share the eGFR, or just say the patient is on dialysis. I'll narrow down the recruiting studies from there.
+      - generic [ref=e95]:
+        - generic [ref=e96]: Enter non-identifying diagnosis and eGFR, or say the patient is on dialysis
+        - generic [ref=e97]:
+          - textbox "Enter non-identifying diagnosis and eGFR, or say the patient is on dialysis" [active] [ref=e98]:
+            - /placeholder: Diagnosis and eGFR, or say the patient is on dialysis.
+          - button "Start voice input" [ref=e99] [cursor=pointer]:
+            - generic [ref=e100]: Microphone
+            - img [ref=e101]
+        - generic [ref=e103]:
+          - paragraph [ref=e104]: Non-identifying details only. No names, birth dates, phone numbers, or record numbers.
+          - button "Send" [disabled] [ref=e105]
+  - button "Open Next.js Dev Tools" [ref=e76] [cursor=pointer]:
+    - img [ref=e77]
+  - alert [ref=e70]
+  - iframe [ref=e82]:
+    - generic [ref=f1e2]:
+      - generic [ref=f1e6]:
+        - text: Localhost is not in the list of
+        - link "supported domains" [ref=f1e7] [cursor=pointer]:
+          - /url: https://cloud.google.com/recaptcha/docs/troubleshoot-recaptcha-issues#localhost-error
+        - text: for this site key.
+      - generic [ref=f1e8]:
+        - generic [ref=f1e11]: reCAPTCHA
+        - generic [ref=f1e12]:
+          - link "Privacy" [ref=f1e13] [cursor=pointer]:
+            - /url: https://www.google.com/intl/en/policies/privacy/
+          - text: "-"
+          - link "Terms" [ref=f1e14] [cursor=pointer]:
+            - /url: https://www.google.com/intl/en/policies/terms/
