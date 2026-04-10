@@ -30,3 +30,7 @@ runtime/pubmed-cache.json
 dist/
 
 .vercel
+
+# Playwright MCP agent logs and local screenshot output
+.playwright-mcp/
+output/playwright/
