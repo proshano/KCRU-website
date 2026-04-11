@@ -34,7 +34,7 @@ export default function AuthButtons({
             onClick={() => signIn('azure-ad', { callbackUrl: signInCallbackUrl })}
             disabled={isLoading}
           >
-            Sign in with LHSC
+            Sign in with LHSC or St. Joseph&apos;s
           </button>
       )}
     </div>

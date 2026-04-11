@@ -48,7 +48,7 @@ export default async function LoginPage({ searchParams }) {
       <div className="mx-auto max-w-2xl px-6 py-16">
         <h1 className="text-3xl font-semibold text-[#333]">Sign in</h1>
         <p className="mt-4 text-base text-[#555]">
-          Use your LHSC account to access coordinator and admin tools.
+          Use your LHSC or St. Joseph&apos;s account to access coordinator and admin tools.
         </p>
         {errorMessage && (
           <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

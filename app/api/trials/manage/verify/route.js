@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
+import {
+  emailMatchesCoordinatorDomain,
+  formatCoordinatorDomains,
+  getCoordinatorDomains,
+} from '@/lib/coordinatorDomains'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
 import { buildCorsHeaders } from '@/lib/httpUtils'
@@ -8,20 +13,6 @@ import { getSanityWriteErrorMessage } from '@/lib/sanityErrors'
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
 const SESSION_TTL_HOURS = 8
-
-async function getCoordinatorDomain() {
-  const settings = await sanityFetch(`
-    *[_type == "siteSettings"][0]{
-      "domain": studyApprovals.coordinatorDomain
-    }
-  `)
-  const raw =
-    (settings?.domain || process.env.STUDY_COORDINATOR_DOMAIN || 'lhsc.on.ca')
-      .toString()
-      .trim()
-      .toLowerCase()
-  return raw.replace(/^@/, '')
-}
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
@@ -46,10 +37,10 @@ export async function POST(request) {
       )
     }
 
-    const domain = await getCoordinatorDomain()
-    if (!email.endsWith(`@${domain}`)) {
+    const domains = await getCoordinatorDomains()
+    if (!emailMatchesCoordinatorDomain(email, domains)) {
       return NextResponse.json(
-        { ok: false, error: `Email must be at @${domain}.` },
+        { ok: false, error: `Email must be at one of: ${formatCoordinatorDomains(domains)}.` },
         { status: 403, headers: CORS_HEADERS }
       )
     }

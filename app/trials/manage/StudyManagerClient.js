@@ -1090,8 +1090,8 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   const autosaveStatusClass = draftError ? 'text-xs text-red-600' : 'text-xs text-gray-500'
   const portalLabel = adminMode ? 'Admin Portal' : 'Coordinator Portal'
   const accessNote = adminMode
-    ? 'Sign in with your LHSC account to manage studies.'
-    : 'Sign in with your LHSC account to submit or update studies.'
+    ? "Sign in with your LHSC or St. Joseph's account to manage studies."
+    : "Sign in with your LHSC or St. Joseph's account to submit or update studies."
   const workflowNote = canBypassApprovals
     ? 'Publish and edit studies. Changes go live immediately for approval admins.'
     : 'Submit or edit studies. Submissions are sent to an approval admin before changes go live.'

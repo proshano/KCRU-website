@@ -493,10 +493,23 @@ const siteSettings = {
       fields: [
         {
           name: 'coordinatorDomain',
-          title: 'Coordinator Email Domain',
+          title: 'Coordinator Email Domains',
           type: 'string',
-          description: 'Only emails at this domain can sign in (e.g., lhsc.on.ca).',
-          initialValue: 'lhsc.on.ca'
+          description:
+            'Only allowlisted users at these domains can sign in. Enter one domain or a comma-separated list (e.g., lhsc.on.ca, sjhc.london.on.ca).',
+          initialValue: 'lhsc.on.ca, sjhc.london.on.ca',
+          validation: Rule =>
+            Rule.custom((value = '') => {
+              const invalid = String(value)
+                .split(/[\n,;]+/)
+                .map((item) => item.trim().replace(/^@/, ''))
+                .filter(Boolean)
+                .find((item) => !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(item))
+
+              return invalid
+                ? 'Provide one or more valid domains separated by commas.'
+                : true
+            })
         },
         {
           name: 'coordinatorEmails',

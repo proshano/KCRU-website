@@ -99,7 +99,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - Maintenance mode still uses `app/api/auth/route.js` for the `site-auth` cookie; NextAuth endpoints remain under `/api/auth/*`.
 - The login flow is in `app/login/page.js`, with a protected example at `app/protected/page.js`.
 - Client session context is provided by `app/components/AuthSessionProvider.js` only on login/admin/protected tool pages that need `useSession`; public pages do not include the global NextAuth session provider.
-- Access is allowlisted in Sanity: `siteSettings.studyApprovals.coordinatorEmails` (coordinators) plus `siteSettings.studyApprovals.admins` and `siteSettings.studyUpdates.admins` (admins). Sign-in is restricted to the allowlist and `studyApprovals.coordinatorDomain`.
+- Access is allowlisted in Sanity: `siteSettings.studyApprovals.coordinatorEmails` (coordinators) plus `siteSettings.studyApprovals.admins` and `siteSettings.studyUpdates.admins` (admins). Sign-in is restricted to the allowlist and the domain list stored in `studyApprovals.coordinatorDomain` (one domain or a comma-separated list).
 - Role flags are stored on `session.user.access` (`admin`, `approvals`, `updates`, `coordinator`) and enforced in API routes via `lib/authAccess.js`.
 
 ## Aliases & File Types
@@ -155,4 +155,3 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 
 - No dedicated test suite; run `npm run lint` for non-trivial changes.
 - Preferred lint check: `npm run lint` (uses ESLint flat config via `eslint.config.js`).
-
