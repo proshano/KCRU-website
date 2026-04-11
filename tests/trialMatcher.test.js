@@ -8,115 +8,65 @@ const baseTrial = {
   title: 'Stage 4 CKD Diabetes Study',
   slug: 'stage-4-ckd-diabetes-study',
   status: 'recruiting',
-  prescreen: {
-    enabled: true,
-    screeningSummary: 'Adults with stage 4 CKD, diabetes, and reduced eGFR.',
-    sexAllowed: 'all',
-    minimumAgeYears: 18,
-    maximumAgeYears: 80,
-    populationTags: ['chronic_kidney_disease'],
-    ckdStages: ['stage4'],
-    dialysisStatus: 'not_on_dialysis',
-    transplantStatus: 'not_applicable',
-    diabetesRequirement: 'required',
-    egfrMin: 15,
-    egfrMax: 30,
-    requiresAlbuminuria: false,
-    requiresProteinuria: false,
-    exclusionTags: [],
-    mustAsk: ['ageYears', 'ckdStage', 'dialysisStatus', 'hasDiabetes', 'egfr'],
-    optionalQuestions: [],
-  },
+  laySummary: 'Study for adults with stage 4 chronic kidney disease and diabetes.',
+  inclusionCriteria: [
+    'Adults with chronic kidney disease stage 4',
+    'Type 2 diabetes',
+    'eGFR 15 to 30 mL/min/1.73 m2',
+    'Not receiving dialysis',
+  ],
 }
 
-test('returns a strong match when hard requirements align', () => {
+test('returns a match when study text aligns with the reported population', () => {
   const result = matchTrialToPatient(baseTrial, {
-    ageYears: 58,
-    populationTags: ['chronic_kidney_disease'],
-    ckdStage: 'stage4',
-    dialysisStatus: 'not_on_dialysis',
+    populationTags: ['chronic_kidney_disease', 'diabetes'],
     hasDiabetes: true,
     egfr: 24,
   })
 
   assert.equal(result.decision, 'match')
   assert.equal(result.mismatchReasons.length, 0)
-  assert.ok(result.matchedReasons.length >= 4)
+  assert.ok(result.matchedReasons.some((reason) => reason.includes('chronic kidney disease')))
 })
 
-test('returns unlikely when a hard mismatch is present', () => {
-  const result = matchTrialToPatient(baseTrial, {
-    ageYears: 58,
-    populationTags: ['chronic_kidney_disease'],
-    ckdStage: 'stage4',
-    dialysisStatus: 'hemodialysis',
-    hasDiabetes: true,
-    egfr: 24,
-  })
-
-  assert.equal(result.decision, 'unlikely')
-  assert.ok(result.mismatchReasons.some((reason) => reason.includes('Dialysis')))
-})
-
-test('returns insufficient_info when must-ask fields are missing', () => {
-  const result = matchTrialToPatient(baseTrial, {
-    populationTags: ['chronic_kidney_disease'],
-    ckdStage: 'stage4',
-  })
-
-  assert.equal(result.decision, 'insufficient_info')
-  assert.ok(result.missingReasons.some((reason) => reason.includes('Age')))
-  assert.ok(result.missingReasons.some((reason) => reason.includes('eGFR')))
-})
-
-test('requires exclusion screening when exclusion tags are marked must-ask', () => {
+test('returns possible when patient context exists but the study text is generic', () => {
   const result = matchTrialToPatient(
     {
-      ...baseTrial,
-      prescreen: {
-        ...baseTrial.prescreen,
-        minimumAgeYears: null,
-        maximumAgeYears: null,
-        ckdStages: [],
-        dialysisStatus: 'not_applicable',
-        diabetesRequirement: 'not_applicable',
-        egfrMin: null,
-        egfrMax: null,
-        mustAsk: ['populationTags', 'exclusionTags'],
-        exclusionTags: ['pregnancy'],
-      },
+      _id: 'trial-generic',
+      title: 'General Kidney Study',
+      slug: 'general-kidney-study',
+      status: 'recruiting',
+      laySummary: 'General kidney outcomes study for adults.',
+      inclusionCriteria: ['Adults with kidney disease'],
     },
     {
-      populationTags: ['chronic_kidney_disease'],
+      ageYears: 54,
+      egfr: 28,
     }
   )
 
-  assert.equal(result.decision, 'insufficient_info')
-  assert.ok(result.missingReasons.some((reason) => reason.includes('Major exclusion factors')))
+  assert.equal(result.decision, 'possible')
+  assert.equal(result.mismatchReasons.length, 0)
 })
 
-test('keeps studies in the assistant even when structured criteria are still blank', () => {
+test('returns insufficient_info when the patient profile is still empty', () => {
   const result = matchTrialToPatient(
     {
       _id: 'trial-blank',
       title: 'General Kidney Study',
       slug: 'general-kidney-study',
       status: 'recruiting',
-      prescreen: {
-        screeningSummary: 'Broad kidney study with matching details still under review.',
-      },
+      laySummary: 'Broad kidney study.',
+      inclusionCriteria: ['Adults with kidney disease'],
     },
-    {
-      ageYears: 54,
-      populationTags: ['chronic_kidney_disease'],
-    }
+    {}
   )
 
   assert.equal(result.decision, 'insufficient_info')
-  assert.equal(result.missingReasons.length, 0)
+  assert.equal(result.matchedReasons.length, 0)
 })
 
-test('returns unlikely from title text when prescreen is blank but study clearly targets FSGS/MCD (IgA patient)', () => {
+test('returns unlikely from study text when the diagnosis clearly targets a different disease', () => {
   const result = matchTrialToPatient(
     {
       _id: 'trial-result',
@@ -125,104 +75,54 @@ test('returns unlikely from title text when prescreen is blank but study clearly
       slug: 'result',
       status: 'recruiting',
       laySummary: 'Umbrella study in primary FSGS or MCD.',
-      prescreen: {
-        screeningSummary: '',
-      },
+      inclusionCriteria: ['Participants with primary focal segmental glomerulosclerosis or minimal change disease'],
     },
     {
       ageYears: 25,
       sex: 'female',
       populationTags: ['iga_nephropathy', 'chronic_kidney_disease', 'glomerular_disease'],
-      ckdStage: 'stage3',
       dialysisStatus: 'not_on_dialysis',
       transplantStatus: 'no_transplant',
-      hasDiabetes: false,
       egfr: 35,
-      hasAlbuminuria: true,
       hasProteinuria: true,
     }
   )
 
   assert.equal(result.decision, 'unlikely')
-  assert.ok(result.mismatchReasons.some((r) => r.includes('different kidney disease')))
+  assert.ok(result.mismatchReasons.some((reason) => reason.includes('different kidney disease')))
 })
 
-test('returns unlikely from title text for IgA-specific study when diagnosis text says diabetic nephropathy', () => {
-  const result = matchTrialToPatient(
-    {
-      _id: 'trial-ican',
-      title: 'Study of Ravulizumab in Immunoglobulin A Nephropathy (IgAN) (ICAN)',
-      slug: 'ican',
-      status: 'recruiting',
-      laySummary: 'Study in participants with IgA nephropathy.',
-      prescreen: {},
-    },
-    {
-      ageYears: 62,
-      diagnosis: 'diabetic nephropathy',
-      hasDiabetes: true,
-      egfr: 26,
-    }
-  )
-
-  assert.equal(result.decision, 'unlikely')
-  assert.ok(result.mismatchReasons.some((r) => r.includes('different kidney disease')))
-})
-
-test('returns unlikely from title text for dialysis-focused study when patient is predialysis (eGFR, not on dialysis)', () => {
+test('returns unlikely for dialysis-focused study when the patient is predialysis', () => {
   const result = matchTrialToPatient(
     {
       _id: 'trial-levil',
       title: 'An Extension to Assess the Effect of Expanded Dialysis on Patient Reported Symptoms Using LEVIL',
       slug: 'levil',
       status: 'recruiting',
-      prescreen: {},
-    },
-    {
-      ageYears: 29,
-      sex: 'female',
-      populationTags: ['iga_nephropathy', 'chronic_kidney_disease'],
-      dialysisStatus: 'not_on_dialysis',
-      transplantStatus: 'no_transplant',
-      egfr: 45,
-      hasAlbuminuria: true,
-    }
-  )
-
-  assert.equal(result.decision, 'unlikely')
-  assert.ok(result.mismatchReasons.some((r) => r.includes('dialysis')))
-})
-
-test('returns unlikely from title text for dialysis-focused study when eGFR implies predialysis but dialysisStatus unset', () => {
-  const result = matchTrialToPatient(
-    {
-      _id: 'trial-levil-2',
-      title: 'An Extension to Assess the Effect of Expanded Dialysis on Patient Reported Symptoms Using LEVIL',
-      slug: 'levil',
-      status: 'recruiting',
-      prescreen: {},
+      inclusionCriteria: ['Adults receiving dialysis'],
     },
     {
       ageYears: 29,
       sex: 'female',
       populationTags: ['iga_nephropathy'],
+      dialysisStatus: 'not_on_dialysis',
+      transplantStatus: 'no_transplant',
       egfr: 45,
     }
   )
 
   assert.equal(result.decision, 'unlikely')
-  assert.ok(result.mismatchReasons.some((r) => r.includes('dialysis')))
+  assert.ok(result.mismatchReasons.some((reason) => reason.includes('dialysis')))
 })
 
-test('returns unlikely from title text for transplant-only study when patient is not a transplant recipient', () => {
+test('returns unlikely for transplant-only study when the patient is not a transplant recipient', () => {
   const result = matchTrialToPatient(
     {
       _id: 'trial-shamrock',
-      title:
-        'Efgartigimod in Kidney Transplant Recipients With Antibody-Mediated Rejection (AMR) (Shamrock)',
+      title: 'Efgartigimod in Kidney Transplant Recipients With Antibody-Mediated Rejection (AMR) (Shamrock)',
       slug: 'shamrock',
       status: 'recruiting',
-      prescreen: {},
+      inclusionCriteria: ['Kidney transplant recipients with antibody-mediated rejection'],
     },
     {
       ageYears: 25,
@@ -232,124 +132,87 @@ test('returns unlikely from title text for transplant-only study when patient is
   )
 
   assert.equal(result.decision, 'unlikely')
-  assert.ok(result.mismatchReasons.some((r) => r.includes('transplant')))
+  assert.ok(result.mismatchReasons.some((reason) => reason.includes('transplant')))
 })
 
-test('returns unlikely when disease-specific population tags do not overlap (IgA vs FSGS)', () => {
-  const fsgsTrial = {
-    _id: 'trial-fsgs',
-    title: 'FSGS study',
-    slug: 'fsgs-study',
-    status: 'recruiting',
-    prescreen: {
-      screeningSummary: 'Primary FSGS or MCD.',
-      sexAllowed: 'all',
-      minimumAgeYears: 16,
-      maximumAgeYears: 75,
-      populationTags: ['fsgs_or_mcd'],
-      ckdStages: [],
-      dialysisStatus: 'not_applicable',
-      transplantStatus: 'not_applicable',
-      diabetesRequirement: 'not_applicable',
-      egfrMin: null,
-      egfrMax: null,
-      requiresAlbuminuria: false,
-      requiresProteinuria: false,
-      exclusionTags: [],
-      mustAsk: [],
-      optionalQuestions: [],
+test('returns unlikely when eGFR text criteria conflict with the reported eGFR', () => {
+  const result = matchTrialToPatient(
+    {
+      _id: 'trial-lupus-egfr',
+      title: 'Lupus Nephritis eGFR Study',
+      slug: 'lupus-egfr-study',
+      status: 'recruiting',
+      laySummary: 'Study in active lupus nephritis.',
+      inclusionCriteria: [
+        'Female participants with active lupus nephritis',
+        'eGFR 20 to 60 mL/min/1.73 m2',
+      ],
     },
-  }
-
-  const result = matchTrialToPatient(fsgsTrial, {
-    ageYears: 29,
-    sex: 'female',
-    populationTags: ['iga_nephropathy', 'glomerular_disease'],
-    ckdStage: 'stage4',
-    dialysisStatus: 'not_on_dialysis',
-    transplantStatus: 'no_transplant',
-    hasDiabetes: false,
-    egfr: 29,
-    hasProteinuria: true,
-  })
+    {
+      ageYears: 34,
+      sex: 'female',
+      diagnosis: 'Lupus nephritis',
+      egfr: 90,
+    }
+  )
 
   assert.equal(result.decision, 'unlikely')
-  assert.ok(
-    result.mismatchReasons.some(
-      (reason) => reason.includes('Study population') || reason.includes('different kidney disease')
-    )
-  )
+  assert.ok(result.mismatchReasons.some((reason) => reason.includes('eGFR')))
 })
 
-test('matches when patient and trial share a disease-specific population tag', () => {
-  const igaTrial = {
+test('returns possible when diagnosis aligns but a required eGFR value is missing', () => {
+  const result = matchTrialToPatient(
+    {
+      _id: 'trial-lupus-missing-egfr',
+      title: 'Lupus Nephritis eGFR Study',
+      slug: 'lupus-missing-egfr-study',
+      status: 'recruiting',
+      laySummary: 'Study in active lupus nephritis.',
+      inclusionCriteria: [
+        'Female participants with active lupus nephritis',
+        'eGFR 20 to 60 mL/min/1.73 m2',
+      ],
+    },
+    {
+      ageYears: 34,
+      sex: 'female',
+      diagnosis: 'Lupus nephritis',
+    }
+  )
+
+  assert.equal(result.decision, 'possible')
+  assert.ok(result.missingReasons.some((reason) => reason.includes('eGFR')))
+})
+
+test('ranks stronger text matches ahead of broader studies', () => {
+  const strongerTrial = {
     _id: 'trial-iga',
-    title: 'IgA study',
+    title: 'Study of Ravulizumab in Immunoglobulin A Nephropathy (IgAN)',
     slug: 'iga-study',
     status: 'recruiting',
-    prescreen: {
-      screeningSummary: 'Primary IgAN.',
-      sexAllowed: 'all',
-      minimumAgeYears: 18,
-      maximumAgeYears: 80,
-      populationTags: ['iga_nephropathy', 'chronic_kidney_disease'],
-      ckdStages: [],
-      dialysisStatus: 'not_on_dialysis',
-      transplantStatus: 'not_applicable',
-      diabetesRequirement: 'excluded',
-      egfrMin: 15,
-      egfrMax: 45,
-      requiresAlbuminuria: false,
-      requiresProteinuria: false,
-      exclusionTags: [],
-      mustAsk: [],
-      optionalQuestions: [],
-    },
+    laySummary: 'Study in participants with IgA nephropathy.',
+    inclusionCriteria: ['Adults with biopsy-proven IgA nephropathy'],
   }
 
-  const result = matchTrialToPatient(igaTrial, {
-    ageYears: 29,
-    sex: 'female',
-    populationTags: ['iga_nephropathy', 'chronic_kidney_disease'],
-    ckdStage: 'stage4',
-    dialysisStatus: 'not_on_dialysis',
-    transplantStatus: 'no_transplant',
-    hasDiabetes: false,
-    egfr: 29,
-    hasProteinuria: true,
-  })
-
-  assert.equal(result.decision, 'match')
-  assert.ok(result.matchedReasons.some((r) => String(r).includes('IgA') || String(r).includes('iga')))
-})
-
-test('ranks stronger matches ahead of weaker ones', () => {
-  const weakerTrial = {
+  const broaderTrial = {
     ...baseTrial,
     _id: 'trial-2',
     title: 'General CKD Registry',
     slug: 'general-ckd-registry',
     status: 'coming_soon',
-    prescreen: {
-      ...baseTrial.prescreen,
-      ckdStages: [],
-      dialysisStatus: 'not_applicable',
-      diabetesRequirement: 'not_applicable',
-      egfrMin: null,
-      egfrMax: null,
-      mustAsk: ['ageYears'],
-    },
+    laySummary: 'Registry for adults with chronic kidney disease.',
+    inclusionCriteria: ['Adults with chronic kidney disease'],
   }
 
-  const ranked = rankTrialMatches([weakerTrial, baseTrial], {
-    ageYears: 58,
-    populationTags: ['chronic_kidney_disease'],
-    ckdStage: 'stage4',
+  const ranked = rankTrialMatches([broaderTrial, strongerTrial], {
+    ageYears: 29,
+    sex: 'female',
+    populationTags: ['iga_nephropathy', 'chronic_kidney_disease'],
+    diagnosis: 'IgA nephropathy',
     dialysisStatus: 'not_on_dialysis',
-    hasDiabetes: true,
-    egfr: 24,
+    egfr: 29,
   })
 
-  assert.equal(ranked[0]._id, 'trial-1')
+  assert.equal(ranked[0]._id, 'trial-iga')
   assert.equal(ranked[0].decision, 'match')
 })

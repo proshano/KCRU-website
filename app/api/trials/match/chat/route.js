@@ -36,9 +36,8 @@ function tokenizeQuery(text) {
 }
 
 function buildStudyHaystack(study) {
-  const prescreenSummary = study?.prescreen?.screeningSummary || ''
   const inc = Array.isArray(study?.inclusionCriteria) ? study.inclusionCriteria.join(' ') : ''
-  return sanitizeText([study?.title, study?.laySummary, prescreenSummary, inc].filter(Boolean).join(' '))
+  return sanitizeText([study?.title, study?.laySummary, inc].filter(Boolean).join(' '))
 }
 
 function quickTextRankStudies(studies, queryText, profile = {}) {
@@ -224,15 +223,6 @@ function buildLlmOptions(settings) {
   }
 }
 
-function stripExclusionCriteriaForAssistant(studies = []) {
-  if (!Array.isArray(studies)) return []
-  return studies.map((study) => {
-    if (!study || typeof study !== 'object') return study
-    const { exclusionCriteria: _excluded, ...safeStudy } = study
-    return safeStudy
-  })
-}
-
 function buildResponse(body, status = 200) {
   return NextResponse.json(body, {
     status,
@@ -304,7 +294,6 @@ export async function POST(request) {
     }
 
     const studies = JSON.parse(JSON.stringify(studiesRaw || []))
-    const assistantStudies = stripExclusionCriteriaForAssistant(studies)
     if (!studies.length) {
       return buildResponse({
         ok: true,
@@ -319,8 +308,8 @@ export async function POST(request) {
       {
         currentProfile,
         messages,
-        trialCatalog: buildTrialCatalogForPrompt(assistantStudies),
-        trialEligibilityCatalog: buildTrialEligibilityCatalogForPrompt(assistantStudies),
+        trialCatalog: buildTrialCatalogForPrompt(studies),
+        trialEligibilityCatalog: buildTrialEligibilityCatalogForPrompt(studies),
       },
       buildLlmOptions(settings)
     )
@@ -338,7 +327,7 @@ export async function POST(request) {
     const llmOpts = buildLlmOptions(settings)
     let rankedResults = []
     if (shouldRankMatches) {
-      const rankingShortlist = buildLlmRankingShortlist(assistantStudies, enrichedProfile, messages)
+      const rankingShortlist = buildLlmRankingShortlist(studies, enrichedProfile, messages)
       try {
         rankedResults = await generateTrialMatchStudyRanking(
           { profile: enrichedProfile, studies: rankingShortlist },
@@ -350,7 +339,7 @@ export async function POST(request) {
       }
     } else {
       rankedResults = quickTextRankStudies(
-        assistantStudies,
+        studies,
         getLastUserMessage(messages)?.content || '',
         enrichedProfile
       )

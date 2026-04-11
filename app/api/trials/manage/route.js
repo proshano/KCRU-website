@@ -378,7 +378,6 @@ function buildTrialSummaryDoc(normalized, slugValue) {
       ? { _type: 'reference', _ref: normalized.principalInvestigatorId }
       : undefined,
     ctGovData: normalized.ctGovData || undefined,
-    prescreen: normalized.prescreen || undefined,
   }
 }
 
@@ -499,7 +498,6 @@ export async function GET(request) {
           sponsorWebsite,
           acceptsReferrals,
           localContact,
-          prescreen,
           ctGovData,
           "therapeuticAreaIds": therapeuticAreas[]._ref,
           "principalInvestigatorId": principalInvestigator._ref,

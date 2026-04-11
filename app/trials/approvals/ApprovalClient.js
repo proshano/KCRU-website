@@ -6,16 +6,6 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import AuthButtons from '@/app/components/AuthButtons'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
-import {
-  TRIAL_PRESCREEN_CKD_STAGE_LABELS,
-  TRIAL_PRESCREEN_DIABETES_LABELS,
-  TRIAL_PRESCREEN_DIALYSIS_STATUS_LABELS,
-  TRIAL_PRESCREEN_EXCLUSION_LABELS,
-  TRIAL_PRESCREEN_MUST_ASK_LABELS,
-  TRIAL_PRESCREEN_POPULATION_LABELS,
-  TRIAL_PRESCREEN_SEX_LABELS,
-  TRIAL_PRESCREEN_TRANSPLANT_STATUS_LABELS,
-} from '@/lib/trialPrescreen'
 
 const TOKEN_STORAGE_KEY = 'kcru-admin-token'
 const LEGACY_TOKEN_KEYS = ['kcru-approval-token', 'kcru-updates-admin-token']
@@ -292,23 +282,10 @@ export default function ApprovalClient() {
           <div className="space-y-6">
             {submissions.map((submission) => {
               const payload = submission.payload || {}
-              const prescreen = payload.prescreen || {}
               const therapeuticNames = (payload.therapeuticAreaIds || []).map((id) => areaMap.get(id) || id)
               const piName = payload.principalInvestigatorId
                 ? researcherMap.get(payload.principalInvestigatorId) || payload.principalInvestigatorId
                 : payload.principalInvestigatorName || 'None'
-              const populationNames = (prescreen.populationTags || []).map(
-                (value) => TRIAL_PRESCREEN_POPULATION_LABELS[value] || value
-              )
-              const ckdStageNames = (prescreen.ckdStages || []).map(
-                (value) => TRIAL_PRESCREEN_CKD_STAGE_LABELS[value] || value
-              )
-              const exclusionNames = (prescreen.exclusionTags || []).map(
-                (value) => TRIAL_PRESCREEN_EXCLUSION_LABELS[value] || value
-              )
-              const mustAskNames = (prescreen.mustAsk || []).map(
-                (value) => TRIAL_PRESCREEN_MUST_ASK_LABELS[value] || value
-              )
               const isReviewing = reviewingId === submission._id
               const isPending = submission.status === 'pending'
               return (
@@ -454,49 +431,6 @@ export default function ApprovalClient() {
                       <p>Email: {payload.localContact?.email || 'None'}</p>
                       <p>Phone: {payload.localContact?.phone || 'None'}</p>
                       <p>Display publicly: {payload.localContact?.displayPublicly ? 'Yes' : 'No'}</p>
-                    </div>
-                  </details>
-
-                  <details className="text-sm text-gray-700">
-                    <summary className="cursor-pointer font-medium text-gray-900">Matching assistant</summary>
-                    <div className="mt-3 space-y-1">
-                      <p>Public matching summary: {prescreen.screeningSummary || 'None'}</p>
-                      <p>
-                        Sex requirement: {TRIAL_PRESCREEN_SEX_LABELS[prescreen.sexAllowed] || prescreen.sexAllowed || 'None'}
-                      </p>
-                      <p>
-                        Age range: {prescreen.minimumAgeYears ?? 'None'} to {prescreen.maximumAgeYears ?? 'None'}
-                      </p>
-                      <p>Target populations: {formatList(populationNames)}</p>
-                      <p>CKD stages: {formatList(ckdStageNames)}</p>
-                      <p>
-                        Dialysis requirement:{' '}
-                        {TRIAL_PRESCREEN_DIALYSIS_STATUS_LABELS[prescreen.dialysisStatus] ||
-                          prescreen.dialysisStatus ||
-                          'None'}
-                      </p>
-                      <p>
-                        Transplant requirement:{' '}
-                        {TRIAL_PRESCREEN_TRANSPLANT_STATUS_LABELS[prescreen.transplantStatus] ||
-                          prescreen.transplantStatus ||
-                          'None'}
-                      </p>
-                      <p>
-                        Diabetes requirement:{' '}
-                        {TRIAL_PRESCREEN_DIABETES_LABELS[prescreen.diabetesRequirement] ||
-                          prescreen.diabetesRequirement ||
-                          'None'}
-                      </p>
-                      <p>
-                        eGFR range: {prescreen.egfrMin ?? 'None'} to {prescreen.egfrMax ?? 'None'}
-                      </p>
-                      <p>Requires albuminuria: {prescreen.requiresAlbuminuria ? 'Yes' : 'No'}</p>
-                      <p>Requires proteinuria: {prescreen.requiresProteinuria ? 'Yes' : 'No'}</p>
-                      <p>Major exclusion flags: {formatList(exclusionNames)}</p>
-                      <p>Must-ask questions: {formatList(mustAskNames)}</p>
-                      <p>
-                        Optional follow-up questions: {formatList(prescreen.optionalQuestions || [])}
-                      </p>
                     </div>
                   </details>
                 </article>

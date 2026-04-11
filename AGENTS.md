@@ -67,14 +67,14 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - `/trials/find` remains a lightweight fallback/info page that points visitors back to the floating widget and is not the primary experience.
 - `/trials/find` is intentionally noindexed and no longer appears in the sitemap as a primary public entry point.
 - Global availability is controlled in Sanity via `siteSettings.trialMatchingAssistant.enabled`. Missing values read as disabled, so older `siteSettings` documents must be backfilled explicitly.
-- The assistant uses an LLM for conversation, structured profile extraction, and **study shortlisting**: `generateTrialMatchStudyRanking()` in `lib/summaries.js` runs a second model call with the patient profile plus per-study title, summary, inclusion excerpts, and prescreen hints; output is **nondeterministic** and phrased as “may fit” / coordinator review. If that call fails, the API falls back to rule-based `rankTrialMatches()` in `lib/trialMatcher.js` (including title/summary heuristics when prescreen is thin).
-- The chat LLM also receives truncated **inclusion/exclusion** lines from Sanity (`trialSummary.inclusionCriteria` / `exclusionCriteria`) plus the structured catalog during the conversational turn.
-- Only studies with `status == "recruiting"` participate in the assistant. `trialSummary.prescreen` still helps catalog text and the **fallback** matcher. Coordinators should keep **`prescreen.populationTags`** accurate where possible.
-- When the **fallback** matcher runs and at least one `match` or `possible` result exists, the API returns at most two **`insufficient_info`** rows so under-configured studies do not crowd the list.
+- The assistant uses an LLM for conversation, structured profile extraction, and **study shortlisting**: `generateTrialMatchStudyRanking()` in `lib/summaries.js` runs a second model call with the patient profile plus per-study title, lay summary, and inclusion excerpts; output is **nondeterministic** and phrased as “may fit” / coordinator review. If that call fails, the API falls back to rule-based `rankTrialMatches()` in `lib/trialMatcher.js`, which now relies on title/summary/inclusion-text heuristics only.
+- The chat LLM also receives truncated **inclusion** lines from Sanity (`trialSummary.inclusionCriteria`) plus the public study catalog during the conversational turn.
+- Only studies with `status == "recruiting"` participate in the assistant.
+- When the **fallback** matcher runs and at least one `match` or `possible` result exists, the API returns at most two **`insufficient_info`** rows so broad studies do not crowd the list.
 - Patient characteristics must remain ephemeral. Do not store transcripts or patient details in Sanity or email them.
-- Use public-safe `prescreen.screeningSummary` or existing public study copy in results. Do not surface clinician-only communication fields in the assistant.
+- Use existing public study copy in results (`title`, `laySummary`, and `inclusionCriteria`). Do not surface clinician-only communication fields in the assistant.
 - The public API in `app/api/trials/match/chat/route.js` does best-effort PII redaction and a simple in-memory rate limit. Keep both protections lightweight and easy to reason about.
-- ClinicalTrials.gov sync seeds age/sex defaults into `prescreen`, but staff review is still required before relying on those fields for ranking.
+- The Study Manager and approvals editors no longer collect assistant-specific matching metadata. Do not reintroduce staff-only matching fields unless product requirements change.
 - If the widget is missing locally, check the current dataset's `siteSettings.trialMatchingAssistant.enabled` value before debugging UI code. Existing documents can have `trialMatchingAssistant: null`, which disables the widget.
 
 ## Newsletters

@@ -7,7 +7,6 @@ Use this checklist before broadly promoting the public trial-matching assistant.
 - Confirm the assistant only returns `possible match` style language.
 - Confirm patient details remain ephemeral and are not stored in Sanity.
 - Confirm `siteSettings.trialMatchingAssistant.enabled` is on before testing the public flow.
-- Confirm each actively recruiting study has reviewed `prescreen` fields in the study manager.
 - Compare assistant suggestions with coordinator judgment on representative cases.
 
 ## Coordinator Review Checklist
@@ -21,7 +20,7 @@ Use this checklist before broadly promoting the public trial-matching assistant.
   - `Missed study`
   - `Asked wrong follow-up`
   - `Unsafe / confusing language`
-5. Update the study `prescreen` fields when mismatches come from trial metadata.
+5. Update the public study record when mismatches come from title, lay summary, or inclusion criteria.
 6. Update the chat prompt only when the issue is conversation flow, not study data.
 7. Re-run the same scenario after each fix to confirm the change helped.
 
@@ -40,6 +39,5 @@ Use this checklist before broadly promoting the public trial-matching assistant.
 
 ## Launch Guardrails
 
-- Review `prescreen` fields for every actively recruiting study so the ranking logic has accurate metadata.
-- Keep the assistant beta-labeled until coordinators trust the study metadata and follow-up questions.
-- Re-check results after any major study roster change or update to matching fields.
+- Keep the assistant beta-labeled until coordinators trust the public study copy and follow-up questions.
+- Re-check results after any major study roster change or update to public study summaries or inclusion criteria.

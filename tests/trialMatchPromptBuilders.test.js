@@ -32,7 +32,6 @@ test('ranking prompt includes full inclusion arrays without truncation', () => {
       laySummary: 'Public summary',
       inclusionCriteria: [longInclusion],
       exclusionCriteria: ['not included'],
-      prescreen: {},
     },
   ])
 
