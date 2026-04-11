@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
-import { hasMeaningfulPatientProfile, mergePatientProfiles, sanitizePatientProfile } from '@/lib/patientProfileSchema'
+import { mergePatientProfiles, sanitizePatientProfile } from '@/lib/patientProfileSchema'
+import { shouldRankTrialMatches } from '@/lib/trialMatchChat'
 import { sanityFetch, queries } from '@/lib/sanity'
 import {
   buildTrialEligibilityCatalogForPrompt,
@@ -25,6 +26,8 @@ const MIN_USER_TURNS_BEFORE_LLM_RANKING = 2
 /** When at least one match/possible exists, limit how many insufficient_info rows appear in the top list. */
 const MAX_INSUFFICIENT_WHEN_BETTER_EXISTS = 2
 const RESULTS_READY_REPLY = 'See the potential studies below. A coordinator would confirm final eligibility.'
+const NO_RESULTS_REPLY =
+  'I could not shortlist any studies from that information alone. Add age, sex, dialysis or transplant status, or any recent urine protein value if one matters for the likely studies.'
 const URINE_PROTEIN_FOLLOW_UP_REPLY =
   'If available, do you have a recent ACR, PCR, or 24-hour urine protein value? If not, say that and I can still keep possible studies on the list.'
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
@@ -390,9 +393,14 @@ export async function POST(request) {
     const minTurnsForRanking = shouldDelayForUrineProteinFollowUp
       ? MIN_USER_TURNS_BEFORE_LLM_RANKING + 1
       : MIN_USER_TURNS_BEFORE_LLM_RANKING
-    const hasEnoughTurnsForRanking = wantsImmediateRanking || userTurns >= minTurnsForRanking
-    const shouldRankMatches =
-      (llmTurn?.readyForMatching || hasMeaningfulPatientProfile(enrichedProfile)) && hasEnoughTurnsForRanking
+    const shouldRankMatches = shouldRankTrialMatches({
+      readyForMatching: llmTurn?.readyForMatching,
+      profile: enrichedProfile,
+      userTurns,
+      minUserTurns: minTurnsForRanking,
+      wantsImmediateRanking,
+      shouldDelayForUrineProteinFollowUp,
+    })
     const shouldAskUrineProteinFollowUp =
       shouldDelayForUrineProteinFollowUp && !wantsImmediateRanking && userTurns < minTurnsForRanking
     let rankedResults = []
@@ -402,6 +410,9 @@ export async function POST(request) {
           { profile: enrichedProfile, studies: rankingShortlist },
           { ...llmOpts, maxTokens: 1200, temperature: 0.35 }
         )
+        if (!rankedResults.length) {
+          rankedResults = sliceRankedTrialMatches(rankTrialMatches(rankingShortlist, enrichedProfile), MAX_RESULTS)
+        }
       } catch (rankError) {
         console.error('[trial-match-chat] LLM study ranking failed, using rule-based fallback', rankError)
         rankedResults = sliceRankedTrialMatches(rankTrialMatches(rankingShortlist, enrichedProfile), MAX_RESULTS)
@@ -416,6 +427,8 @@ export async function POST(request) {
         ? RESULTS_READY_REPLY
         : shouldAskUrineProteinFollowUp
           ? URINE_PROTEIN_FOLLOW_UP_REPLY
+        : shouldRankMatches
+          ? NO_RESULTS_REPLY
         : llmTurn?.assistantReply || ''
     const conversationComplete = Boolean(shouldRankMatches && rankedResults.length)
 
