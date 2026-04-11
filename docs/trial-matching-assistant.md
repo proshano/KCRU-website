@@ -26,6 +26,10 @@ Coming soon and active-not-recruiting studies do not participate in the public c
 
 `generateTrialMatchConversation()` in `lib/summaries.js` sends the sanitized conversation, a compact study catalog from `buildTrialCatalogForPrompt()`, and inclusion excerpts from `buildTrialEligibilityCatalogForPrompt()` to the configured LLM. The model returns JSON with three fields: `assistant_reply`, `ready_for_matching`, and `patient_profile`. `lib/patientProfileSchema.js` defines that profile contract and normalizes every field before the API uses it.
 
+The backend also does deterministic parsing for numeric urine protein data. If a user provides `ACR`, `PCR`, or timed urine protein excretion such as `1 g/day`, `app/api/trials/match/chat/route.js` merges a parsed `patient_profile.urineProtein` object into the in-memory profile before and after the LLM turn. Unlabeled user-provided ACR/PCR defaults to Canadian `mg/mmol`. Same-assay conversions between `mg/g`, `mg/mmol`, and `g/g` (PCR), plus `mg/day` and `g/day` for timed protein excretion, are exact enough for screening; ACR↔PCR and ratio↔timed-protein conversions are approximate only and are retained as soft context, not definitive eligibility proof.
+
+If the user mentions albuminuria or proteinuria qualitatively but a likely study depends on a urine protein threshold, the route can ask one focused follow-up for a recent `ACR`, `PCR`, or `24-hour urine protein` value. If the user does not have a number, the route should not loop on that question. It should proceed with conservative ranking and keep threshold-dependent studies as `possible` until coordinator confirmation.
+
 Once the route has a normalized patient profile, it decides whether to show matches and, by default, calls `generateTrialMatchStudyRanking()` in `lib/summaries.js`. That second LLM request includes the patient profile plus a compact per-study payload built from title, lay summary, and inclusion criteria. The model returns up to six studies with a short “may fit” reason. This step is nondeterministic.
 
 If LLM ranking throws, the route falls back to `rankTrialMatches()` in `lib/trialMatcher.js`. The fallback matcher does not rely on staff-maintained matching metadata. It uses title, lay summary, and inclusion criteria to:
@@ -33,6 +37,7 @@ If LLM ranking throws, the route falls back to `rankTrialMatches()` in `lib/tria
 - reject obviously wrong-population studies, such as dialysis-only or transplant-only studies for clearly mismatched profiles
 - favor disease-specific studies when the reported diagnosis clearly aligns with the study text
 - keep broad studies available as `possible` or `insufficient_info` instead of dropping them entirely
+- parse some study `ACR` / `PCR` / timed-protein threshold language and compare it conservatively against the structured urine protein profile; near-threshold or estimated cross-format values stay `possible`
 
 When results are shown, the API uses the fixed closing reply: `See the potential studies below. A coordinator would confirm final eligibility.`
 
@@ -57,6 +62,7 @@ PII redaction in `app/api/trials/match/chat/route.js` is best-effort string repl
 - `lib/summaries.js`: structured LLM prompts, `generateTrialMatchConversation()`, `generateTrialMatchStudyRanking()`, and `buildTrialEligibilityCatalogForPrompt()`
 - `lib/patientProfileSchema.js`: patient profile schema, normalization, summary chips
 - `lib/trialMatcher.js`: deterministic fallback matching and ranking logic
+- `lib/urineProtein.js`: deterministic urine protein parsing, conversion, threshold extraction, and conservative comparison helpers
 - `lib/trialMatchingSettings.js`: feature-flag check for the assistant
 - `lib/sanity.js`: `queries.siteSettings` and `queries.trialMatchingStudies`
 - `lib/trialSync.js`: ClinicalTrials.gov sync and study import pipeline
@@ -65,6 +71,7 @@ PII redaction in `app/api/trials/match/chat/route.js` is best-effort string repl
 - `app/trials/approvals/ApprovalClient.js`: approval review list
 - `sanity/schemas/siteSettings.js`: global assistant toggle
 - `tests/trialMatcher.test.js`: fallback matcher regression tests
+- `tests/urineProtein.test.js`: urine protein parsing and conversion regression tests
 - `docs/trial-matching-pilot.md`: coordinator beta checklist and validation scenarios
 
 ## Verification and troubleshooting
@@ -74,6 +81,7 @@ Start with the feature flag. If the widget is missing locally or in preview, ins
 For code verification, the current focused checks are:
 
 - `node --test tests/trialMatcher.test.js`
+- `node --test tests/urineProtein.test.js`
 - `node --test tests/trialMatchPromptBuilders.test.js`
 - `npm run lint`
 

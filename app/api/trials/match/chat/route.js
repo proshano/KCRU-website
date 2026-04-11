@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { sanitizePatientProfile, hasMeaningfulPatientProfile } from '@/lib/patientProfileSchema'
+import { hasMeaningfulPatientProfile, mergePatientProfiles, sanitizePatientProfile } from '@/lib/patientProfileSchema'
 import { sanityFetch, queries } from '@/lib/sanity'
 import {
   buildTrialEligibilityCatalogForPrompt,
@@ -9,6 +9,13 @@ import {
 } from '@/lib/summaries'
 import { isTrialMatchingAssistantEnabled } from '@/lib/trialMatchingSettings'
 import { buildTrialCatalogForPrompt, matchTrialToPatient, rankTrialMatches } from '@/lib/trialMatcher'
+import {
+  extractUrineProteinConstraintsFromTexts,
+  hasQuantitativeUrineProteinData,
+  isQuantitativeUrineProteinUnavailable,
+  parseUrineProteinProfileFromText,
+  parseUrineProteinSignalsFromText,
+} from '@/lib/urineProtein'
 
 const MAX_MESSAGES = 12
 const MAX_MESSAGE_LENGTH = 600
@@ -18,6 +25,8 @@ const MIN_USER_TURNS_BEFORE_LLM_RANKING = 2
 /** When at least one match/possible exists, limit how many insufficient_info rows appear in the top list. */
 const MAX_INSUFFICIENT_WHEN_BETTER_EXISTS = 2
 const RESULTS_READY_REPLY = 'See the potential studies below. A coordinator would confirm final eligibility.'
+const URINE_PROTEIN_FOLLOW_UP_REPLY =
+  'If available, do you have a recent ACR, PCR, or 24-hour urine protein value? If not, say that and I can still keep possible studies on the list.'
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
 const MAX_REQUESTS_PER_WINDOW = 20
 const rateLimitStore = new Map()
@@ -115,6 +124,53 @@ function countUserMessages(messages) {
 function getLastUserMessage(messages) {
   if (!Array.isArray(messages) || !messages.length) return null
   return [...messages].reverse().find((message) => message?.role === 'user')
+}
+
+function buildLatestUserLabProfile(messages) {
+  const lastUserMessage = getLastUserMessage(messages)
+  if (!lastUserMessage?.content) return null
+  const urineProteinSignals = parseUrineProteinSignalsFromText(lastUserMessage.content)
+  return {
+    urineProtein: parseUrineProteinProfileFromText(lastUserMessage.content, {
+      defaultUnit: 'mg_per_mmol',
+    }),
+    hasAlbuminuria: urineProteinSignals.hasAlbuminuria,
+    hasProteinuria: urineProteinSignals.hasProteinuria,
+  }
+}
+
+function studiesNeedUrineProteinThreshold(studies) {
+  if (!Array.isArray(studies) || !studies.length) return false
+  return studies.some((study) =>
+    extractUrineProteinConstraintsFromTexts([
+      study?.title,
+      study?.laySummary,
+      ...(Array.isArray(study?.inclusionCriteria) ? study.inclusionCriteria : []),
+    ]).length > 0
+  )
+}
+
+function needsUrineProteinFollowUp(profile, studies) {
+  if (hasQuantitativeUrineProteinData(profile?.urineProtein)) return false
+  if (profile?.hasAlbuminuria !== true && profile?.hasProteinuria !== true) return false
+  return studiesNeedUrineProteinThreshold(studies)
+}
+
+function hasAnsweredUrineProteinFollowUp(messages) {
+  if (!Array.isArray(messages) || !messages.length) return false
+
+  let lastFollowUpIndex = -1
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (message?.role !== 'assistant') continue
+    if (sanitizeText(message.content).includes(URINE_PROTEIN_FOLLOW_UP_REPLY)) {
+      lastFollowUpIndex = index
+      break
+    }
+  }
+
+  if (lastFollowUpIndex < 0) return false
+  return messages.slice(lastFollowUpIndex + 1).some((message) => message?.role === 'user' && sanitizeText(message.content))
 }
 
 function buildLlmRankingShortlist(studies, profile, messages) {
@@ -278,6 +334,8 @@ export async function POST(request) {
   }
 
   const currentProfile = sanitizePatientProfile(body?.profile)
+  const latestUserLabProfile = buildLatestUserLabProfile(messages)
+  const preLlmProfile = mergePatientProfiles(currentProfile, latestUserLabProfile)
 
   try {
     const [settingsRaw, studiesRaw] = await Promise.all([
@@ -298,7 +356,7 @@ export async function POST(request) {
       return buildResponse({
         ok: true,
         reply: 'No active studies are available for the matching assistant yet. Please browse the studies page or contact the research team.',
-        profile: currentProfile,
+        profile: preLlmProfile,
         conversationComplete: false,
         results: [],
       })
@@ -306,7 +364,7 @@ export async function POST(request) {
 
     const llmTurn = await generateTrialMatchConversation(
       {
-        currentProfile,
+        currentProfile: preLlmProfile,
         messages,
         trialCatalog: buildTrialCatalogForPrompt(studies),
         trialEligibilityCatalog: buildTrialEligibilityCatalogForPrompt(studies),
@@ -314,20 +372,31 @@ export async function POST(request) {
       buildLlmOptions(settings)
     )
 
-    const updatedProfile = sanitizePatientProfile(llmTurn?.patientProfile || currentProfile)
+    const updatedProfile = mergePatientProfiles(preLlmProfile, llmTurn?.patientProfile, latestUserLabProfile)
     const diagnosisHint = extractDiagnosisHintFromMessages(messages)
     const enrichedProfile =
       updatedProfile.diagnosis || !diagnosisHint ? updatedProfile : { ...updatedProfile, diagnosis: diagnosisHint }
 
     const userTurns = countUserMessages(messages)
     const wantsImmediateRanking = body?.requestMatches === true
-    const hasEnoughTurnsForRanking = wantsImmediateRanking || userTurns >= MIN_USER_TURNS_BEFORE_LLM_RANKING
+    const llmOpts = buildLlmOptions(settings)
+    const rankingShortlist = buildLlmRankingShortlist(studies, enrichedProfile, messages)
+    const requiresUrineProteinFollowUp = needsUrineProteinFollowUp(enrichedProfile, rankingShortlist)
+    const urineProteinFollowUpResolved =
+      hasAnsweredUrineProteinFollowUp(messages) ||
+      isQuantitativeUrineProteinUnavailable(getLastUserMessage(messages)?.content || '')
+    const shouldDelayForUrineProteinFollowUp =
+      requiresUrineProteinFollowUp && !urineProteinFollowUpResolved
+    const minTurnsForRanking = shouldDelayForUrineProteinFollowUp
+      ? MIN_USER_TURNS_BEFORE_LLM_RANKING + 1
+      : MIN_USER_TURNS_BEFORE_LLM_RANKING
+    const hasEnoughTurnsForRanking = wantsImmediateRanking || userTurns >= minTurnsForRanking
     const shouldRankMatches =
       (llmTurn?.readyForMatching || hasMeaningfulPatientProfile(enrichedProfile)) && hasEnoughTurnsForRanking
-    const llmOpts = buildLlmOptions(settings)
+    const shouldAskUrineProteinFollowUp =
+      shouldDelayForUrineProteinFollowUp && !wantsImmediateRanking && userTurns < minTurnsForRanking
     let rankedResults = []
     if (shouldRankMatches) {
-      const rankingShortlist = buildLlmRankingShortlist(studies, enrichedProfile, messages)
       try {
         rankedResults = await generateTrialMatchStudyRanking(
           { profile: enrichedProfile, studies: rankingShortlist },
@@ -351,6 +420,8 @@ export async function POST(request) {
     const reply =
       shouldRankMatches && rankedResults.length
         ? RESULTS_READY_REPLY
+        : shouldAskUrineProteinFollowUp
+          ? URINE_PROTEIN_FOLLOW_UP_REPLY
         : llmTurn?.assistantReply || ''
     const conversationComplete = Boolean(shouldRankMatches && rankedResults.length)
 

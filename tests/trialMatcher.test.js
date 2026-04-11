@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { matchTrialToPatient, rankTrialMatches } from '../lib/trialMatcher.js'
+import { parseUrineProteinProfileFromText } from '../lib/urineProtein.js'
 
 const baseTrial = {
   _id: 'trial-1',
@@ -182,6 +183,166 @@ test('returns possible when diagnosis aligns but a required eGFR value is missin
 
   assert.equal(result.decision, 'possible')
   assert.ok(result.missingReasons.some((reason) => reason.includes('eGFR')))
+})
+
+test('keeps a study possible when reported ACR is near the trial threshold', () => {
+  const result = matchTrialToPatient(
+    {
+      _id: 'trial-acr-near',
+      title: 'CKD Albuminuria Study',
+      slug: 'ckd-albuminuria-study',
+      status: 'recruiting',
+      laySummary: 'Study in chronic kidney disease with albuminuria.',
+      inclusionCriteria: [
+        'Adults with chronic kidney disease',
+        'UACR at least 30 mg/mmol',
+        'eGFR 20 to 60 mL/min/1.73 m2',
+      ],
+    },
+    {
+      ageYears: 58,
+      populationTags: ['chronic_kidney_disease'],
+      egfr: 32,
+      urineProtein: parseUrineProteinProfileFromText('ACR 28 mg/mmol', {
+        defaultUnit: 'mg_per_mmol',
+      }),
+    }
+  )
+
+  assert.equal(result.decision, 'possible')
+  assert.equal(result.mismatchReasons.length, 0)
+  assert.ok(result.missingReasons.some((reason) => reason.includes('study threshold')))
+})
+
+test('returns unlikely when reported urine protein is clearly below a required threshold', () => {
+  const result = matchTrialToPatient(
+    {
+      _id: 'trial-acr-low',
+      title: 'CKD Albuminuria Study',
+      slug: 'ckd-albuminuria-study',
+      status: 'recruiting',
+      laySummary: 'Study in chronic kidney disease with albuminuria.',
+      inclusionCriteria: [
+        'Adults with chronic kidney disease',
+        'UACR at least 30 mg/mmol',
+        'eGFR 20 to 60 mL/min/1.73 m2',
+      ],
+    },
+    {
+      ageYears: 58,
+      populationTags: ['chronic_kidney_disease'],
+      egfr: 32,
+      urineProtein: parseUrineProteinProfileFromText('ACR 1 mg/mmol', {
+        defaultUnit: 'mg_per_mmol',
+      }),
+    }
+  )
+
+  assert.equal(result.decision, 'unlikely')
+  assert.ok(result.mismatchReasons.some((reason) => reason.includes('urine protein threshold')))
+})
+
+test('supports timed proteinuria study thresholds conservatively', () => {
+  const result = matchTrialToPatient(
+    {
+      _id: 'trial-protein-day-near',
+      title: 'Glomerular Disease Proteinuria Study',
+      slug: 'glomerular-proteinuria-study',
+      status: 'recruiting',
+      laySummary: 'Study in glomerular disease with persistent proteinuria.',
+      inclusionCriteria: [
+        'Adults with glomerular disease',
+        'Proteinuria greater than or equal to 1 g/day',
+      ],
+    },
+    {
+      ageYears: 42,
+      populationTags: ['glomerular_disease'],
+      urineProtein: parseUrineProteinProfileFromText('proteinuria 0.92 g/day', {
+        defaultUnit: 'mg_per_mmol',
+      }),
+    }
+  )
+
+  assert.equal(result.decision, 'possible')
+  assert.equal(result.mismatchReasons.length, 0)
+  assert.ok(result.missingReasons.some((reason) => reason.includes('study threshold')))
+})
+
+test('can compare a timed protein threshold against an estimated value from ACR', () => {
+  const result = matchTrialToPatient(
+    {
+      _id: 'trial-protein-day-estimated',
+      title: 'Glomerular Disease Proteinuria Study',
+      slug: 'glomerular-proteinuria-study',
+      status: 'recruiting',
+      laySummary: 'Study in glomerular disease with persistent proteinuria.',
+      inclusionCriteria: [
+        'Adults with glomerular disease',
+        'Proteinuria greater than or equal to 1 g/day',
+      ],
+    },
+    {
+      ageYears: 42,
+      populationTags: ['glomerular_disease'],
+      urineProtein: parseUrineProteinProfileFromText('ACR 120 mg/mmol', {
+        defaultUnit: 'mg_per_mmol',
+      }),
+    }
+  )
+
+  assert.notEqual(result.decision, 'unlikely')
+})
+
+test('keeps a thresholded study possible when proteinuria is only reported qualitatively', () => {
+  const result = matchTrialToPatient(
+    {
+      _id: 'trial-protein-qualitative',
+      title: 'Glomerular Disease Proteinuria Study',
+      slug: 'glomerular-proteinuria-study',
+      status: 'recruiting',
+      laySummary: 'Study in glomerular disease with persistent proteinuria.',
+      inclusionCriteria: [
+        'Adults with glomerular disease',
+        'Proteinuria greater than or equal to 1 g/day',
+      ],
+    },
+    {
+      ageYears: 42,
+      populationTags: ['glomerular_disease'],
+      hasProteinuria: true,
+      urineProtein: parseUrineProteinProfileFromText('proteinuria present'),
+    }
+  )
+
+  assert.equal(result.decision, 'possible')
+  assert.equal(result.mismatchReasons.length, 0)
+  assert.ok(result.missingReasons.some((reason) => reason.includes('quantitative urine protein value')))
+})
+
+test('returns unlikely when a study requires proteinuria but the user reports none', () => {
+  const result = matchTrialToPatient(
+    {
+      _id: 'trial-protein-none',
+      title: 'Glomerular Disease Proteinuria Study',
+      slug: 'glomerular-proteinuria-study',
+      status: 'recruiting',
+      laySummary: 'Study in glomerular disease with persistent proteinuria.',
+      inclusionCriteria: [
+        'Adults with glomerular disease',
+        'Proteinuria greater than or equal to 1 g/day',
+      ],
+    },
+    {
+      ageYears: 42,
+      populationTags: ['glomerular_disease'],
+      hasProteinuria: false,
+      urineProtein: parseUrineProteinProfileFromText('no proteinuria'),
+    }
+  )
+
+  assert.equal(result.decision, 'unlikely')
+  assert.ok(result.mismatchReasons.some((reason) => reason.includes('no albuminuria/proteinuria')))
 })
 
 test('ranks stronger text matches ahead of broader studies', () => {
