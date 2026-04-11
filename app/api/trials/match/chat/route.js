@@ -406,12 +406,6 @@ export async function POST(request) {
         console.error('[trial-match-chat] LLM study ranking failed, using rule-based fallback', rankError)
         rankedResults = sliceRankedTrialMatches(rankTrialMatches(rankingShortlist, enrichedProfile), MAX_RESULTS)
       }
-    } else {
-      rankedResults = quickTextRankStudies(
-        studies,
-        getLastUserMessage(messages)?.content || '',
-        enrichedProfile
-      )
     }
 
     const privacyPrefix = hadRedaction
