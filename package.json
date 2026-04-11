@@ -8,6 +8,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "node --test tests/*.test.js",
     "lint": "eslint .",
     "studio": "sanity dev",
     "refresh:pubmed": "node --import ./scripts/_preload-env.js scripts/refresh-pubmed-cache.js",

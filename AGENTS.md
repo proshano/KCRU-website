@@ -153,5 +153,5 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 
 ## Testing
 
-- No dedicated test suite; run `npm run lint` for non-trivial changes.
-- Preferred lint check: `npm run lint` (uses ESLint flat config via `eslint.config.js`).
+- A small `node:test` suite exists for selected library logic; run `npm test` for unit checks.
+- Run `npm run lint` for non-trivial changes. Preferred lint check: `npm run lint` (uses ESLint flat config via `eslint.config.js`).
