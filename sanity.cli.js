@@ -20,6 +20,9 @@ export default defineCliConfig({
     projectId,
     dataset
   },
+  deployment: {
+    appId: 'b710m5puf0v52zmbv36i69hc'
+  },
   // Configure Vite to handle prismjs module resolution
   vite: {
     resolve: {
