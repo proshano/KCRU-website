@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { mergePatientProfiles, sanitizePatientProfile } from '@/lib/patientProfileSchema'
-import { shouldAskUrineProteinFollowUp, shouldRankTrialMatches } from '@/lib/trialMatchChat'
+import { selectTrialMatchFollowUp, shouldRankTrialMatches } from '@/lib/trialMatchChat'
 import { sanityFetch, queries } from '@/lib/sanity'
 import {
   buildTrialEligibilityCatalogForPrompt,
@@ -20,10 +20,12 @@ const MAX_MESSAGES = 12
 const MAX_MESSAGE_LENGTH = 600
 const MAX_RESULTS = 6
 const MAX_LLM_RANK_STUDIES = 12
-const MIN_USER_TURNS_BEFORE_LLM_RANKING = 2
+const MAX_USER_TURNS_BEFORE_LLM_RANKING = 5
 /** When at least one match/possible exists, limit how many insufficient_info rows appear in the top list. */
 const MAX_INSUFFICIENT_WHEN_BETTER_EXISTS = 2
 const RESULTS_READY_REPLY = 'See the potential studies below. A coordinator would confirm final eligibility.'
+const RENAL_STATUS_FOLLOW_UP_REPLY =
+  'If available, what is the most recent eGFR? If the patient is on dialysis, say that instead.'
 const NO_RESULTS_REPLY =
   'I could not shortlist any studies from that information alone. Add age, sex, dialysis or transplant status, or any recent urine protein value if one matters for the likely studies.'
 const URINE_PROTEIN_FOLLOW_UP_REPLY =
@@ -140,14 +142,15 @@ function buildLatestUserLabProfile(messages) {
   }
 }
 
-function hasAnsweredUrineProteinFollowUp(messages) {
+function hasAnsweredFocusedFollowUp(messages, followUpReply) {
+  if (!followUpReply) return false
   if (!Array.isArray(messages) || !messages.length) return false
 
   let lastFollowUpIndex = -1
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]
     if (message?.role !== 'assistant') continue
-    if (sanitizeText(message.content).includes(URINE_PROTEIN_FOLLOW_UP_REPLY)) {
+    if (sanitizeText(message.content).includes(followUpReply)) {
       lastFollowUpIndex = index
       break
     }
@@ -366,30 +369,38 @@ export async function POST(request) {
     const llmOpts = buildLlmOptions(settings)
     const rankingShortlist = buildLlmRankingShortlist(studies, enrichedProfile, messages)
     const ruleBasedRanking = rankTrialMatches(rankingShortlist, enrichedProfile)
-    const requiresUrineProteinFollowUp = shouldAskUrineProteinFollowUp({
+    const lastUserMessage = getLastUserMessage(messages)?.content || ''
+    const exhaustedFollowUps = new Set()
+    if (hasAnsweredFocusedFollowUp(messages, RENAL_STATUS_FOLLOW_UP_REPLY)) {
+      exhaustedFollowUps.add('renal_status')
+    }
+    if (
+      hasAnsweredFocusedFollowUp(messages, URINE_PROTEIN_FOLLOW_UP_REPLY) ||
+      isQuantitativeUrineProteinUnavailable(lastUserMessage)
+    ) {
+      exhaustedFollowUps.add('urine_protein')
+    }
+    const followUpType = selectTrialMatchFollowUp({
       profile: enrichedProfile,
       rankedResults: ruleBasedRanking,
+      exhaustedFollowUps,
     })
-    const urineProteinFollowUpResolved =
-      hasAnsweredUrineProteinFollowUp(messages) ||
-      isQuantitativeUrineProteinUnavailable(getLastUserMessage(messages)?.content || '')
-    const shouldDelayForUrineProteinFollowUp =
-      requiresUrineProteinFollowUp && !urineProteinFollowUpResolved
-    const minTurnsForRanking = shouldDelayForUrineProteinFollowUp
-      ? MIN_USER_TURNS_BEFORE_LLM_RANKING + 1
-      : MIN_USER_TURNS_BEFORE_LLM_RANKING
+    const followUpReply =
+      followUpType === 'renal_status'
+        ? RENAL_STATUS_FOLLOW_UP_REPLY
+        : followUpType === 'urine_protein'
+          ? URINE_PROTEIN_FOLLOW_UP_REPLY
+          : ''
     const shouldRankMatches = shouldRankTrialMatches({
       readyForMatching: llmTurn?.readyForMatching,
       profile: enrichedProfile,
       userTurns,
-      minUserTurns: minTurnsForRanking,
+      maxUserTurns: MAX_USER_TURNS_BEFORE_LLM_RANKING,
       wantsImmediateRanking,
-      shouldDelayForUrineProteinFollowUp,
     })
-    const shouldPromptUrineProteinFollowUp =
-      shouldDelayForUrineProteinFollowUp && !wantsImmediateRanking && userTurns < minTurnsForRanking
+    const shouldPromptFocusedFollowUp = Boolean(followUpReply) && !wantsImmediateRanking
     let rankedResults = []
-    if (shouldRankMatches) {
+    if (shouldRankMatches && !shouldPromptFocusedFollowUp) {
       try {
         rankedResults = await generateTrialMatchStudyRanking(
           { profile: enrichedProfile, studies: rankingShortlist },
@@ -410,8 +421,8 @@ export async function POST(request) {
     const reply =
       shouldRankMatches && rankedResults.length
         ? RESULTS_READY_REPLY
-        : shouldPromptUrineProteinFollowUp
-          ? URINE_PROTEIN_FOLLOW_UP_REPLY
+        : shouldPromptFocusedFollowUp
+          ? followUpReply
         : shouldRankMatches
           ? NO_RESULTS_REPLY
         : llmTurn?.assistantReply || ''

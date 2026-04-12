@@ -243,6 +243,12 @@
   },
   "hotPaths": [
     {
+      "path": "README.md",
+      "accessCount": 8,
+      "lastAccessed": 1775950961888,
+      "type": "file"
+    },
+    {
       "path": "lib/summaries.js",
       "accessCount": 6,
       "lastAccessed": 1775949263524,
