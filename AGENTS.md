@@ -128,11 +128,13 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 
 - `npm run dev`, `npm run lint`, `npm run build`
 - PubMed cache: `npm run refresh:pubmed`, `npm run clear:pubmed`, `npm run upload:pubmed`
+- PubMed classification backfill: `npm run reclassify:pubmed -- --year=2026 --count=5000` (defaults to missing/unclassified items only unless `--all` or `--clear` is supplied)
 
 ## Data Refresh
 
 - PubMed cache file: `runtime/pubmed-cache.json` with lock/cancel files.
 - If cache changes are needed, use the scripts rather than editing files directly.
+- Missing publication tags can be rebuilt without refetching PubMed by writing `pubmedClassification` docs via `npm run reclassify:pubmed`; use `--year=YYYY` for targeted backfills.
 - Scheduled PubMed refresh now runs from `.github/workflows/pubmed-refresh.yml` via `npm run refresh:pubmed`, not from Vercel cron. The workflow writes directly to Sanity, then calls `/api/pubmed/revalidate` to refresh cached public pages.
 - The PubMed GitHub Actions workflow requires repo secrets for `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET`, `SANITY_API_TOKEN`, `SITE_URL`, and `CRON_SECRET`; add LLM provider API keys there too when they are not stored in Sanity.
 - If summary-eligible publications remain but no credential is available for the configured LLM provider, the PubMed refresh script now fails the workflow instead of silently skipping summary generation.

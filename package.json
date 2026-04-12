@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "studio": "sanity dev",
     "refresh:pubmed": "node --import ./scripts/_preload-env.js scripts/refresh-pubmed-cache.js",
+    "reclassify:pubmed": "node --import ./scripts/_preload-env.js scripts/reclassify-pubmed.js",
     "clear:pubmed": "node --import ./scripts/_preload-env.js scripts/clear-pubmed-cache.js",
     "upload:pubmed": "node --import ./scripts/_preload-env.js scripts/upload-cache-to-sanity.js"
   },
