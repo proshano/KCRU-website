@@ -1,5 +1,8 @@
 name: PubMed Refresh
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   schedule:
     # Runs at 13:00 UTC every day (9am Eastern during daylight time).
