@@ -386,7 +386,7 @@ export async function POST(request) {
       wantsImmediateRanking,
       shouldDelayForUrineProteinFollowUp,
     })
-    const shouldAskUrineProteinFollowUp =
+    const shouldPromptUrineProteinFollowUp =
       shouldDelayForUrineProteinFollowUp && !wantsImmediateRanking && userTurns < minTurnsForRanking
     let rankedResults = []
     if (shouldRankMatches) {
@@ -410,7 +410,7 @@ export async function POST(request) {
     const reply =
       shouldRankMatches && rankedResults.length
         ? RESULTS_READY_REPLY
-        : shouldAskUrineProteinFollowUp
+        : shouldPromptUrineProteinFollowUp
           ? URINE_PROTEIN_FOLLOW_UP_REPLY
         : shouldRankMatches
           ? NO_RESULTS_REPLY
