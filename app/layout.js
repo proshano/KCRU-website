@@ -177,7 +177,7 @@ export default async function RootLayout({ children }) {
                   target="_blank"
                   rel="noreferrer"
                 >
-                  read technical information about this site
+                  Technical information about this site
                 </a>
                 <Link href="/privacy" prefetch={false} className="hover:text-purple transition-colors">Privacy</Link>
                 <Link href="/accessibility" prefetch={false} className="hover:text-purple transition-colors">Accessibility</Link>
