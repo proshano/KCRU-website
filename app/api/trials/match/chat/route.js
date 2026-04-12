@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 import { mergePatientProfiles, sanitizePatientProfile } from '@/lib/patientProfileSchema'
-import { shouldRankTrialMatches } from '@/lib/trialMatchChat'
+import { shouldAskUrineProteinFollowUp, shouldRankTrialMatches } from '@/lib/trialMatchChat'
 import { sanityFetch, queries } from '@/lib/sanity'
 import {
   buildTrialEligibilityCatalogForPrompt,
@@ -11,8 +11,6 @@ import {
 import { isTrialMatchingAssistantEnabled } from '@/lib/trialMatchingSettings'
 import { buildTrialCatalogForPrompt, matchTrialToPatient, rankTrialMatches } from '@/lib/trialMatcher'
 import {
-  extractUrineProteinConstraintsFromTexts,
-  hasQuantitativeUrineProteinData,
   isQuantitativeUrineProteinUnavailable,
   parseUrineProteinProfileFromText,
   parseUrineProteinSignalsFromText,
@@ -140,23 +138,6 @@ function buildLatestUserLabProfile(messages) {
     hasAlbuminuria: urineProteinSignals.hasAlbuminuria,
     hasProteinuria: urineProteinSignals.hasProteinuria,
   }
-}
-
-function studiesNeedUrineProteinThreshold(studies) {
-  if (!Array.isArray(studies) || !studies.length) return false
-  return studies.some((study) =>
-    extractUrineProteinConstraintsFromTexts([
-      study?.title,
-      study?.laySummary,
-      ...(Array.isArray(study?.inclusionCriteria) ? study.inclusionCriteria : []),
-    ]).length > 0
-  )
-}
-
-function needsUrineProteinFollowUp(profile, studies) {
-  if (hasQuantitativeUrineProteinData(profile?.urineProtein)) return false
-  if (profile?.hasAlbuminuria !== true && profile?.hasProteinuria !== true) return false
-  return studiesNeedUrineProteinThreshold(studies)
 }
 
 function hasAnsweredUrineProteinFollowUp(messages) {
@@ -384,7 +365,11 @@ export async function POST(request) {
     const wantsImmediateRanking = body?.requestMatches === true
     const llmOpts = buildLlmOptions(settings)
     const rankingShortlist = buildLlmRankingShortlist(studies, enrichedProfile, messages)
-    const requiresUrineProteinFollowUp = needsUrineProteinFollowUp(enrichedProfile, rankingShortlist)
+    const ruleBasedRanking = rankTrialMatches(rankingShortlist, enrichedProfile)
+    const requiresUrineProteinFollowUp = shouldAskUrineProteinFollowUp({
+      profile: enrichedProfile,
+      rankedResults: ruleBasedRanking,
+    })
     const urineProteinFollowUpResolved =
       hasAnsweredUrineProteinFollowUp(messages) ||
       isQuantitativeUrineProteinUnavailable(getLastUserMessage(messages)?.content || '')
@@ -411,11 +396,11 @@ export async function POST(request) {
           { ...llmOpts, maxTokens: 1200, temperature: 0.35 }
         )
         if (!rankedResults.length) {
-          rankedResults = sliceRankedTrialMatches(rankTrialMatches(rankingShortlist, enrichedProfile), MAX_RESULTS)
+          rankedResults = sliceRankedTrialMatches(ruleBasedRanking, MAX_RESULTS)
         }
       } catch (rankError) {
         console.error('[trial-match-chat] LLM study ranking failed, using rule-based fallback', rankError)
-        rankedResults = sliceRankedTrialMatches(rankTrialMatches(rankingShortlist, enrichedProfile), MAX_RESULTS)
+        rankedResults = sliceRankedTrialMatches(ruleBasedRanking, MAX_RESULTS)
       }
     }
 

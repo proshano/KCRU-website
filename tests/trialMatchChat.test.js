@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { hasSingleTurnMatchReadyProfile, shouldRankTrialMatches } from '../lib/trialMatchChat.js'
+import { hasSingleTurnMatchReadyProfile, shouldAskUrineProteinFollowUp, shouldRankTrialMatches } from '../lib/trialMatchChat.js'
+import { parseUrineProteinProfileFromText } from '../lib/urineProtein.js'
 
 test('treats diagnosis plus eGFR as enough for a first-turn ranking', () => {
   assert.equal(
@@ -88,5 +89,66 @@ test('still ranks on later turns with a meaningful profile', () => {
       minUserTurns: 2,
     }),
     true
+  )
+})
+
+test('asks for urine protein when a top likely study mainly needs that threshold value', () => {
+  assert.equal(
+    shouldAskUrineProteinFollowUp({
+      profile: {
+        diagnosis: 'IgA nephropathy',
+        egfr: 30,
+      },
+      rankedResults: [
+        {
+          decision: 'possible',
+          missingReasons: ['Study text includes a urine protein criterion, but a comparable value is not yet known.'],
+        },
+      ],
+    }),
+    true
+  )
+})
+
+test('does not ask for urine protein when several other core facts are still missing', () => {
+  assert.equal(
+    shouldAskUrineProteinFollowUp({
+      profile: {
+        diagnosis: 'IgA nephropathy',
+        egfr: 30,
+      },
+      rankedResults: [
+        {
+          decision: 'possible',
+          missingReasons: [
+            'Study text includes a urine protein criterion, but a comparable value is not yet known.',
+            'Study text includes an age range, but age is not yet known.',
+            'Study text targets transplant recipients, but transplant status is not yet known.',
+          ],
+        },
+      ],
+    }),
+    false
+  )
+})
+
+test('does not ask for urine protein when a quantitative value is already available', () => {
+  assert.equal(
+    shouldAskUrineProteinFollowUp({
+      profile: {
+        diagnosis: 'IgA nephropathy',
+        egfr: 30,
+        urineProtein: parseUrineProteinProfileFromText('ACR 65 mg/mmol', {
+          defaultUnit: 'mg_per_mmol',
+        }),
+      },
+      rankedResults: [
+        {
+          decision: 'possible',
+          missingReasons: ['Study text includes a urine protein criterion, but a comparable value is not yet known.'],
+        },
+      ],
+    }),
+    false
   )
 })
