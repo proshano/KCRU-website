@@ -133,6 +133,8 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 
 - PubMed cache file: `runtime/pubmed-cache.json` with lock/cancel files.
 - If cache changes are needed, use the scripts rather than editing files directly.
+- Scheduled PubMed refresh now runs from `.github/workflows/pubmed-refresh.yml` via `npm run refresh:pubmed`, not from Vercel cron. The workflow writes directly to Sanity, then calls `/api/pubmed/revalidate` to refresh cached public pages.
+- The PubMed GitHub Actions workflow requires repo secrets for `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET`, `SANITY_API_TOKEN`, `SITE_URL`, and `CRON_SECRET`; add LLM provider API keys there too when they are not stored in Sanity.
 - Sanity Studio includes a Site Settings action to refresh SEO metadata (configure `SANITY_STUDIO_SEO_REFRESH_URL` and `SANITY_STUDIO_SEO_REFRESH_TOKEN`).
 - DOI abstract backfill (`lib/doiAbstract.js`) uses a four-tier fallback: (1) plain fetch of publisher page meta tags, (2) CrossRef API, (3) OpenAlex API inverted-index abstract, (4) headless Chromium via `lib/browserFetch.js` to bypass Cloudflare/bot protection and extract article text.
 - Headless browser uses `puppeteer-core` + `@sparticuz/chromium-min` on Vercel, local Chrome in dev. Enabled by default on Vercel; set `DOI_BROWSER_FETCH=true` locally. Set `DOI_BROWSER_FETCH=false` to disable.
@@ -141,8 +143,8 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 ## Cron Jobs
 
 - Scheduled routes are defined in `vercel.json`.
-- `/api/pubmed/refresh` uses `CRON_SECRET` (cron) or `PUBMED_REFRESH_TOKEN` (manual POST).
-- `/api/seo/refresh` auto-generates SEO/LLM summaries and snapshots publication topics/highlights for llms.txt/markdown (manual via `SEO_REFRESH_TOKEN`; requires `SANITY_API_TOKEN`). To keep within the 2-cron limit, enable optional piggybacking on `/api/pubmed/refresh` by setting `SEO_REFRESH_ON_PUBMED_CRON=true`.
+- PubMed refresh scheduling uses GitHub Actions (`.github/workflows/pubmed-refresh.yml`) rather than `vercel.json`. Manual app refreshes still use `/api/pubmed/refresh` with `PUBMED_REFRESH_TOKEN`, and post-refresh cache invalidation uses `/api/pubmed/revalidate` with `CRON_SECRET` or `PUBMED_REFRESH_TOKEN`.
+- `/api/seo/refresh` auto-generates SEO/LLM summaries and snapshots publication topics/highlights for llms.txt/markdown (manual via `SEO_REFRESH_TOKEN`; requires `SANITY_API_TOKEN`). The PubMed GitHub Actions workflow calls it after scheduled refreshes by default, and manual workflow runs can force it with the workflow input or override the default with the GitHub Actions variable `SEO_REFRESH_ON_PUBMED_CRON`.
 - Study email scheduling uses GitHub Actions rather than `vercel.json`; scheduled runs authenticate with `CRON_SECRET` and flow through the route's nth-weekday guard.
 - Publication newsletter scheduling uses GitHub Actions rather than `vercel.json`; scheduled runs authenticate with `CRON_SECRET` and flow through the route's nth-weekday guard.
 - Shared nth-weekday scheduling helpers live in `lib/cronUtils.js`.
