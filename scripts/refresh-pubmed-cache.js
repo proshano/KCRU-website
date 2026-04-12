@@ -3,6 +3,27 @@ import { refreshPubmedCache } from '../lib/publications.js'
 
 const MAX_PER_RESEARCHER = Number(process.env.PUBMED_MAX_PER_RESEARCHER || 1000)
 
+function hasConfiguredLlmAccess({ provider, apiKey }) {
+  if (apiKey) return true
+
+  switch (provider) {
+    case 'openrouter':
+      return Boolean(process.env.OPENROUTER_API_KEY)
+    case 'openai':
+      return Boolean(process.env.OPENAI_API_KEY)
+    case 'together':
+      return Boolean(process.env.TOGETHER_API_KEY)
+    case 'groq':
+      return Boolean(process.env.GROQ_API_KEY)
+    case 'anthropic':
+      return Boolean(process.env.ANTHROPIC_API_KEY)
+    case 'ollama':
+      return true
+    default:
+      return Boolean(process.env.OPENROUTER_API_KEY)
+  }
+}
+
 async function main() {
   try {
     const settings = (await sanityFetch(queries.siteSettings)) || {}
@@ -12,6 +33,8 @@ async function main() {
       slug: r.slug,
       pubmedQuery: r.pubmedQuery,
     }))
+    const provider = settings.llmProvider || process.env.LLM_PROVIDER || 'openrouter'
+    const apiKey = settings.llmApiKey || undefined
 
     const result = await refreshPubmedCache({
       researchers,
@@ -19,9 +42,9 @@ async function main() {
       force: true,
       summariesPerRun: Infinity,
       llmOptions: {
-        provider: settings.llmProvider || 'openrouter',
+        provider,
         model: settings.llmModel,
-        apiKey: settings.llmApiKey,
+        apiKey,
         systemPrompt: settings.llmSystemPrompt,
         // Conservative rate limits to avoid throttling; adjust via env if desired.
         concurrency: Number(process.env.LLM_CONCURRENCY || 1),
@@ -33,6 +56,18 @@ async function main() {
 
     const count = result?.meta?.counts?.total || result?.publications?.length || 0
     const summariesGenerated = result?.meta?.summaries?.generated || 0
+    const hasLlmAccess = hasConfiguredLlmAccess({ provider, apiKey })
+    const summaryCandidates = (result?.publications || []).filter((pub) => {
+      return !pub?.laySummary && String(pub?.abstract || '').trim().length >= 50
+    })
+
+    if (!hasLlmAccess && summaryCandidates.length > 0) {
+      const samplePmids = summaryCandidates.slice(0, 5).map((pub) => pub.pmid).filter(Boolean)
+      throw new Error(
+        `[pubmed] ${summaryCandidates.length} publication(s) still need summaries, but no LLM credentials are configured for provider "${provider}". Configure the GitHub Actions secret for that provider or store the API key in Sanity. Sample PMID(s): ${samplePmids.join(', ')}`
+      )
+    }
+
     console.log(`[pubmed] cache refreshed: ${count} publications; summaries generated this run: ${summariesGenerated}; cache at ${result?.meta?.cachePath || 'runtime/pubmed-cache.json'}`)
   } catch (err) {
     console.error('[pubmed] cache refresh failed', err)

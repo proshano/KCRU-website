@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { client as sanityClient, writeClient as sanityWriteClient, sanityFetch, queries } from '@/lib/sanity'
 import { generateLaySummary } from '@/lib/summaries'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
@@ -8,6 +9,17 @@ const CACHE_DOC_ID = 'pubmedCache'
 const CACHE_DOC_TYPE = 'pubmedCache'
 
 const CORS_HEADERS = buildCorsHeaders('POST, DELETE, OPTIONS')
+
+function revalidatePublicationViews() {
+  try {
+    revalidatePath('/')
+    revalidatePath('/publications')
+    revalidatePath('/publications.md')
+    revalidatePath('/team', 'layout')
+  } catch (err) {
+    console.warn('[pubmed/publication] Revalidation warning:', err?.message || err)
+  }
+}
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
@@ -63,6 +75,7 @@ export async function DELETE(request) {
       },
     }
     await sanityWriteClient.createOrReplace(updatedDoc)
+    revalidatePublicationViews()
 
     return NextResponse.json({ 
       ok: true, 
@@ -166,6 +179,7 @@ export async function POST(request) {
     console.log('[pubmed/publication] Saving updated cache to Sanity...')
     await sanityWriteClient.createOrReplace(updatedDoc)
     console.log('[pubmed/publication] Successfully saved to Sanity')
+    revalidatePublicationViews()
 
     return NextResponse.json({ 
       ok: true, 
@@ -183,7 +197,6 @@ export async function POST(request) {
 
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
-
 
 
 
