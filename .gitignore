@@ -34,3 +34,6 @@ dist/
 # Playwright MCP agent logs and local screenshot output
 .playwright-mcp/
 output/playwright/
+
+# Local OMC agent memory/state
+.omc/
