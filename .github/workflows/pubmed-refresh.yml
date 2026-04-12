@@ -5,8 +5,8 @@ env:
 
 on:
   schedule:
-    # Runs at 13:00 UTC every day (9am Eastern during daylight time).
-    - cron: "0 13 * * *"
+    # Runs at 09:00 UTC every day so publication data is refreshed before the 11:00 UTC newsletters.
+    - cron: "0 9 * * *"
   workflow_dispatch:
     inputs:
       run_seo_refresh:
@@ -14,6 +14,10 @@ on:
         required: false
         type: boolean
         default: false
+
+concurrency:
+  group: pubmed-refresh
+  cancel-in-progress: false
 
 jobs:
   refresh:
@@ -72,8 +76,10 @@ jobs:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
           SHOULD_REFRESH_SEO=false
-          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "$WORKFLOW_INPUT_RUN_SEO_REFRESH" = "true" ]; then
-            SHOULD_REFRESH_SEO=true
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$WORKFLOW_INPUT_RUN_SEO_REFRESH" = "true" ]; then
+              SHOULD_REFRESH_SEO=true
+            fi
           elif [ "${SEO_REFRESH_ON_PUBMED_CRON:-true}" = "true" ]; then
             SHOULD_REFRESH_SEO=true
           fi

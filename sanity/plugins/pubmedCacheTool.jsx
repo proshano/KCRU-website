@@ -13,6 +13,9 @@ const CANCEL_URL = process.env.SANITY_STUDIO_PUBMED_CANCEL_URL || `${BASE_URL}/a
 const UPLOAD_URL = process.env.SANITY_STUDIO_PUBMED_UPLOAD_URL || `${BASE_URL}/api/pubmed/upload`
 const DOWNLOAD_URL = process.env.SANITY_STUDIO_PUBMED_DOWNLOAD_URL || `${BASE_URL}/api/pubmed/download`
 const PUBLICATION_URL = `${BASE_URL}/api/pubmed/publication`
+const WORKFLOW_URL =
+  process.env.SANITY_STUDIO_PUBMED_WORKFLOW_URL ||
+  'https://github.com/proshano/KCRU-website/actions/workflows/pubmed-refresh.yml'
 const AUTH_TOKEN =
   process.env.SANITY_STUDIO_PUBMED_REFRESH_TOKEN ||
   process.env.SANITY_STUDIO_PUBMED_CANCEL_TOKEN
@@ -34,6 +37,10 @@ function isCacheStale(lastRefreshedAt) {
 
 function normalizeBaseUrl(value = '') {
   return String(value || '').trim().replace(/\/+$/, '')
+}
+
+function isLocalBaseUrl(value = '') {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalizeBaseUrl(value))
 }
 
 function isNetworkError(message = '') {
@@ -113,6 +120,7 @@ function PubmedCacheTool({ tool }) {
   const resolvedUploadUrl = normalizeBaseUrl(manualBaseUrl) ? `${resolvedBaseUrl}/api/pubmed/upload` : UPLOAD_URL
   const resolvedDownloadUrl = normalizeBaseUrl(manualBaseUrl) ? `${resolvedBaseUrl}/api/pubmed/download` : DOWNLOAD_URL
   const resolvedPublicationUrl = normalizeBaseUrl(manualBaseUrl) ? `${resolvedBaseUrl}/api/pubmed/publication` : PUBLICATION_URL
+  const usesHostedRefreshWorkflow = !isLocalBaseUrl(resolvedBaseUrl)
 
   const requireAuthToken = () => {
     if (resolvedAuthToken) return true
@@ -281,6 +289,13 @@ function PubmedCacheTool({ tool }) {
   }
 
   const handleRefresh = async () => {
+    if (usesHostedRefreshWorkflow) {
+      if (typeof window !== 'undefined') {
+        window.open(WORKFLOW_URL, '_blank', 'noopener,noreferrer')
+      }
+      setMessage({ tone: 'positive', text: 'Opened the GitHub Actions PubMed Refresh workflow for hosted refreshes.' })
+      return
+    }
     if (!requireAuthToken()) return
     setRefreshing(true)
     setMessage(null)
@@ -295,7 +310,11 @@ function PubmedCacheTool({ tool }) {
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        setMessage({ tone: 'positive', text: `Refreshed! ${data.meta?.counts?.combined || 0} publications, ${data.meta?.summaries?.generated || 0} new summaries` })
+        if (data?.queued) {
+          setMessage({ tone: 'positive', text: 'Queued GitHub Actions refresh. Check the Actions tab for status.' })
+        } else {
+          setMessage({ tone: 'positive', text: `Refreshed! ${data.meta?.counts?.combined || 0} publications, ${data.meta?.summaries?.generated || 0} new summaries` })
+        }
         fetchStatus()
       } else {
         setMessage({ tone: 'critical', text: data.error || 'Refresh failed' })
@@ -598,15 +617,19 @@ function PubmedCacheTool({ tool }) {
           <Stack space={4}>
             <Heading as="h2" size={1}>Actions</Heading>
             <Text size={1} muted>
-              Requires Next.js dev server running locally (npm run dev). No timeout limits when running locally!
+              Localhost runs refreshes directly in your dev server. Hosted refreshes are launched from GitHub Actions.
             </Text>
             
             <Stack space={3}>
               <Text size={2} weight="semibold">Step 1: Build/Refresh Cache</Text>
-              <Text size={1} muted>Fetches all publications from PubMed and generates AI summaries for new papers.</Text>
+              <Text size={1} muted>
+                {usesHostedRefreshWorkflow
+                  ? 'Opens the GitHub Actions workflow that refreshes the cache and revalidates the site.'
+                  : 'Fetches all publications from PubMed and generates AI summaries for new papers.'}
+              </Text>
               <Button
                 tone="primary"
-                text={refreshing ? 'Refreshing...' : 'Refresh Cache'}
+                text={refreshing ? 'Refreshing...' : usesHostedRefreshWorkflow ? 'Open GitHub Refresh' : 'Refresh Cache'}
                 onClick={handleRefresh}
                 disabled={refreshing || uploading || downloading}
               />
@@ -720,8 +743,8 @@ function PubmedCacheTool({ tool }) {
           <Stack space={3}>
             <Heading as="h2" size={1}>Automatic Updates</Heading>
             <Text size={1}>
-              Once deployed, the cache refreshes automatically via Vercel cron at 2am UTC daily.
-              It only generates summaries for new papers, so it stays fast.
+              Once deployed, the cache refreshes automatically via GitHub Actions at 09:00 UTC daily,
+              before the 11:00 UTC publication newsletters run.
             </Text>
           </Stack>
         </Card>

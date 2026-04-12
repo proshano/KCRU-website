@@ -9,6 +9,9 @@ const BASE_URL =
   'http://localhost:3000'
 const REFRESH_URL = process.env.SANITY_STUDIO_PUBMED_REFRESH_URL || `${BASE_URL}/api/pubmed/refresh`
 const CANCEL_URL = process.env.SANITY_STUDIO_PUBMED_CANCEL_URL || `${BASE_URL}/api/pubmed/cancel`
+const WORKFLOW_URL =
+  process.env.SANITY_STUDIO_PUBMED_WORKFLOW_URL ||
+  'https://github.com/proshano/KCRU-website/actions/workflows/pubmed-refresh.yml'
 const AUTH_TOKEN =
   process.env.SANITY_STUDIO_PUBMED_REFRESH_TOKEN ||
   process.env.SANITY_STUDIO_PUBMED_CANCEL_TOKEN ||
@@ -47,6 +50,10 @@ function resolveManualToken() {
   return readLocalStorage(MANUAL_TOKEN_KEY)
 }
 
+function isLocalBaseUrl(value = '') {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(normalizeBaseUrl(value))
+}
+
 function PubmedCacheRefreshAction(props) {
   const toast = useToast()
   const [isRunning, setIsRunning] = useState(false)
@@ -56,6 +63,20 @@ function PubmedCacheRefreshAction(props) {
     const authToken = manualToken || AUTH_TOKEN
     const manualBaseUrl = resolveManualBaseUrl()
     const refreshUrl = manualBaseUrl ? `${manualBaseUrl}/api/pubmed/refresh` : REFRESH_URL
+    const baseUrl = manualBaseUrl || BASE_URL
+
+    if (!isLocalBaseUrl(baseUrl)) {
+      if (typeof window !== 'undefined') {
+        window.open(WORKFLOW_URL, '_blank', 'noopener,noreferrer')
+      }
+      toast.push({
+        status: 'success',
+        title: 'Opened GitHub Actions',
+        description: 'Run the PubMed Refresh workflow there for hosted refreshes.',
+      })
+      props.onComplete?.()
+      return
+    }
 
     if (!authToken) {
       toast.push({
@@ -87,10 +108,12 @@ function PubmedCacheRefreshAction(props) {
 
       toast.push({
         status: 'success',
-        title: 'PubMed cache refreshed',
-        description: data?.meta?.cachePath
-          ? `Cached to ${data.meta.cachePath}`
-          : 'Refresh complete',
+        title: data?.queued ? 'PubMed refresh queued' : 'PubMed cache refreshed',
+        description: data?.queued
+          ? 'GitHub Actions is handling the refresh.'
+          : data?.meta?.cachePath
+            ? `Cached to ${data.meta.cachePath}`
+            : 'Refresh complete',
       })
     } catch (err) {
       console.error('PubMed cache refresh failed', err)
