@@ -56,11 +56,12 @@ function quickTextRankStudies(studies, queryText, profile = {}) {
   const tokens = tokenizeQuery(queryText)
   if (!tokens.length) return []
 
+  // Keyword hits are used as a soft booster when building the LLM shortlist, not as a hard
+  // gate. A study the deterministic matcher labeled "unlikely" may still surface if the user's
+  // free-text mentions it directly; the LLM makes the final eligibility call.
   const rows = studies
     .map((study) => {
       const fallbackMatch = matchTrialToPatient(study, profile)
-      if (fallbackMatch?.decision === 'unlikely') return null
-
       const haystack = buildStudyHaystack(study).toLowerCase()
       if (!haystack) return null
 
@@ -163,10 +164,16 @@ function hasAnsweredFocusedFollowUp(messages, followUpReply) {
 function buildLlmRankingShortlist(studies, profile, messages) {
   if (!Array.isArray(studies) || !studies.length) return []
 
+  // We only rank-order the shortlist here; we do not pre-exclude studies the deterministic
+  // matcher labels "unlikely". Real eligibility criteria are often too complex for regex
+  // (alternative cohorts, Unicode operators, nested clauses, etc.), and we've been burned by
+  // brittle keyword rules that hide legitimate matches from the LLM. The deterministic score
+  // still pushes weaker candidates toward the bottom of the shortlist, so if we are over the
+  // MAX_LLM_RANK_STUDIES token budget the token-cheap candidates drop off naturally. The LLM
+  // then makes the actual eligibility call, and downstream code filters out its "weak" and
+  // missing entries.
   const byId = new Map(studies.map((study) => [study?._id, study]))
-  const deterministic = rankTrialMatches(studies, profile)
-    .filter((row) => row?.decision !== 'unlikely')
-    .slice(0, MAX_LLM_RANK_STUDIES)
+  const deterministic = rankTrialMatches(studies, profile).slice(0, MAX_LLM_RANK_STUDIES)
   const textRanked = quickTextRankStudies(studies, getLastUserMessage(messages)?.content || '', profile)
   const merged = mergeRankedResults(deterministic, textRanked, MAX_LLM_RANK_STUDIES)
   const shortlist = merged.map((row) => byId.get(row?._id)).filter(Boolean)

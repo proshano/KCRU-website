@@ -377,3 +377,64 @@ test('ranks stronger text matches ahead of broader studies', () => {
   assert.equal(ranked[0]._id, 'trial-iga')
   assert.equal(ranked[0].decision, 'match')
 })
+
+// Regression: the ICAN trial inclusion text names alternative eGFR cohorts and uses the
+// Unicode ≥ operator. The deterministic matcher previously merged these thresholds into an
+// impossible range (≥30 AND 20–29), marked the study unlikely for patients in the main
+// cohort, and therefore removed it from the LLM shortlist.
+const icanLikeTrial = {
+  _id: 'trial-ican',
+  title: 'Ravulizumab in IgAN (ICAN)',
+  slug: 'ican',
+  status: 'recruiting',
+  laySummary: 'Phase 3 study of ravulizumab in IgAN at high risk of progression.',
+  inclusionCriteria: [
+    'Documentation of IgAN diagnosis established on kidney biopsy obtained any time prior to or during the Screening Period for participants with eGFR ≥ 30 mL/min/1.73 m^2.',
+    'For participants in the AdKD cohorts, eGFR 20 to 29 mL/min/1.73 m2 a kidney biopsy is required within 6 months prior to Screening or during the Screening Period.',
+    'UPCR ≥ 0.75 g/g or UP ≥ 1 g/day calculated from the mean of two 24-hour urine during the Screening Period.',
+    'Estimated GFR ≥ 30 mL/min/1.73 m2 at Screening.',
+  ],
+}
+
+test('keeps an IgAN study with alternative eGFR cohorts eligible for a main-cohort patient', () => {
+  const result = matchTrialToPatient(icanLikeTrial, {
+    diagnosis: 'IgA nephropathy',
+    populationTags: ['iga_nephropathy', 'chronic_kidney_disease'],
+    egfr: 40,
+    urineProtein: parseUrineProteinProfileFromText('ACR 140 mg/mmol', { defaultUnit: 'mg_per_mmol' }),
+  })
+
+  assert.notEqual(result.decision, 'unlikely')
+  assert.equal(
+    result.mismatchReasons.filter((reason) => reason.toLowerCase().includes('egfr')).length,
+    0
+  )
+  assert.ok(result.matchedReasons.some((reason) => reason.includes('eGFR')))
+})
+
+test('keeps an IgAN study eligible for a patient who fits the advanced eGFR cohort', () => {
+  const result = matchTrialToPatient(icanLikeTrial, {
+    diagnosis: 'IgA nephropathy',
+    populationTags: ['iga_nephropathy', 'chronic_kidney_disease'],
+    egfr: 22,
+    urineProtein: parseUrineProteinProfileFromText('ACR 140 mg/mmol', { defaultUnit: 'mg_per_mmol' }),
+  })
+
+  assert.notEqual(result.decision, 'unlikely')
+  assert.equal(
+    result.mismatchReasons.filter((reason) => reason.toLowerCase().includes('egfr')).length,
+    0
+  )
+})
+
+test('still flags an eGFR mismatch when the patient falls outside every named cohort', () => {
+  const result = matchTrialToPatient(icanLikeTrial, {
+    diagnosis: 'IgA nephropathy',
+    populationTags: ['iga_nephropathy', 'chronic_kidney_disease'],
+    egfr: 12,
+    urineProtein: parseUrineProteinProfileFromText('ACR 140 mg/mmol', { defaultUnit: 'mg_per_mmol' }),
+  })
+
+  assert.equal(result.decision, 'unlikely')
+  assert.ok(result.mismatchReasons.some((reason) => reason.toLowerCase().includes('egfr')))
+})
