@@ -49,14 +49,7 @@ export default async function HomePage() {
     }))
     const pubData = await getCachedPublicationsDisplay({
       researchers: strippedResearchers,
-      maxPerResearcher: 1000,
-      summariesPerRun: Infinity,
-      llmOptions: {
-        provider: settings.llmProvider || 'openrouter',
-        model: settings.llmModel,
-        apiKey: settings.llmApiKey,
-        systemPrompt: settings.llmSystemPrompt
-      }
+      maxPerResearcher: 1000
     })
     // Filter out excluded publications (corrections, errata, etc.) for accurate counts
     publications = (pubData?.publications || []).filter(pub => pub.exclude !== true)

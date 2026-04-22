@@ -3,7 +3,10 @@ import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/pu
 import PublicationsBrowser from './PublicationsBrowser'
 import { buildOpenGraph, buildTwitterMetadata, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 
-export const revalidate = 86400 // 24 hours
+// Keep the revalidate window short enough that a bad render cannot pin an
+// empty state for long. The /api/pubmed/revalidate endpoint is also called
+// by the scheduled refresh workflow to immediately surface new publications.
+export const revalidate = 3600 // 1 hour
 
 export async function generateMetadata() {
   const [settingsRaw, pageContentRaw] = await Promise.all([
@@ -70,18 +73,7 @@ export default async function PublicationsPage() {
   try {
     bundle = await getCachedPublicationsDisplay({
       researchers: strippedResearchers,
-      maxPerResearcher: 1000,
-      summariesPerRun: Infinity,
-      llmOptions: {
-        provider: settings.llmProvider || 'openrouter',
-        model: settings.llmModel,
-        apiKey: settings.llmApiKey,
-        systemPrompt: settings.llmSystemPrompt,
-        classificationPrompt: settings.llmClassificationPrompt,
-        classificationProvider: settings.llmClassificationProvider,
-        classificationModel: settings.llmClassificationModel,
-        classificationApiKey: settings.llmClassificationApiKey
-      }
+      maxPerResearcher: 1000
     })
   } catch (err) {
     console.error('Failed to load cached publications', err)

@@ -8,7 +8,9 @@ import PublicationsBrowser from '@/app/publications/PublicationsBrowser'
 import { buildOpenGraph, buildTwitterMetadata, getSiteBaseUrl, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 import JsonLd from '@/app/components/JsonLd'
 
-export const revalidate = 86400 // use cache; refresh daily
+// Short revalidate window so a bad render can recover quickly. The scheduled
+// PubMed refresh also calls /api/pubmed/revalidate to bust team layout caches.
+export const revalidate = 3600 // 1 hour
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params
@@ -143,14 +145,7 @@ export default async function TeamMemberPage({ params }) {
     try {
       const fullBundle = await getCachedPublicationsDisplay({
         researchers: strippedResearchers,
-        maxPerResearcher: 1000,
-        summariesPerRun: Infinity,
-        llmOptions: {
-          provider: settings.llmProvider || 'openrouter',
-          model: settings.llmModel,
-          apiKey: settings.llmApiKey,
-          systemPrompt: settings.llmSystemPrompt
-        }
+        maxPerResearcher: 1000
       })
       const researcherPubs = filterPublicationsForResearcher(fullBundle, profile._id, profile.name)
       // Filter out excluded publications (corrections, errata, etc.)
