@@ -180,9 +180,11 @@ function statusLabel(status) {
 export default function StudyManagerClient({ adminMode = false } = {}) {
   const [token, setToken] = useState('')
   const [canBypassApprovals, setCanBypassApprovals] = useState(false)
+  const [canRemoveStudies, setCanRemoveStudies] = useState(false)
   const [loading, setLoading] = useState(false)
   const [syncLoading, setSyncLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [commsLoading, setCommsLoading] = useState(false)
@@ -257,12 +259,14 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     lastSavedSnapshotRef.current = ''
     setToken('')
     setCanBypassApprovals(false)
+    setCanRemoveStudies(false)
     setTrials([])
     setDraft(null)
     setDraftLoading(false)
     setDraftSaving(false)
     setDraftError('')
     setDraftAction('')
+    setDeleting(false)
     setSuccess('')
     setError('')
     setCommsError('')
@@ -367,6 +371,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
         researchers: data.meta?.researchers || [],
       })
       setCanBypassApprovals(Boolean(data.access?.canBypassApprovals))
+      setCanRemoveStudies(Boolean(data.access?.canRemoveStudies))
       return data
     } catch (err) {
       setError(err.message || 'Failed to load studies')
@@ -865,6 +870,56 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     }
   }
 
+  async function handleRemoveStudy() {
+    if (!canRemoveStudies || !form.id || deleting) return
+
+    const title = form.title || 'this study'
+    const confirmed = window.confirm(
+      `Remove "${title}" from the website?\n\nThis permanently deletes the study record. Existing submission and referral logs are preserved for audit history.`
+    )
+    if (!confirmed) return
+
+    if (autosaveTimeoutRef.current) {
+      clearTimeout(autosaveTimeoutRef.current)
+      autosaveTimeoutRef.current = null
+    }
+    autosavePendingRef.current = false
+    setDeleting(true)
+    setError('')
+    setSuccess('')
+    setDuplicateMatch(null)
+
+    try {
+      const res = await fetch('/api/trials/manage', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ id: form.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        if (res.status === 401) {
+          handleSignOut()
+        }
+        throw new Error(data?.error || `Remove failed (${res.status})`)
+      }
+
+      autosaveSuppressRef.current = true
+      lastSavedSnapshotRef.current = ''
+      setForm(EMPTY_FORM)
+      setBaselineSnapshot(serializeDraft(EMPTY_FORM))
+      await loadData()
+      await deleteDraft({ silent: true })
+      setSuccess(`Removed "${data.title || title}".`)
+    } catch (err) {
+      setError(err.message || 'Failed to remove study')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const scheduleAutosave = useCallback(({ data, snapshot } = {}) => {
     if (!hasAuth) return
     if (autosaveTimeoutRef.current) {
@@ -1184,13 +1239,25 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
             <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Study Details</h2>
-                <button
-                  type="submit"
-                  disabled={saving || !canSubmit || !hasChanges}
-                  className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
-                >
-                  {saving ? savingLabel : submitLabel}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {canRemoveStudies && form.id && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveStudy}
+                      disabled={deleting || saving || !canSubmit}
+                      className="inline-flex items-center justify-center border border-red-200 text-red-700 px-4 py-2 rounded hover:bg-red-50 disabled:opacity-60"
+                    >
+                      {deleting ? 'Removing...' : 'Remove study'}
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={saving || deleting || !canSubmit || !hasChanges}
+                    className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
+                  >
+                    {saving ? savingLabel : submitLabel}
+                  </button>
+                </div>
               </div>
               {canSubmit && (
                 <div className={`flex flex-wrap items-center gap-2 ${autosaveStatusClass}`}>
@@ -1729,10 +1796,10 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
           <div className="flex items-center justify-end gap-3">
             <button
               type="submit"
-              disabled={saving || !canSubmit || !hasChanges}
+              disabled={saving || deleting || !canSubmit || !hasChanges}
               className="inline-flex items-center justify-center bg-purple text-white px-5 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-60"
             >
-              {saving ? 'Submitting...' : form.id ? 'Submit changes' : 'Submit new study'}
+              {saving ? savingLabel : submitLabel}
             </button>
           </div>
           </form>

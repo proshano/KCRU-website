@@ -16,7 +16,7 @@ import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 import { escapeHtml } from '@/lib/escapeHtml'
 import { buildCorsHeaders, extractBearerToken, getClientIp } from '@/lib/httpUtils'
 
-const CORS_HEADERS = buildCorsHeaders('GET, POST, PATCH, OPTIONS')
+const CORS_HEADERS = buildCorsHeaders('GET, POST, PATCH, DELETE, OPTIONS')
 
 const FALLBACK_NOTIFY_EMAIL = (process.env.STUDY_EDITOR_NOTIFY_EMAIL || '').trim()
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
@@ -96,6 +96,18 @@ async function canBypassApprovals(session) {
   if (session?.access?.approvals) return true
   if (!session?.email) return false
   return isAdminEmail(session.email, 'approvals')
+}
+
+async function canRemoveStudies(session) {
+  const email = sanitizeString(session?.email).toLowerCase()
+  if (!email) return false
+  const settings = await writeClient.fetch(`
+    *[_type == "siteSettings"][0]{
+      "admins": studyApprovals.admins
+    }
+  `)
+  const admins = Array.isArray(settings?.admins) ? settings.admins : []
+  return admins.some((adminEmail) => sanitizeString(adminEmail).toLowerCase() === email)
 }
 
 async function createApprovalSessionLink(email) {
@@ -467,6 +479,87 @@ async function requireManageSession(request) {
   return session
 }
 
+async function requireApprovalAdminSession(request) {
+  const session = await requireManageSession(request)
+  if (session instanceof NextResponse) return session
+
+  const removeAllowed = await canRemoveStudies(session)
+  if (!removeAllowed) {
+    return NextResponse.json(
+      { ok: false, error: 'Only approval admins can remove studies.' },
+      { status: 403, headers: CORS_HEADERS }
+    )
+  }
+  return session
+}
+
+async function parseJsonBody(request) {
+  try {
+    return await request.json()
+  } catch {
+    return {}
+  }
+}
+
+async function getStudyDocsForRemoval(id) {
+  const resolvedId = await resolveTrialId(id)
+  if (!resolvedId) return []
+
+  const baseId = resolvedId.replace(/^drafts\./, '')
+  const draftId = baseId ? `drafts.${baseId}` : ''
+  const ids = Array.from(new Set([resolvedId, baseId, draftId].filter(Boolean)))
+  const docs = await writeClient.fetch(
+    `*[_type == "trialSummary" && _id in $ids]{ _id, title }`,
+    { ids }
+  )
+  return Array.isArray(docs) ? docs : []
+}
+
+async function removeStudyDocs({ docs, removedByEmail }) {
+  const studyIds = docs.map((doc) => doc?._id).filter(Boolean)
+  const references = await writeClient.fetch(
+    `{
+      "submissions": *[_type == "studySubmission" && studyRef._ref in $ids]{ _id, status, studyRef },
+      "referrals": *[_type == "studyReferral" && study._ref in $ids]{ _id, study }
+    }`,
+    { ids: studyIds }
+  )
+  const removedAt = new Date().toISOString()
+  let transaction = writeClient.transaction()
+
+  for (const submission of references?.submissions || []) {
+    transaction = transaction.patch(submission._id, (patch) => {
+      let nextPatch = patch.set({ studyRef: { ...submission.studyRef, _weak: true } })
+      if (submission.status === 'pending') {
+        nextPatch = nextPatch.set({
+          status: 'superseded',
+          supersededAt: removedAt,
+          reviewedAt: removedAt,
+          reviewedBy: removedByEmail || 'approval admin',
+        })
+      }
+      return nextPatch
+    })
+  }
+
+  for (const referral of references?.referrals || []) {
+    transaction = transaction.patch(referral._id, (patch) =>
+      patch.set({ study: { ...referral.study, _weak: true } })
+    )
+  }
+
+  for (const doc of docs) {
+    transaction = transaction.delete(doc._id)
+  }
+
+  await transaction.commit({ returnDocuments: false })
+  return {
+    removedIds: studyIds,
+    submissionReferenceCount: references?.submissions?.length || 0,
+    referralReferenceCount: references?.referrals?.length || 0,
+  }
+}
+
 export async function GET(request) {
   let session = null
   if (!DEV_PREVIEW_MODE) {
@@ -479,6 +572,7 @@ export async function GET(request) {
 
   try {
     const bypassApprovals = await canBypassApprovals(session)
+    const removeAllowed = await canRemoveStudies(session)
     const [trialsRaw, areasRaw, researchersRaw] = await Promise.all([
       sanityFetch(`
         *[_type == "trialSummary"] | order(status asc, title asc) {
@@ -530,6 +624,7 @@ export async function GET(request) {
         },
         access: {
           canBypassApprovals: bypassApprovals,
+          canRemoveStudies: removeAllowed,
         },
       },
       { headers: CORS_HEADERS }
@@ -765,6 +860,63 @@ export async function PATCH(request) {
     return NextResponse.json(
       { ok: false, error: error?.message || 'Failed to submit study' },
       { status: 500, headers: CORS_HEADERS }
+    )
+  }
+}
+
+export async function DELETE(request) {
+  const session = await requireApprovalAdminSession(request)
+  if (session instanceof NextResponse) return session
+
+  if (!writeClient.config().token) {
+    return NextResponse.json(
+      { ok: false, error: 'SANITY_API_TOKEN missing; cannot remove study.' },
+      { status: 500, headers: CORS_HEADERS }
+    )
+  }
+
+  try {
+    const body = await parseJsonBody(request)
+    const id = sanitizeString(body?.id)
+    if (!id) {
+      return NextResponse.json(
+        { ok: false, error: 'Study id is required.' },
+        { status: 400, headers: CORS_HEADERS }
+      )
+    }
+
+    const docs = await getStudyDocsForRemoval(id)
+    if (!docs.length) {
+      return NextResponse.json(
+        { ok: false, error: 'Study not found. Refresh the list and try again.' },
+        { status: 404, headers: CORS_HEADERS }
+      )
+    }
+
+    const publishedDoc = docs.find((doc) => !doc._id.startsWith('drafts.')) || docs[0]
+    const result = await removeStudyDocs({ docs, removedByEmail: session?.email })
+
+    return NextResponse.json(
+      {
+        ok: true,
+        studyId: publishedDoc?._id,
+        title: publishedDoc?.title || '',
+        ...result,
+      },
+      { headers: CORS_HEADERS }
+    )
+  } catch (error) {
+    console.error('[trials-manage] DELETE failed', error)
+    const message = String(error?.message || '')
+    const isReferenceError = /reference|referenced|references/i.test(message)
+    return NextResponse.json(
+      {
+        ok: false,
+        error: isReferenceError
+          ? 'Study could not be removed because it is still referenced by another document.'
+          : 'Failed to remove study.',
+      },
+      { status: isReferenceError ? 409 : 500, headers: CORS_HEADERS }
     )
   }
 }
