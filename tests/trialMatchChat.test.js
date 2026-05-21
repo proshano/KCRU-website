@@ -66,7 +66,7 @@ test('does not rank on the first turn from lab details alone', () => {
   )
 })
 
-test('allows follow-up sequencing to be handled outside the ranking gate', () => {
+test('does not wait for the LLM ready flag when diagnosis and eGFR are already captured', () => {
   assert.equal(
     shouldRankTrialMatches({
       readyForMatching: false,
@@ -76,7 +76,7 @@ test('allows follow-up sequencing to be handled outside the ranking gate', () =>
       },
       userTurns: 2,
     }),
-    false
+    true
   )
 })
 
