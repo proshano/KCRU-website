@@ -117,11 +117,11 @@ function ResultReasonList({ title, reasons }) {
   return (
     <div className="space-y-2">
       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{title}</p>
-      <ul className="space-y-1 text-xs text-gray-700">
+      <div className="space-y-1 text-xs text-gray-700">
         {reasons.slice(0, 2).map((reason) => (
-          <li key={reason}>• {reason}</li>
+          <p key={reason}>{reason}</p>
         ))}
-      </ul>
+      </div>
     </div>
   )
 }
