@@ -8,7 +8,7 @@ import {
   generateTrialMatchConversation,
   generateTrialMatchStudyRanking,
 } from '@/lib/summaries'
-import { isTrialMatchingAssistantEnabled } from '@/lib/trialMatchingSettings'
+import { isTrialMatchingAssistantEnabled, resolveTrialMatchingLlmOptions } from '@/lib/trialMatchingSettings'
 import { buildTrialCatalogForPrompt, matchTrialToPatient, rankTrialMatches } from '@/lib/trialMatcher'
 import {
   isQuantitativeUrineProteinUnavailable,
@@ -260,19 +260,6 @@ function sanitizeMessages(value) {
   return { messages, hadRedaction }
 }
 
-function buildLlmOptions(settings) {
-  const clean = (value) => {
-    const text = sanitizeText(value)
-    return text || undefined
-  }
-
-  return {
-    provider: clean(settings?.trialSummaryLlmProvider) || clean(settings?.llmProvider),
-    model: clean(settings?.trialSummaryLlmModel) || clean(settings?.llmModel),
-    apiKey: clean(settings?.trialSummaryLlmApiKey) || clean(settings?.llmApiKey),
-  }
-}
-
 function buildResponse(body, status = 200) {
   return NextResponse.json(body, {
     status,
@@ -363,7 +350,7 @@ export async function POST(request) {
         trialCatalog: buildTrialCatalogForPrompt(studies),
         trialEligibilityCatalog: buildTrialEligibilityCatalogForPrompt(studies),
       },
-      buildLlmOptions(settings)
+      resolveTrialMatchingLlmOptions(settings)
     )
 
     const updatedProfile = mergePatientProfiles(preLlmProfile, llmTurn?.patientProfile, latestUserLabProfile)
@@ -373,7 +360,7 @@ export async function POST(request) {
 
     const userTurns = countUserMessages(messages)
     const wantsImmediateRanking = body?.requestMatches === true
-    const llmOpts = buildLlmOptions(settings)
+    const llmOpts = resolveTrialMatchingLlmOptions(settings)
     const rankingShortlist = buildLlmRankingShortlist(studies, enrichedProfile, messages)
     const ruleBasedRanking = rankTrialMatches(rankingShortlist, enrichedProfile)
     const lastUserMessage = getLastUserMessage(messages)?.content || ''

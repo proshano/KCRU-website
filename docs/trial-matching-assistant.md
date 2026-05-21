@@ -12,6 +12,8 @@ The widget is intentionally hidden on `/admin`, `/login`, `/protected`, `/trials
 
 The feature only mounts when `siteSettings.trialMatchingAssistant.enabled` is true. `lib/trialMatchingSettings.js` treats any missing value as false, so older datasets can have a valid `siteSettings` document with `trialMatchingAssistant: null` and still hide the widget.
 
+The public chat model is configured separately from the study-summary and publication-classification workflows. `siteSettings.trialMatchingAssistant.llmProvider`, `.llmModel`, and `.llmApiKey` override the older trial-summary LLM fields for this assistant only. If those assistant fields are blank, the API falls back to trial-summary LLM settings and then the general summary settings for backward compatibility.
+
 The public assistant only sees studies returned by `queries.trialMatchingStudies` in `lib/sanity.js`. That query filters to `status == "recruiting"` and returns public study fields only:
 
 - title
@@ -63,13 +65,13 @@ PII redaction in `app/api/trials/match/chat/route.js` is best-effort string repl
 - `lib/patientProfileSchema.js`: patient profile schema, normalization, summary chips
 - `lib/trialMatcher.js`: deterministic fallback matching and ranking logic
 - `lib/urineProtein.js`: deterministic urine protein parsing, conversion, threshold extraction, and conservative comparison helpers
-- `lib/trialMatchingSettings.js`: feature-flag check for the assistant
+- `lib/trialMatchingSettings.js`: feature-flag check and assistant-specific LLM setting resolution
 - `lib/sanity.js`: `queries.siteSettings` and `queries.trialMatchingStudies`
 - `lib/trialSync.js`: ClinicalTrials.gov sync and study import pipeline
 - `app/trials/manage/StudyManagerClient.js`: coordinator workflow for editing live studies and syncing CT.gov data
 - `app/trials/approvals/edit/ApprovalEditClient.js`: approval-side editing workflow for pending submissions
 - `app/trials/approvals/ApprovalClient.js`: approval review list
-- `sanity/schemas/siteSettings.js`: global assistant toggle
+- `sanity/schemas/siteSettings.js`: global assistant toggle and assistant-specific LLM settings
 - `tests/trialMatcher.test.js`: fallback matcher regression tests
 - `tests/urineProtein.test.js`: urine protein parsing and conversion regression tests
 - `docs/trial-matching-pilot.md`: coordinator beta checklist and validation scenarios

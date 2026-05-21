@@ -482,6 +482,34 @@ const siteSettings = {
           type: 'boolean',
           description: 'When disabled, the floating public trial assistant, `/trials/find`, and the matching chat API are unavailable to visitors.',
           initialValue: false
+        },
+        {
+          name: 'llmProvider',
+          title: 'LLM Provider (trial matching assistant)',
+          type: 'string',
+          options: {
+            list: [
+              { title: 'OpenRouter', value: 'openrouter' },
+              { title: 'OpenAI', value: 'openai' },
+              { title: 'Together', value: 'together' },
+              { title: 'Groq', value: 'groq' },
+              { title: 'Ollama', value: 'ollama' },
+              { title: 'Anthropic', value: 'anthropic' }
+            ]
+          },
+          description: 'Optional override for the public chat assistant. Falls back to trial summary settings, then summary settings.'
+        },
+        {
+          name: 'llmModel',
+          title: 'LLM Model (trial matching assistant)',
+          type: 'string',
+          description: 'Use a cheaper deterministic chat model here without changing publication summaries or classification.'
+        },
+        {
+          name: 'llmApiKey',
+          title: 'LLM API Key (trial matching assistant; server-only)',
+          type: 'string',
+          description: 'Optional override. Falls back to trial summary key, then summary key/env.'
         }
       ]
     },
