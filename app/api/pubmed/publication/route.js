@@ -160,9 +160,9 @@ export async function POST(request) {
     updatedPubs[pubIndex] = {
       ...pub,
       laySummary: result.summary,
-      topics: result.topics || pub.topics || [],
-      studyDesign: result.studyDesign || pub.studyDesign || [],
-      methodologicalFocus: result.methodologicalFocus || pub.methodologicalFocus || [],
+      topics: result.topics?.length ? result.topics : pub.topics || [],
+      studyDesign: result.studyDesign?.length ? result.studyDesign : pub.studyDesign || [],
+      methodologicalFocus: result.methodologicalFocus?.length ? result.methodologicalFocus : pub.methodologicalFocus || [],
     }
 
     // Save to Sanity using createOrReplace for reliability
@@ -197,6 +197,5 @@ export async function POST(request) {
 
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
-
 
 
