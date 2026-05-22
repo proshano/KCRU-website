@@ -12,9 +12,14 @@ test('classification prompt distinguishes research methods frameworks from clini
 test('classification prompt includes the CRT estimands example with intended tags', () => {
   assert.match(DEFAULT_CLASSIFICATION_PROMPT, /CRT-Estimands Framework/)
   assert.match(DEFAULT_CLASSIFICATION_PROMPT, /"topics": \[\]/)
-  assert.match(DEFAULT_CLASSIFICATION_PROMPT, /"study_design": \["Commentary \/ Editorial"\]/)
+  assert.match(DEFAULT_CLASSIFICATION_PROMPT, /"study_design": \[\]/)
   assert.match(
     DEFAULT_CLASSIFICATION_PROMPT,
     /"methodological_focus": \["Consensus Methods", "Innovation in Study Design or Analysis"\]/
   )
+})
+
+test('classification prompt does not use commentary as the fallback for missing abstracts', () => {
+  assert.match(DEFAULT_CLASSIFICATION_PROMPT, /\*\*Do NOT use\*\* merely because PubMed has no abstract/i)
+  assert.match(DEFAULT_CLASSIFICATION_PROMPT, /Use an empty `study_design` array when no study-design tag fits/)
 })
