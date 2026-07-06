@@ -1,0 +1,76 @@
+name: Research Digest
+
+on:
+  schedule:
+    # Weekdays. Import runs first; send runs later after staff approval.
+    - cron: "0 10 * * 1-5"
+    - cron: "0 13 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to run"
+        required: true
+        type: choice
+        options:
+          - import
+          - send
+        default: import
+      force:
+        description: "Force send even if already sent or not approved"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  research-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run research digest task
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SEND_TOKEN: ${{ secrets.RESEARCH_DIGEST_SEND_TOKEN }}
+          WORKFLOW_ACTION: ${{ inputs.action }}
+          FORCE_INPUT: ${{ inputs.force }}
+        run: |
+          if [ -z "$SITE_URL" ]; then
+            echo "SITE_URL secret is not set."
+            exit 1
+          fi
+          SITE_URL="${SITE_URL%/}"
+
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            if [ -z "$CRON_SECRET" ]; then
+              echo "CRON_SECRET secret is not set."
+              exit 1
+            fi
+            if [ "${{ github.event.schedule }}" = "0 10 * * 1-5" ]; then
+              curl -f -sS "$SITE_URL/api/research-digest/import" \
+                -H "Authorization: Bearer $CRON_SECRET"
+            else
+              curl -f -sS "$SITE_URL/api/updates/research-digest/dispatch" \
+                -H "Authorization: Bearer $CRON_SECRET"
+            fi
+          else
+            if [ "$WORKFLOW_ACTION" = "send" ]; then
+              if [ -z "$SEND_TOKEN" ]; then
+                echo "RESEARCH_DIGEST_SEND_TOKEN secret is not set."
+                exit 1
+              fi
+              FORCE="${FORCE_INPUT:-false}"
+              curl -f -sS -X POST "$SITE_URL/api/updates/research-digest/dispatch" \
+                -H "Authorization: Bearer $SEND_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data "{\"force\":${FORCE}}"
+            else
+              if [ -z "$CRON_SECRET" ]; then
+                echo "CRON_SECRET secret is not set."
+                exit 1
+              fi
+              curl -f -sS -X POST "$SITE_URL/api/research-digest/import" \
+                -H "Authorization: Bearer $CRON_SECRET" \
+                -H "Content-Type: application/json" \
+                --data "{\"dryRun\":false}"
+            fi
+          fi
+          echo ""

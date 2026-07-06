@@ -15,6 +15,9 @@ import contactRouting from './contactRouting'
 import contactLocation from './contactLocation'
 import contactSubmission from './contactSubmission'
 import updateSubscriber from './updateSubscriber'
+import researchDigestIssue from './researchDigestIssue'
+import researchDigestPaper from './researchDigestPaper'
+import researchOpportunity from './researchOpportunity'
 import studyReferral from './studyReferral'
 import studySubmission from './studySubmission'
 import studyApprovalSession from './studyApprovalSession'
@@ -45,6 +48,9 @@ export const schemaTypes = [
   site,
   contactSubmission,
   updateSubscriber,
+  researchDigestIssue,
+  researchDigestPaper,
+  researchOpportunity,
   studyReferral,
   studySubmission,
   studyApprovalSession,

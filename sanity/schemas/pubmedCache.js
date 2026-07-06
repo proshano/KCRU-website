@@ -47,6 +47,7 @@ const pubmedCache = {
             { name: 'month', type: 'string', title: 'Month' },
             { name: 'abstract', type: 'text', title: 'Abstract' },
             { name: 'doi', type: 'string', title: 'DOI' },
+            { name: 'publicationTypes', type: 'array', of: [{ type: 'string' }], title: 'PubMed Publication Types' },
             { name: 'pubmedUrl', type: 'url', title: 'PubMed URL' },
             { name: 'laySummary', type: 'text', title: 'Lay Summary' },
             { name: 'topics', type: 'array', of: [{ type: 'string' }], title: 'Topics' },

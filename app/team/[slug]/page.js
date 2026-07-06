@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { buildOutboundRedirectUrl } from '@/lib/outboundLinks'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
+import { isPublicationExcluded } from '@/lib/publicationExclusions'
 import PublicationsBrowser from '@/app/publications/PublicationsBrowser'
 import { buildOpenGraph, buildTwitterMetadata, getSiteBaseUrl, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 import JsonLd from '@/app/components/JsonLd'
@@ -149,7 +150,7 @@ export default async function TeamMemberPage({ params }) {
       })
       const researcherPubs = filterPublicationsForResearcher(fullBundle, profile._id, profile.name)
       // Filter out excluded publications (corrections, errata, etc.)
-      const filteredPubs = researcherPubs.filter(pub => pub.exclude !== true)
+      const filteredPubs = researcherPubs.filter(pub => !isPublicationExcluded(pub))
       const display = buildDisplayFromPublications(filteredPubs)
       publicationsBundle = {
         ...display,

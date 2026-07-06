@@ -804,6 +804,167 @@ const siteSettings = {
           initialValue: false
         }
       ]
+    },
+    {
+      name: 'researchDigest',
+      title: 'Research Digest',
+      type: 'object',
+      description: 'Configure the specialty-wide kidney research digest and opportunity imports.',
+      fields: [
+        {
+          name: 'subjectTemplate',
+          title: 'Email Subject Template',
+          type: 'string',
+          description: 'Use {{date}}, {{paperCount}}, or {{opportunityCount}}.',
+          initialValue: 'KCRU kidney research digest - {{date}}'
+        },
+        {
+          name: 'introText',
+          title: 'Intro Text',
+          type: 'text',
+          rows: 2,
+          description: 'Shown when there are approved digest items.'
+        },
+        {
+          name: 'emptyIntroText',
+          title: 'Empty Intro Text',
+          type: 'text',
+          rows: 2,
+          description: 'Shown only if empty sends are enabled.'
+        },
+        {
+          name: 'outroText',
+          title: 'Closing Text',
+          type: 'text',
+          rows: 2
+        },
+        {
+          name: 'signature',
+          title: 'Signature',
+          type: 'string',
+          initialValue: 'London Kidney Clinical Research'
+        },
+        {
+          name: 'maxPapers',
+          title: 'Max Papers Per Email',
+          type: 'number',
+          validation: Rule => Rule.min(1).max(30)
+        },
+        {
+          name: 'maxOpportunities',
+          title: 'Max Opportunities Per Email',
+          type: 'number',
+          validation: Rule => Rule.min(1).max(30)
+        },
+        {
+          name: 'sendEmpty',
+          title: 'Send even when empty',
+          type: 'boolean',
+          description: 'Send a digest email even if the approved issue has no papers or opportunities.',
+          initialValue: false
+        },
+        {
+          name: 'requireIssueApproval',
+          title: 'Require issue approval before send',
+          type: 'boolean',
+          description: 'When enabled, daily digest emails only send after the issue is approved.',
+          initialValue: true
+        },
+        {
+          name: 'pilotMode',
+          title: 'Pilot Mode',
+          type: 'boolean',
+          description: 'When enabled, research digest emails send only to the pilot recipients below. Keep this on until the digest is ready for subscribers.',
+          initialValue: true
+        },
+        {
+          name: 'pilotRecipients',
+          title: 'Pilot Recipients',
+          type: 'array',
+          description: 'Email addresses allowed to receive research digest emails while pilot mode is enabled.',
+          of: [{ type: 'string' }]
+        },
+        {
+          name: 'llmProvider',
+          title: 'LLM Provider',
+          type: 'string',
+          description: 'Optional override for research digest triage; falls back to publication/classification settings.'
+        },
+        {
+          name: 'llmModel',
+          title: 'LLM Model',
+          type: 'string',
+          description: 'Optional override for research digest triage.'
+        },
+        {
+          name: 'llmApiKey',
+          title: 'LLM API Key (server-only)',
+          type: 'string',
+          description: 'Optional override for research digest triage.'
+        },
+        {
+          name: 'journalGroups',
+          title: 'Journal Groups',
+          type: 'array',
+          description: 'Optional override for the default curated PubMed journal whitelist.',
+          of: [
+            {
+              type: 'object',
+              fields: [
+                { name: 'title', title: 'Group Title', type: 'string' },
+                {
+                  name: 'journals',
+                  title: 'PubMed Journal Names',
+                  type: 'array',
+                  of: [{ type: 'string' }]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          name: 'opportunitySources',
+          title: 'Opportunity Feed Sources',
+          type: 'array',
+          description: 'RSS or Atom feeds imported into the approval queue.',
+          of: [
+            {
+              type: 'object',
+              fields: [
+                { name: 'name', title: 'Source Name', type: 'string' },
+                { name: 'url', title: 'Feed URL', type: 'url' },
+                {
+                  name: 'type',
+                  title: 'Default Type',
+                  type: 'string',
+                  options: {
+                    list: [
+                      { title: 'Grant', value: 'grant' },
+                      { title: 'Conference', value: 'conference' },
+                      { title: 'Award', value: 'award' },
+                      { title: 'Training', value: 'training' },
+                      { title: 'Other', value: 'other' }
+                    ]
+                  },
+                  initialValue: 'other'
+                },
+                {
+                  name: 'topics',
+                  title: 'Default Topics',
+                  type: 'array',
+                  of: [{ type: 'string' }]
+                },
+                {
+                  name: 'enabled',
+                  title: 'Enabled',
+                  type: 'boolean',
+                  initialValue: true
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 }

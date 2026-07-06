@@ -34,6 +34,14 @@ const MODULES = [
     href: '/admin/updates',
     actionLabel: 'Open updates',
   },
+  {
+    key: 'researchDigest',
+    accessKey: 'updates',
+    title: 'Research digest',
+    description: 'Review imported papers, approve opportunities, and send the kidney research digest.',
+    href: '/admin/research-digest',
+    actionLabel: 'Open digest review',
+  },
 ]
 
 export default function AdminHubClient() {

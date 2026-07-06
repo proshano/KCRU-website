@@ -42,6 +42,8 @@ export async function GET() {
   const keyPages = [
     { label: asTitle(content.studiesTitle, 'Clinical Studies'), path: '/trials' },
     { label: asTitle(content.publicationsTitle, 'Publications'), path: '/publications' },
+    { label: 'Kidney research digest', path: '/research-digest' },
+    { label: 'Research opportunities', path: '/opportunities' },
     { label: asTitle(content.teamTitle, 'Team'), path: '/team' },
     { label: asTitle(content.newsTitle, 'News'), path: '/news' },
     { label: 'Subscribe for updates', path: '/updates' },

@@ -7,6 +7,7 @@ import { getZonedParts, isCronAuthorized, isTodayNthWeekday, isVercelCronRequest
 import { readCache } from '@/lib/pubmedCache'
 import { getPublicationDate } from '@/lib/publicationUtils'
 import { mergeWithClassifications } from '@/lib/publications'
+import { isPublicationExcluded } from '@/lib/publicationExclusions'
 import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
 import { isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
 
@@ -99,7 +100,7 @@ function getStartDate({ subscriber, now, windowMode, windowDays }) {
 
 function preparePublications(publications = []) {
   return publications
-    .filter((pub) => pub && pub.exclude !== true)
+    .filter((pub) => pub && !isPublicationExcluded(pub))
     .map((pub) => {
       const date = getPublicationDate(pub)
       return {

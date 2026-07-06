@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { client as sanityClient, writeClient as sanityWriteClient, sanityFetch, queries } from '@/lib/sanity'
 import { generateLaySummary } from '@/lib/summaries'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
+import { isPublicationExcluded } from '@/lib/publicationExclusions'
 
 const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN
 const CACHE_DOC_ID = 'pubmedCache'
@@ -163,6 +164,10 @@ export async function POST(request) {
       topics: result.topics?.length ? result.topics : pub.topics || [],
       studyDesign: result.studyDesign?.length ? result.studyDesign : pub.studyDesign || [],
       methodologicalFocus: result.methodologicalFocus?.length ? result.methodologicalFocus : pub.methodologicalFocus || [],
+      exclude: isPublicationExcluded({
+        ...pub,
+        exclude: result.exclude === true || pub.exclude === true,
+      }),
     }
 
     // Save to Sanity using createOrReplace for reliability
@@ -197,5 +202,4 @@ export async function POST(request) {
 
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
-
 

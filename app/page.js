@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { buildOutboundRedirectUrl } from '@/lib/outboundLinks'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
+import { isPublicationExcluded } from '@/lib/publicationExclusions'
 import FeaturedStudy from './components/FeaturedStudy'
 
 export const revalidate = 600
@@ -52,7 +53,7 @@ export default async function HomePage() {
       maxPerResearcher: 1000
     })
     // Filter out excluded publications (corrections, errata, etc.) for accurate counts
-    publications = (pubData?.publications || []).filter(pub => pub.exclude !== true)
+    publications = (pubData?.publications || []).filter(pub => !isPublicationExcluded(pub))
     publicationsStats = { totalPublications: publications.length }
     provenance = pubData?.provenance || {}
   } catch (e) {

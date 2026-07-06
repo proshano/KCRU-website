@@ -5,6 +5,7 @@ import Script from 'next/script'
 
 const STUDY_UPDATES_VALUE = 'study_updates'
 const NEWSLETTER_VALUE = 'newsletter'
+const RESEARCH_DIGEST_VALUE = 'research_digest'
 const ALL_AREAS_VALUE = 'all'
 
 const ROLE_WITH_SPECIALTY = new Set([
@@ -28,7 +29,8 @@ const ROLE_WITH_STUDY_UPDATES = new Set([
 const CORRESPONDENCE_HELPER_TEXT = {
   [STUDY_UPDATES_VALUE]:
     'Each month, we send a list of studies that are actively looking for patient referrals, with an easy email link to refer someone directly. Many clinical trials struggle to find eligible patients, and most patients are never offered the chance to participate in research. We are trying to fix that by making it easy for clinicians and research staff to know what is available.',
-  [NEWSLETTER_VALUE]: 'We send occasional news and updates about publications from our team.'
+  [NEWSLETTER_VALUE]: 'We send occasional news and updates about publications from our team.',
+  [RESEARCH_DIGEST_VALUE]: 'A weekday kidney research digest with approved papers, grants, and conference opportunities.'
 }
 
 const PATIENT_POPULATION_LABEL_OVERRIDES = {
@@ -123,6 +125,7 @@ export default function UpdatesSignupForm({
 
   const visibleCorrespondenceOptions = correspondenceOptions.filter((option) => {
     if (option.value === NEWSLETTER_VALUE) return true
+    if (option.value === RESEARCH_DIGEST_VALUE) return true
     if (option.value === STUDY_UPDATES_VALUE) return showStudyUpdatesOption
     return false
   })

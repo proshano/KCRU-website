@@ -7,6 +7,7 @@ import { buildOutboundRedirectUrl } from '@/lib/outboundLinks'
 import { getShareButtons, shareIcons } from '@/lib/sharing'
 import { urlFor } from '@/lib/sanity'
 import { comparePublicationsByDisplayDate, findResearchersForPublication } from '@/lib/publicationUtils'
+import { isPublicationExcluded } from '@/lib/publicationExclusions'
 
 const DEFAULT_VISIBLE_TAGS = 5
 const METHODS_VISIBLE_TAGS = 4
@@ -133,7 +134,7 @@ export default function PublicationsBrowser({
   const publications = useMemo(
     () => rawPublications
       .map(normalizePublicationTags)
-      .filter(pub => pub.exclude !== true),
+      .filter(pub => !isPublicationExcluded(pub)),
     [rawPublications]
   )
 

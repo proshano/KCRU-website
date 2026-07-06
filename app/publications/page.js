@@ -1,5 +1,6 @@
 import { sanityFetch, queries } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
+import { isPublicationExcluded } from '@/lib/publicationExclusions'
 import PublicationsBrowser from './PublicationsBrowser'
 import { buildOpenGraph, buildTwitterMetadata, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 
@@ -84,7 +85,7 @@ export default async function PublicationsPage() {
 
   // Lay summaries are generated during cache refresh and stored with publications
   // Filter out excluded publications (corrections, errata, etc.) for accurate counts
-  const publications = combinedPubs.filter(pub => pub.exclude !== true)
+  const publications = combinedPubs.filter(pub => !isPublicationExcluded(pub))
   const meta = bundle.meta || {}
   const sinceYear = getPublicationsSinceYear()
 

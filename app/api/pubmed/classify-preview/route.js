@@ -4,6 +4,7 @@ import { readCache } from '@/lib/pubmedCache'
 import { generateSummariesBatch } from '@/lib/summaries'
 import { DEFAULT_CLASSIFICATION_PROMPT } from '@/lib/classificationPrompt'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
+import { isPublicationExcluded } from '@/lib/publicationExclusions'
 
 const AUTH_TOKEN = process.env.PUBMED_PREVIEW_TOKEN || process.env.PUBMED_REFRESH_TOKEN
 
@@ -89,7 +90,10 @@ export async function POST(request) {
         topics: res.topics || pub.topics || [],
         studyDesign: res.studyDesign || pub.studyDesign || [],
         methodologicalFocus: res.methodologicalFocus || pub.methodologicalFocus || [],
-        exclude: typeof res.exclude === 'boolean' ? res.exclude : Boolean(pub.exclude),
+        exclude: isPublicationExcluded({
+          ...pub,
+          exclude: res.exclude === true || pub.exclude === true,
+        }),
       }
     })
 

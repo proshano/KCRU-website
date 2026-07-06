@@ -47,3 +47,29 @@ test('classification overlay preserves cached tags when a field is absent from t
     methodologicalFocus: [],
   })
 })
+
+test('classification overlay keeps PubMed correction notices excluded', () => {
+  const publication = {
+    pmid: '36757471',
+    title: 'Correction: Impact of renal-replacement therapy strategies on outcomes for patients with chronic kidney disease.',
+    publicationTypes: ['Published Erratum'],
+    exclude: false,
+  }
+
+  const classification = {
+    topics: [],
+    studyDesign: [],
+    methodologicalFocus: [],
+    exclude: false,
+  }
+
+  assert.deepEqual(applyPublicationClassificationOverlay(publication, classification), {
+    pmid: '36757471',
+    title: 'Correction: Impact of renal-replacement therapy strategies on outcomes for patients with chronic kidney disease.',
+    publicationTypes: ['Published Erratum'],
+    topics: [],
+    studyDesign: [],
+    methodologicalFocus: [],
+    exclude: true,
+  })
+})

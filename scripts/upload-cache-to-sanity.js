@@ -9,6 +9,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { createClient } from '@sanity/client'
+import { isPublicationExcluded, normalizePublicationTypes } from '../lib/publicationExclusions.js'
 
 const CACHE_PATH = path.join(process.cwd(), 'runtime', 'pubmed-cache.json')
 const CACHE_DOC_ID = 'pubmedCache'
@@ -55,19 +56,28 @@ async function main() {
     process.exit(1)
   }
 
-  const publications = (localCache.publications || []).map((pub, idx) => ({
-    _key: pub.pmid || `pub-${idx}`,
-    pmid: pub.pmid,
-    title: pub.title,
-    authors: pub.authors || [],
-    journal: pub.journal,
-    year: pub.year,
-    month: pub.month,
-    abstract: pub.abstract,
-    doi: pub.doi,
-    pubmedUrl: pub.pubmedUrl,
-    laySummary: pub.laySummary || null,
-  }))
+  const publications = (localCache.publications || []).map((pub, idx) => {
+    const publicationTypes = normalizePublicationTypes(pub.publicationTypes || pub.pubTypes || pub.pubtype)
+    return {
+      _key: pub.pmid || `pub-${idx}`,
+      pmid: pub.pmid,
+      title: pub.title,
+      publishedAt: pub.publishedAt || null,
+      authors: pub.authors || [],
+      journal: pub.journal,
+      year: pub.year,
+      month: pub.month,
+      abstract: pub.abstract,
+      doi: pub.doi,
+      publicationTypes,
+      pubmedUrl: pub.pubmedUrl || pub.url || null,
+      laySummary: pub.laySummary || null,
+      topics: pub.topics || [],
+      studyDesign: pub.studyDesign || [],
+      methodologicalFocus: pub.methodologicalFocus || [],
+      exclude: isPublicationExcluded({ ...pub, publicationTypes }),
+    }
+  })
 
   const provenanceArray = Object.entries(localCache.provenance || {}).map(([pmid, ids]) => ({
     _key: pmid,
