@@ -135,6 +135,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - `npm run dev`, `npm run lint`, `npm run build`
 - PubMed cache: `npm run refresh:pubmed`, `npm run clear:pubmed`, `npm run upload:pubmed`
 - PubMed classification backfill: `npm run reclassify:pubmed -- --year=2026 --count=5000` (defaults to missing/unclassified items only unless `--all` or `--clear` is supplied)
+- Research digest import: `npm run import:research-digest` writes pending digest papers/opportunities to Sanity.
 
 ## Data Refresh
 
@@ -142,6 +143,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - If cache changes are needed, use the scripts rather than editing files directly.
 - Research digest PubMed scanning uses a curated journal whitelist and PubMed entry date windows through `lib/researchDigest.js`; do not merge it with the KCRU-authored publication cache unless product requirements change.
 - Research digest opportunity feeds import to pending `researchOpportunity` documents; public pages and email must query only approved rows.
+- The scheduled research digest import workflow requires `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET`, and `SANITY_API_TOKEN`; include LLM provider secrets and `PUBMED_API_KEY` when they are not stored in Sanity.
 - Missing publication tags can be rebuilt without refetching PubMed by writing `pubmedClassification` docs via `npm run reclassify:pubmed`; use `--year=YYYY` for targeted backfills.
 - Scheduled PubMed refresh now runs from `.github/workflows/pubmed-refresh.yml` via `npm run refresh:pubmed`, not from Vercel cron. The workflow writes directly to Sanity, then calls `/api/pubmed/revalidate` to refresh cached public pages.
 - The PubMed GitHub Actions workflow requires repo secrets for `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET`, `SANITY_API_TOKEN`, `SITE_URL`, and `CRON_SECRET`; add LLM provider API keys there too when they are not stored in Sanity.
@@ -161,7 +163,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - `/api/seo/refresh` auto-generates SEO/LLM summaries and snapshots publication topics/highlights for llms.txt/markdown (manual via `SEO_REFRESH_TOKEN`; requires `SANITY_API_TOKEN`). Scheduled PubMed refreshes follow the `SEO_REFRESH_ON_PUBMED_CRON` variable, while manual `workflow_dispatch` runs only refresh SEO when their `run_seo_refresh` input is enabled.
 - Study email scheduling uses GitHub Actions rather than `vercel.json`; scheduled runs authenticate with `CRON_SECRET` and flow through the route's nth-weekday guard.
 - Publication newsletter scheduling uses GitHub Actions rather than `vercel.json`; scheduled runs authenticate with `CRON_SECRET` and flow through the route's nth-weekday guard.
-- Research digest scheduling uses GitHub Actions rather than `vercel.json`; import authenticates with `CRON_SECRET`, manual sends require `RESEARCH_DIGEST_SEND_TOKEN`, and the dispatch route skips unapproved issues unless forced by an authenticated admin/manual call.
+- Research digest scheduling uses GitHub Actions rather than `vercel.json`; import runs inside GitHub Actions via `npm run import:research-digest` to avoid deployed route timeouts, manual/admin sends require `RESEARCH_DIGEST_SEND_TOKEN`, and the dispatch route skips unapproved issues unless forced by an authenticated admin/manual call.
 - Shared nth-weekday scheduling helpers live in `lib/cronUtils.js`.
 
 ## Dependency Upgrades
