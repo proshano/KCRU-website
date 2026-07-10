@@ -43,7 +43,9 @@ async function fetchAdminPayload(date) {
       intro,
       approvedAt,
       sentAt,
-      retrievalWindowDays
+      retrievalWindowDays,
+      selectionMode,
+      selectedPaperCount
     },
     "issues": *[_type == "researchDigestIssue"] | order(date desc)[0...14]{
       _id,
@@ -64,6 +66,7 @@ async function fetchAdminPayload(date) {
       title,
       abstract,
       authors,
+      publicationTypes,
       journal,
       pubDate,
       year,
@@ -72,10 +75,14 @@ async function fetchAdminPayload(date) {
       triageStatus,
       approvalStatus,
       tier,
+      priorityScore,
       whyItMatters,
       summary,
       topics,
       triageError,
+      autoSelected,
+      autoSelectionStatus,
+      autoSelectionExcluded,
       retrievedAt,
       approvedAt,
       rejectedAt
@@ -122,13 +129,16 @@ async function patchPaper(body) {
     patch.approvalStatus = RESEARCH_DIGEST_APPROVAL.approved
     patch.approvedAt = now
     patch.rejectedAt = null
+    patch.autoSelectionExcluded = false
   } else if (body?.action === 'reject') {
     patch.approvalStatus = RESEARCH_DIGEST_APPROVAL.rejected
     patch.rejectedAt = now
+    patch.autoSelectionExcluded = true
   } else if (body?.action === 'pending') {
     patch.approvalStatus = RESEARCH_DIGEST_APPROVAL.pending
     patch.approvedAt = null
     patch.rejectedAt = null
+    patch.autoSelectionExcluded = false
   }
 
   if ('summary' in fields) patch.summary = sanitizeString(fields.summary)
@@ -194,8 +204,20 @@ export async function GET(request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const payload = await fetchAdminPayload(searchParams.get('date'))
-    return NextResponse.json({ ok: true, ...payload }, { headers: CORS_HEADERS })
+    const [{ settings }, payload] = await Promise.all([
+      fetchResearchDigestSettings(),
+      fetchAdminPayload(searchParams.get('date')),
+    ])
+    return NextResponse.json({
+      ok: true,
+      digestSettings: {
+        automaticSelection: settings.automaticSelection,
+        maxPapers: settings.maxPapers,
+        minPriorityScore: settings.minPriorityScore,
+        pilotMode: settings.pilotMode,
+      },
+      ...payload,
+    }, { headers: CORS_HEADERS })
   } catch (error) {
     console.error('[research-digest-admin] GET failed', error)
     return NextResponse.json(

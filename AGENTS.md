@@ -85,19 +85,20 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 ## Newsletters
 
 - Publication newsletter dispatch lives at `/api/updates/publication-newsletter/dispatch` with admin endpoints `/api/updates/publication-newsletter/admin` and `/api/updates/publication-newsletter/send`.
-- Research digest import/review/send lives at `/api/research-digest/import`, `/api/research-digest/admin`, and `/api/updates/research-digest/dispatch`; the admin UI is `/admin/research-digest`.
+- Research digest import/monitor/send lives at `/api/research-digest/import`, `/api/research-digest/admin`, and `/api/updates/research-digest/dispatch`; the optional diagnostic UI is `/admin/research-digest`.
 - Custom one-off newsletters send via `/api/updates/custom-newsletter` (filters by role/specialty/interest areas).
 - Settings live in `siteSettings.publicationNewsletter`; send tracking uses `updateSubscriber.lastPublicationNewsletterSentAt` and `updateSubscriber.lastNewsletterSentAt`.
 - Research digest settings live in `siteSettings.researchDigest`; send tracking uses `updateSubscriber.lastResearchDigestSentAt` and `updateSubscriber.lastNewsletterSentAt`.
-- `siteSettings.researchDigest.pilotMode` defaults to enabled. While pilot mode is on, digest sends go only to `researchDigest.pilotRecipients` plus `RESEARCH_DIGEST_PILOT_EMAILS`; if none are configured, the send route fails rather than emailing subscribers.
+- Research digest defaults are fully automated: at most three clearly relevant papers scoring at least 75/100 are selected, the issue is approved automatically, and weak/empty days are skipped. The send route still requires that automatic approval as a safety gate. `siteSettings.researchDigest.maxPapers`, `.minPriorityScore`, and `.automaticSelection` override those defaults.
+- `siteSettings.researchDigest.pilotMode` defaults to disabled. When explicitly enabled, sends go only to `researchDigest.pilotRecipients` plus `RESEARCH_DIGEST_PILOT_EMAILS`; if none are configured, the send route fails closed.
 - Scheduled publication sends run from `.github/workflows/publication-newsletter.yml`; the workflow runs daily at 11:00 UTC (morning Eastern time) and the route checks only the configured nth weekday in Sanity before sending.
 - `siteSettings.publicationNewsletter` includes `scheduleOccurrence` and `scheduleDayOfWeek` for staff-managed timing.
-- The research digest workflow runs weekdays from `.github/workflows/research-digest.yml`: import at 10:00 UTC and send at 13:00 UTC. Imported papers/opportunities must remain pending until staff approve them.
+- The research digest workflow runs weekdays from `.github/workflows/research-digest.yml`: import and automatic selection at 10:00 UTC, then send at 13:00 UTC. Workflow concurrency prevents the send run from overtaking a delayed import.
 
 ## Admin Access
 
 - Admin hub at `/admin` with module-specific entry points at `/admin/approvals` and `/admin/updates`.
-- Research digest review is a separate update-admin module at `/admin/research-digest`.
+- Research digest diagnostics remain available at `/admin/research-digest`, but routine operation must not depend on staff review.
 - Legacy admin URLs `/trials/approvals` and `/updates/admin` remain supported.
 - Admin sessions are scoped to approvals vs updates based on `siteSettings.studyApprovals.admins` and `siteSettings.studyUpdates.admins`.
 - `app/api/admin/login/route.js` and `app/api/admin/verify/route.js` accept a `scope` to limit access (`approvals`, `updates`, or `any`).
@@ -135,13 +136,14 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - `npm run dev`, `npm run lint`, `npm run build`
 - PubMed cache: `npm run refresh:pubmed`, `npm run clear:pubmed`, `npm run upload:pubmed`
 - PubMed classification backfill: `npm run reclassify:pubmed -- --year=2026 --count=5000` (defaults to missing/unclassified items only unless `--all` or `--clear` is supplied)
-- Research digest import: `npm run import:research-digest` writes pending digest papers/opportunities to Sanity.
+- Research digest import: `npm run import:research-digest` triages candidates, selects the strongest qualifying papers, and approves the daily issue automatically.
 
 ## Data Refresh
 
 - PubMed cache file: `runtime/pubmed-cache.json` with lock/cancel files.
 - If cache changes are needed, use the scripts rather than editing files directly.
 - Research digest PubMed scanning uses a curated journal whitelist and PubMed entry date windows through `lib/researchDigest.js`; do not merge it with the KCRU-authored publication cache unless product requirements change.
+- Automatic paper selection requires `triageStatus == "include"`, no triage error, complete summary copy, an allowed publication type, and a conservative priority score at or above the configured threshold. Never fill the daily quota with weak papers.
 - Research digest opportunity feeds import to pending `researchOpportunity` documents; public pages and email must query only approved rows.
 - The scheduled research digest import workflow requires `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET`, and `SANITY_API_TOKEN`; include LLM provider secrets and `PUBMED_API_KEY` when they are not stored in Sanity.
 - Missing publication tags can be rebuilt without refetching PubMed by writing `pubmedClassification` docs via `npm run reclassify:pubmed`; use `--year=YYYY` for targeted backfills.
@@ -163,7 +165,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - `/api/seo/refresh` auto-generates SEO/LLM summaries and snapshots publication topics/highlights for llms.txt/markdown (manual via `SEO_REFRESH_TOKEN`; requires `SANITY_API_TOKEN`). Scheduled PubMed refreshes follow the `SEO_REFRESH_ON_PUBMED_CRON` variable, while manual `workflow_dispatch` runs only refresh SEO when their `run_seo_refresh` input is enabled.
 - Study email scheduling uses GitHub Actions rather than `vercel.json`; scheduled runs authenticate with `CRON_SECRET` and flow through the route's nth-weekday guard.
 - Publication newsletter scheduling uses GitHub Actions rather than `vercel.json`; scheduled runs authenticate with `CRON_SECRET` and flow through the route's nth-weekday guard.
-- Research digest scheduling uses GitHub Actions rather than `vercel.json`; import runs inside GitHub Actions via `npm run import:research-digest` to avoid deployed route timeouts, manual/admin sends require `RESEARCH_DIGEST_SEND_TOKEN`, and the dispatch route skips unapproved issues unless forced by an authenticated admin/manual call.
+- Research digest scheduling uses GitHub Actions rather than `vercel.json`; import runs inside GitHub Actions via `npm run import:research-digest` to avoid deployed route timeouts, and dispatch sends only to active subscribers who explicitly selected `research_digest`. Partial delivery keeps the issue retryable and makes the workflow fail visibly.
 - Shared nth-weekday scheduling helpers live in `lib/cronUtils.js`.
 
 ## Dependency Upgrades

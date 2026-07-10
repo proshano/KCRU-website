@@ -62,6 +62,13 @@ const researchDigestPaper = {
       of: [{ type: 'string' }],
     },
     {
+      name: 'publicationTypes',
+      title: 'PubMed Publication Types',
+      type: 'array',
+      of: [{ type: 'string' }],
+      readOnly: true,
+    },
+    {
       name: 'journal',
       title: 'Journal',
       type: 'string',
@@ -117,6 +124,14 @@ const researchDigestPaper = {
       options: { list: TIER_OPTIONS },
     },
     {
+      name: 'priorityScore',
+      title: 'Daily Priority Score',
+      type: 'number',
+      description: 'Conservative 0-100 estimate of whether this paper belongs in a very small daily inbox.',
+      readOnly: true,
+      validation: (Rule) => Rule.min(0).max(100),
+    },
+    {
       name: 'whyItMatters',
       title: 'Why It Matters',
       type: 'text',
@@ -138,6 +153,31 @@ const researchDigestPaper = {
       name: 'triageError',
       title: 'Triage Error',
       type: 'string',
+      readOnly: true,
+    },
+    {
+      name: 'autoSelected',
+      title: 'Automatically Selected',
+      type: 'boolean',
+      readOnly: true,
+    },
+    {
+      name: 'autoSelectionStatus',
+      title: 'Automatic Selection Status',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'Selected', value: 'selected' },
+          { title: 'Not selected', value: 'not_selected' },
+        ],
+      },
+      readOnly: true,
+    },
+    {
+      name: 'autoSelectionExcluded',
+      title: 'Excluded From Automatic Selection',
+      type: 'boolean',
+      description: 'Set by an exceptional manual rejection so later imports do not reselect this paper.',
       readOnly: true,
     },
     {

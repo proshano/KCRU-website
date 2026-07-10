@@ -816,7 +816,7 @@ const siteSettings = {
           title: 'Email Subject Template',
           type: 'string',
           description: 'Use {{date}}, {{paperCount}}, or {{opportunityCount}}.',
-          initialValue: 'KCRU kidney research digest - {{date}}'
+          initialValue: 'Today’s kidney research: {{paperCount}} papers - {{date}}'
         },
         {
           name: 'introText',
@@ -848,7 +848,24 @@ const siteSettings = {
           name: 'maxPapers',
           title: 'Max Papers Per Email',
           type: 'number',
+          description: 'The automated selector sends no more than this many papers per weekday.',
+          initialValue: 3,
           validation: Rule => Rule.min(1).max(30)
+        },
+        {
+          name: 'minPriorityScore',
+          title: 'Minimum Daily Priority Score',
+          type: 'number',
+          description: 'Only clearly relevant papers at or above this 0-100 score can be selected automatically.',
+          initialValue: 75,
+          validation: Rule => Rule.min(0).max(100)
+        },
+        {
+          name: 'automaticSelection',
+          title: 'Automatically select daily papers',
+          type: 'boolean',
+          description: 'Select the highest-priority qualifying papers and approve the daily issue without staff review.',
+          initialValue: true
         },
         {
           name: 'maxOpportunities',
@@ -864,18 +881,11 @@ const siteSettings = {
           initialValue: false
         },
         {
-          name: 'requireIssueApproval',
-          title: 'Require issue approval before send',
-          type: 'boolean',
-          description: 'When enabled, daily digest emails only send after the issue is approved.',
-          initialValue: true
-        },
-        {
           name: 'pilotMode',
           title: 'Pilot Mode',
           type: 'boolean',
-          description: 'When enabled, research digest emails send only to the pilot recipients below. Keep this on until the digest is ready for subscribers.',
-          initialValue: true
+          description: 'When enabled, research digest emails send only to the pilot recipients below.',
+          initialValue: false
         },
         {
           name: 'pilotRecipients',

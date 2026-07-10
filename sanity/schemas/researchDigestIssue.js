@@ -49,6 +49,24 @@ const researchDigestIssue = {
       readOnly: true,
     },
     {
+      name: 'selectionMode',
+      title: 'Selection Mode',
+      type: 'string',
+      options: {
+        list: [
+          { title: 'Automated', value: 'automated' },
+          { title: 'Manual', value: 'manual' },
+        ],
+      },
+      readOnly: true,
+    },
+    {
+      name: 'selectedPaperCount',
+      title: 'Selected Paper Count',
+      type: 'number',
+      readOnly: true,
+    },
+    {
       name: 'createdAt',
       title: 'Created At',
       type: 'datetime',

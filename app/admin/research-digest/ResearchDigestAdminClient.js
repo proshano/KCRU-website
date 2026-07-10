@@ -9,6 +9,12 @@ const EMPTY_PAYLOAD = {
   papers: [],
   opportunities: [],
   stats: {},
+  digestSettings: {
+    automaticSelection: true,
+    maxPapers: 3,
+    minPriorityScore: 75,
+    pilotMode: false,
+  },
 }
 
 export default function ResearchDigestAdminClient() {
@@ -130,11 +136,22 @@ export default function ResearchDigestAdminClient() {
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-10 space-y-8">
       <header className="space-y-3">
         <p className="text-sm font-semibold text-purple uppercase tracking-wide">Updates Admin</p>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Research digest review</h1>
+        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Research digest diagnostics</h1>
         <p className="text-gray-600 max-w-3xl">
-          Import PubMed and opportunity candidates, approve the daily issue, and send the approved digest to subscribers.
+          Weekday imports, automated paper selection, and subscriber delivery run from GitHub Actions without staff review.
+          Use this page only to inspect what was selected or recover from an exceptional failure.
         </p>
       </header>
+
+      {payload.digestSettings?.automaticSelection && (
+        <section className="bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-900">
+          Automated mode is on. Each weekday the system selects up to{' '}
+          {payload.digestSettings.maxPapers} papers scoring at least{' '}
+          {payload.digestSettings.minPriorityScore}/100, approves the issue when at least one paper qualifies, and sends
+          only if subscribers opted into the research digest
+          {payload.digestSettings.pilotMode ? ' (pilot recipients only).' : '.'}
+        </section>
+      )}
 
       <section className="bg-white border border-black/5 p-5 space-y-4">
         <div className="flex flex-wrap items-end gap-3">
@@ -150,10 +167,12 @@ export default function ResearchDigestAdminClient() {
           <button className="btn-secondary" disabled={loading || working} onClick={() => load(selectedDate)}>
             Load
           </button>
-          <button className="btn-primary" disabled={loading || working} onClick={runImport}>
-            Import candidates
-          </button>
-          {payload.issue?._id && (
+          {!payload.digestSettings?.automaticSelection && (
+            <button className="btn-primary" disabled={loading || working} onClick={runImport}>
+              Import candidates
+            </button>
+          )}
+          {payload.issue?._id && !payload.digestSettings?.automaticSelection && (
             <>
               <button
                 className="btn-secondary"
@@ -175,11 +194,12 @@ export default function ResearchDigestAdminClient() {
           </p>
         )}
 
-        <div className="grid gap-3 md:grid-cols-4 text-sm">
+        <div className="grid gap-3 md:grid-cols-5 text-sm">
           <Stat label="Issue status" value={payload.issue?.status || 'No issue'} />
-          <Stat label="Approved papers" value={approvedPaperCount} />
+          <Stat label="Selected papers" value={payload.issue?.selectedPaperCount ?? approvedPaperCount} />
+          <Stat label="Auto-selected" value={payload.papers.filter((paper) => paper.autoSelected).length} />
           <Stat label="Pending papers" value={payload.stats?.pendingPapers || 0} />
-          <Stat label="Pending opportunities" value={payload.stats?.pendingOpportunities || 0} />
+          <Stat label="Sent at" value={payload.issue?.sentAt ? new Date(payload.issue.sentAt).toLocaleString() : 'Not sent'} />
         </div>
       </section>
 
@@ -246,7 +266,7 @@ function PaperReviewCard({ paper, edit, setEdit, disabled, onSave, onApprove, on
         <div className="space-y-1 max-w-4xl">
           <h3 className="text-lg font-semibold">{paper.title}</h3>
           <p className="text-sm text-[#666]">
-            {[paper.journal, paper.pubDate || paper.year, paper.tier, paper.triageStatus, paper.approvalStatus]
+            {[paper.journal, paper.pubDate || paper.year, paper.tier, paper.priorityScore != null ? `score ${paper.priorityScore}` : null, paper.triageStatus, paper.approvalStatus, paper.autoSelectionStatus]
               .filter(Boolean)
               .join(' - ')}
           </p>

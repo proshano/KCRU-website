@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import { NextResponse } from 'next/server'
 import { isCronAuthorized } from '@/lib/cronUtils'
 import { sendEmail } from '@/lib/email'
@@ -28,7 +30,7 @@ function normalizeDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : formatResearchDigestDate()
 }
 
-async function fetchIssueBundle({ issueDate, maxPapers, maxOpportunities }) {
+async function fetchIssueBundle({ issueDate, maxPapers, maxOpportunities, automaticSelection }) {
   const today = formatResearchDigestDate()
   const query = `{
     "issue": *[_type == "researchDigestIssue" && date == $issueDate][0]{
@@ -41,7 +43,7 @@ async function fetchIssueBundle({ issueDate, maxPapers, maxOpportunities }) {
       approvedAt,
       sentAt
     },
-    "papers": *[_type == "researchDigestPaper" && issueDate == $issueDate && approvalStatus == "approved"] | order(tier asc, journal asc, title asc)[0...$maxPapers]{
+    "papers": *[_type == "researchDigestPaper" && issueDate == $issueDate && approvalStatus == "approved" && autoSelectionExcluded != true && ($automaticSelection == false || autoSelected == true)] | order(priorityScore desc, tier asc, journal asc, title asc)[0...$maxPapers]{
       _id,
       pmid,
       doi,
@@ -53,11 +55,12 @@ async function fetchIssueBundle({ issueDate, maxPapers, maxOpportunities }) {
       url,
       matchedJournalGroups,
       tier,
+      priorityScore,
       whyItMatters,
       summary,
       topics
     },
-    "opportunities": *[_type == "researchOpportunity" && approvalStatus == "approved" && status in ["open", "upcoming"] && (!defined(deadline) || deadline >= $today)] | order(deadline asc, title asc)[0...$maxOpportunities]{
+    "opportunities": *[_type == "researchOpportunity" && $automaticSelection == false && approvalStatus == "approved" && status in ["open", "upcoming"] && (!defined(deadline) || deadline >= $today)] | order(deadline asc, title asc)[0...$maxOpportunities]{
       _id,
       type,
       status,
@@ -70,7 +73,13 @@ async function fetchIssueBundle({ issueDate, maxPapers, maxOpportunities }) {
       topics
     }
   }`
-  return writeClient.fetch(query, { issueDate, today, maxPapers, maxOpportunities })
+  return writeClient.fetch(query, {
+    issueDate,
+    today,
+    maxPapers,
+    maxOpportunities,
+    automaticSelection,
+  })
 }
 
 async function fetchSubscribers({ issueDate, force }) {
@@ -113,13 +122,21 @@ async function fetchPilotRecipients(recipients = []) {
   )
   const byEmail = new Map((existing || []).map((subscriber) => [String(subscriber.email || '').toLowerCase(), subscriber]))
   return emails.map((email) => byEmail.get(email) || {
-    name: 'Pavel',
+    name: '',
     email,
     subscriptionStatus: 'subscribed',
     deliveryStatus: 'active',
     manageToken: null,
     pilotOnly: true,
   })
+}
+
+function buildIdempotencyKey(issueId, subscriber) {
+  const recipientKey = subscriber?._id || createHash('sha256')
+    .update(String(subscriber?.email || '').trim().toLowerCase())
+    .digest('hex')
+    .slice(0, 32)
+  return `research-digest:${issueId}:${recipientKey}`
 }
 
 async function runDispatch({ force = false, issueDate, settingsPayload } = {}) {
@@ -135,19 +152,15 @@ async function runDispatch({ force = false, issueDate, settingsPayload } = {}) {
     issueDate: selectedDate,
     maxPapers: settings.maxPapers,
     maxOpportunities: settings.maxOpportunities,
+    automaticSelection: settings.automaticSelection,
   })
 
   if (!bundle?.issue?._id) {
-    return { ok: false, status: 404, error: `No research digest issue found for ${selectedDate}.` }
-  }
-
-  if (settings.requireIssueApproval && bundle.issue.status !== RESEARCH_DIGEST_ISSUE_STATUS.approved && !force) {
     return {
       ok: true,
       skipped: true,
-      reason: 'Research digest issue is not approved for sending.',
+      reason: `No research digest issue was created for ${selectedDate}.`,
       issueDate: selectedDate,
-      issueStatus: bundle.issue.status,
     }
   }
 
@@ -158,6 +171,16 @@ async function runDispatch({ force = false, issueDate, settingsPayload } = {}) {
       reason: 'Research digest issue has already been sent.',
       issueDate: selectedDate,
       sentAt: bundle.issue.sentAt,
+    }
+  }
+
+  if (bundle.issue.status !== RESEARCH_DIGEST_ISSUE_STATUS.approved && !force) {
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'Research digest issue is not approved for sending.',
+      issueDate: selectedDate,
+      issueStatus: bundle.issue.status,
     }
   }
 
@@ -181,7 +204,7 @@ async function runDispatch({ force = false, issueDate, settingsPayload } = {}) {
         error: 'Research digest pilot mode is enabled, but no pilot recipients are configured.',
       }
     }
-    subscribers = await fetchPilotRecipients(settings.pilotRecipients)
+    subscribers = (await fetchPilotRecipients(settings.pilotRecipients)).filter(isSubscriberDeliverable)
   } else {
     subscribers = await fetchSubscribers({ issueDate: selectedDate, force })
     subscribers = Array.isArray(subscribers) ? subscribers.filter(isSubscriberDeliverable) : []
@@ -194,6 +217,14 @@ async function runDispatch({ force = false, issueDate, settingsPayload } = {}) {
       ok: false,
       status: 409,
       error: 'Update email sending is locked. Add at least one test recipient or disable test mode.',
+    }
+  }
+  if (!subscribers.length) {
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'No eligible research digest subscribers were found.',
+      issueDate: selectedDate,
     }
   }
 
@@ -236,6 +267,7 @@ async function runDispatch({ force = false, issueDate, settingsPayload } = {}) {
         subject: email.subject,
         text: email.text,
         html: email.html,
+        idempotencyKey: force ? undefined : buildIdempotencyKey(bundle.issue._id, subscriber),
       })
       if (result?.skipped) {
         stats.skipped += 1
@@ -254,13 +286,14 @@ async function runDispatch({ force = false, issueDate, settingsPayload } = {}) {
     } catch (error) {
       stats.errors += 1
       errors.push({
-        email: subscriber.email,
+        recipientId: subscriber._id || 'pilot-recipient',
         message: error?.message || 'Failed to send',
       })
     }
   }
 
-  if (stats.sent > 0) {
+  const deliveryComplete = stats.errors === 0 && stats.skipped === 0
+  if (deliveryComplete) {
     await writeClient
       .patch(bundle.issue._id)
       .set({
@@ -272,10 +305,14 @@ async function runDispatch({ force = false, issueDate, settingsPayload } = {}) {
   }
 
   return {
-    ok: true,
+    ok: deliveryComplete,
+    status: deliveryComplete ? 200 : 502,
     issueDate: selectedDate,
     stats,
     errors: errors.slice(0, 8),
+    ...(!deliveryComplete
+      ? { error: 'Research digest delivery was incomplete. Retry without force to send only to recipients not yet recorded as sent.' }
+      : {}),
   }
 }
 
