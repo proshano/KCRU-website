@@ -45,18 +45,18 @@ test('grants approval admins coordinator and admin access', () => {
     allowed: true,
     admin: true,
     approvals: true,
-    updates: true,
+    updates: false,
     coordinator: true,
   })
 })
 
-test('grants update admins coordinator and admin access', () => {
+test('grants update admins only update administration access', () => {
   assert.deepEqual(getAuthAccessForConfig('updates@sjhc.london.on.ca', baseConfig), {
     allowed: true,
     admin: true,
-    approvals: true,
+    approvals: false,
     updates: true,
-    coordinator: true,
+    coordinator: false,
   })
 })
 

@@ -150,10 +150,6 @@ export async function POST(request) {
         cleanSetting(settings.trialCommunicationsLlmModel) ||
         cleanSetting(settings.trialSummaryLlmModel) ||
         cleanSetting(settings.llmModel),
-      apiKey:
-        cleanSetting(settings.trialCommunicationsLlmApiKey) ||
-        cleanSetting(settings.trialSummaryLlmApiKey) ||
-        cleanSetting(settings.llmApiKey),
       titlePrompt: cleanSetting(settings.trialCommunicationsTitlePrompt),
       eligibilityPrompt: cleanSetting(settings.trialCommunicationsEligibilityPrompt),
     }

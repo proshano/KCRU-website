@@ -2,10 +2,8 @@ import { defineConfig } from 'sanity'
 import { deskTool } from 'sanity/desk'
 import { visionTool } from '@sanity/vision'
 import { schemaTypes } from './sanity/schemas'
-import { pubmedCacheRefreshAction } from './sanity/plugins/pubmedCacheRefreshAction'
 import { pubmedCacheTool } from './sanity/plugins/pubmedCacheTool'
 import { trialSyncAction } from './sanity/plugins/trialSyncAction'
-import { pubmedClassificationTool } from './sanity/plugins/pubmedClassificationTool'
 import { studyUpdateSendAction } from './sanity/plugins/studyUpdateSendAction'
 import { seoRefreshAction } from './sanity/plugins/seoRefreshAction'
 
@@ -28,10 +26,8 @@ export default defineConfig({
   plugins: [
     deskTool(),
     visionTool(),
-    pubmedCacheRefreshAction(),
     seoRefreshAction(),
     pubmedCacheTool(),
-    pubmedClassificationTool(),
     trialSyncAction(),
     studyUpdateSendAction()
   ],

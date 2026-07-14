@@ -47,7 +47,7 @@ function TrialSyncAction(props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nctId: nctId.toUpperCase(),
-          generateSummary: true
+          generateSummary: false
         }),
       })
 

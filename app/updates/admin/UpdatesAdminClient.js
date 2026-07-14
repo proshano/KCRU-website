@@ -123,7 +123,7 @@ export default function UpdatesAdminClient() {
   const updatesPath = prefersAdmin ? '/admin/updates' : '/updates/admin'
   const [token, setToken] = useState('')
   const { data: session, status: sessionStatus } = useSession()
-  const hasSessionAccess = Boolean(session?.user?.access?.admin)
+  const hasSessionAccess = Boolean(session?.user?.access?.updates)
   const isAuthorized = hasSessionAccess || Boolean(token)
   const isSessionLoading = sessionStatus === 'loading'
   const [adminEmail, setAdminEmail] = useState('')

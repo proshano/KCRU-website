@@ -127,7 +127,7 @@ export default function ApprovalEditClient() {
   const updatesPath = prefersAdmin ? '/admin/updates' : '/updates/admin'
   const [token, setToken] = useState('')
   const { data: session, status: sessionStatus } = useSession()
-  const hasSessionAccess = Boolean(session?.user?.access?.admin)
+  const hasSessionAccess = Boolean(session?.user?.access?.approvals)
   const isAuthorized = hasSessionAccess || Boolean(token)
   const isSessionLoading = sessionStatus === 'loading'
   const [submission, setSubmission] = useState(null)
@@ -455,7 +455,10 @@ export default function ApprovalEditClient() {
     try {
       const res = await fetch('/api/trials/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           nctId: form.nctId,
           generateSummary: true,

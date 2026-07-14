@@ -235,12 +235,6 @@ const siteSettings = {
       description: 'e.g., openrouter/gpt-4o-mini or meta-llama/llama-3.1-8b-instruct:free'
     },
     {
-      name: 'llmApiKey',
-      title: 'LLM API Key (summaries; server-only)',
-      type: 'string',
-      description: 'Optional override. Leave blank to use server env vars.'
-    },
-    {
       name: 'llmSystemPrompt',
       title: 'LLM System Prompt (summaries)',
       type: 'text',
@@ -274,12 +268,6 @@ const siteSettings = {
       description: 'e.g., google/gemma-2-9b-it or openrouter/gpt-4o-mini'
     },
     {
-      name: 'trialSummaryLlmApiKey',
-      title: 'LLM API Key (trial summaries; server-only)',
-      type: 'string',
-      description: 'Optional override. Leave blank to use server env vars.'
-    },
-    {
       name: 'trialSummarySystemPrompt',
       title: 'LLM System Prompt (trial summaries)',
       type: 'text',
@@ -311,12 +299,6 @@ const siteSettings = {
       title: 'LLM Model (clinical communications)',
       type: 'string',
       description: 'Optional override for short clinical titles and eligibility statements.'
-    },
-    {
-      name: 'trialCommunicationsLlmApiKey',
-      title: 'LLM API Key (clinical communications; server-only)',
-      type: 'string',
-      description: 'Optional override. Leave blank to use server env vars.'
     },
     {
       name: 'trialCommunicationsTitlePrompt',
@@ -375,12 +357,6 @@ const siteSettings = {
       title: 'LLM Model (classification)',
       type: 'string',
       description: 'Optional override for classification; falls back to summary model if blank.'
-    },
-    {
-      name: 'llmClassificationApiKey',
-      title: 'LLM API Key (classification; server-only)',
-      type: 'string',
-      description: 'Optional override for classification; falls back to summary key/env if blank.'
     },
     {
       name: 'llmClassificationPrompt',
@@ -505,12 +481,6 @@ const siteSettings = {
           type: 'string',
           description: 'Use a cheaper deterministic chat model here without changing publication summaries or classification.'
         },
-        {
-          name: 'llmApiKey',
-          title: 'LLM API Key (trial matching assistant; server-only)',
-          type: 'string',
-          description: 'Optional override. Falls back to trial summary key, then summary key/env.'
-        }
       ]
     },
     {
@@ -903,12 +873,6 @@ const siteSettings = {
         {
           name: 'llmModel',
           title: 'LLM Model',
-          type: 'string',
-          description: 'Optional override for research digest triage.'
-        },
-        {
-          name: 'llmApiKey',
-          title: 'LLM API Key (server-only)',
           type: 'string',
           description: 'Optional override for research digest triage.'
         },

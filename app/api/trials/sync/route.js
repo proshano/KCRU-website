@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { syncTrialData, fetchTrialFromCTGov } from '@/lib/trialSync'
 import { sanityFetch, queries } from '@/lib/sanity'
-import { buildCorsHeaders } from '@/lib/httpUtils'
+import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
+import { getScopedAdminSession } from '@/lib/adminSessions'
+import { getConfiguredAuthAccess } from '@/lib/configuredAuthAccess'
+import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
 // CORS headers for Sanity Studio
 const corsHeaders = buildCorsHeaders('GET, POST, OPTIONS')
@@ -13,6 +16,26 @@ export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders })
 }
 
+async function canGenerateSummary(request) {
+  const sessionAccess = await getSessionAccess()
+  if (sessionAccess) return hasRequiredAccess(sessionAccess.access, { coordinator: true })
+
+  const token = extractBearerToken(request)
+  if (!token) return false
+
+  const coordinator = await sanityFetch(
+    `*[_type == "studyCoordinatorSession" && token == $token && revoked != true][0]{ email, expiresAt }`,
+    { token }
+  )
+  if (coordinator?.email && (!coordinator.expiresAt || Date.parse(coordinator.expiresAt) >= Date.now())) {
+    const access = await getConfiguredAuthAccess(coordinator.email)
+    if (access.allowed && access.coordinator) return true
+  }
+
+  const { session } = await getScopedAdminSession(token, { scope: 'approvals' })
+  return Boolean(session)
+}
+
 /**
  * POST /api/trials/sync
  * 
@@ -22,14 +45,15 @@ export async function OPTIONS() {
  * 
  * Returns the synced trial data ready to be merged into Sanity document
  * 
- * Note: No auth required - this only fetches public data from ClinicalTrials.gov
+ * Public-data synchronization is available without a model call. Generating a
+ * model summary requires current study-management authorization.
  */
 export async function POST(request) {
   try {
     const body = await request.json()
     const { 
       nctId, 
-      generateSummary = true
+      generateSummary = false
     } = body
 
     if (!nctId) {
@@ -48,6 +72,13 @@ export async function POST(request) {
       )
     }
 
+    if (generateSummary && !(await canGenerateSummary(request))) {
+      return NextResponse.json(
+        { error: 'Authorized study-management access is required to generate a summary.' },
+        { status: 401, headers: corsHeaders }
+      )
+    }
+
     console.log(`[trial-sync] Syncing trial: ${normalizedNctId}`)
 
     // Sync the trial data
@@ -55,7 +86,6 @@ export async function POST(request) {
     const summaryOptions = {
       provider: settings.trialSummaryLlmProvider || settings.llmProvider,
       model: settings.trialSummaryLlmModel || settings.llmModel,
-      apiKey: settings.trialSummaryLlmApiKey || settings.llmApiKey,
       systemPrompt: settings.trialSummarySystemPrompt || undefined,
     }
 

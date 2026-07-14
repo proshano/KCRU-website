@@ -3,9 +3,7 @@ import { refreshPubmedCache } from '../lib/publications.js'
 
 const MAX_PER_RESEARCHER = Number(process.env.PUBMED_MAX_PER_RESEARCHER || 1000)
 
-function hasConfiguredLlmAccess({ provider, apiKey }) {
-  if (apiKey) return true
-
+function hasConfiguredLlmAccess({ provider }) {
   switch (provider) {
     case 'openrouter':
       return Boolean(process.env.OPENROUTER_API_KEY)
@@ -20,7 +18,7 @@ function hasConfiguredLlmAccess({ provider, apiKey }) {
     case 'ollama':
       return true
     default:
-      return Boolean(process.env.OPENROUTER_API_KEY)
+      return false
   }
 }
 
@@ -34,7 +32,6 @@ async function main() {
       pubmedQuery: r.pubmedQuery,
     }))
     const provider = settings.llmProvider || process.env.LLM_PROVIDER || 'openrouter'
-    const apiKey = settings.llmApiKey || undefined
 
     const result = await refreshPubmedCache({
       researchers,
@@ -44,7 +41,6 @@ async function main() {
       llmOptions: {
         provider,
         model: settings.llmModel,
-        apiKey,
         systemPrompt: settings.llmSystemPrompt,
         // Conservative rate limits to avoid throttling; adjust via env if desired.
         concurrency: Number(process.env.LLM_CONCURRENCY || 1),
@@ -56,7 +52,7 @@ async function main() {
 
     const count = result?.meta?.counts?.total || result?.publications?.length || 0
     const summariesGenerated = result?.meta?.summaries?.generated || 0
-    const hasLlmAccess = hasConfiguredLlmAccess({ provider, apiKey })
+    const hasLlmAccess = hasConfiguredLlmAccess({ provider })
     const summaryCandidates = (result?.publications || []).filter((pub) => {
       return !pub?.laySummary && String(pub?.abstract || '').trim().length >= 50
     })
@@ -64,7 +60,7 @@ async function main() {
     if (!hasLlmAccess && summaryCandidates.length > 0) {
       const samplePmids = summaryCandidates.slice(0, 5).map((pub) => pub.pmid).filter(Boolean)
       throw new Error(
-        `[pubmed] ${summaryCandidates.length} publication(s) still need summaries, but no LLM credentials are configured for provider "${provider}". Configure the GitHub Actions secret for that provider or store the API key in Sanity. Sample PMID(s): ${samplePmids.join(', ')}`
+        `[pubmed] ${summaryCandidates.length} publication(s) still need summaries, but no LLM credentials are configured for provider "${provider}". Configure the GitHub Actions secret for that provider. Sample PMID(s): ${samplePmids.join(', ')}`
       )
     }
 

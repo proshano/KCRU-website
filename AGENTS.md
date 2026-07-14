@@ -67,7 +67,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - `/trials/find` remains a lightweight fallback/info page that points visitors back to the floating widget and is not the primary experience.
 - `/trials/find` is intentionally noindexed and no longer appears in the sitemap as a primary public entry point.
 - Global availability is controlled in Sanity via `siteSettings.trialMatchingAssistant.enabled`. Missing values read as disabled, so older `siteSettings` documents must be backfilled explicitly.
-- The assistant uses its own optional Sanity LLM settings at `siteSettings.trialMatchingAssistant.llmProvider`, `.llmModel`, and `.llmApiKey`. These override trial-summary settings so the public chat can use a cheaper deterministic model while publication summaries and classification use stronger models.
+- The assistant uses its own optional Sanity LLM settings at `siteSettings.trialMatchingAssistant.llmProvider` and `.llmModel`. These override trial-summary settings so the public chat can use a cheaper deterministic model while publication summaries and classification use stronger models. Provider API keys are server environment variables only and must never be stored in Sanity.
 - The assistant uses an LLM for conversation, structured profile extraction, and **study shortlisting**: `generateTrialMatchStudyRanking()` in `lib/summaries.js` runs a second model call with the patient profile plus per-study title, lay summary, and inclusion excerpts; output is **nondeterministic** and phrased as “may fit” / coordinator review. If that call fails, the API falls back to rule-based `rankTrialMatches()` in `lib/trialMatcher.js`, which now relies on title/summary/inclusion-text heuristics only.
 - The chat LLM also receives truncated **inclusion** lines from Sanity (`trialSummary.inclusionCriteria`) plus the public study catalog during the conversational turn. Keep the structured chat extraction turn deterministic (`temperature: 0`) and with enough output budget for the full required `patient_profile` JSON. Gemini 3.x models on OpenRouter should use minimal excluded reasoning for trial matching; when changing models, verify compact inputs such as `GFR 40 ACR 45 IgA` do not finish with `length`.
 - The in-memory patient profile now supports structured **numeric urine protein** data (`patient_profile.urineProtein`) alongside booleans. The backend can parse user-reported **ACR/PCR** values, assumes **mg/mmol** when a user gives ACR/PCR without units, performs exact same-assay unit conversion (`mg/g`, `mg/mmol`, `g/g` for PCR), and stores approximate cross-assay estimates for ACR↔PCR only as soft screening context.
@@ -78,7 +78,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - When the **fallback** matcher runs and at least one `match` or `possible` result exists, the API returns at most two **`insufficient_info`** rows so broad studies do not crowd the list.
 - Patient characteristics must remain ephemeral. Do not store transcripts or patient details in Sanity or email them.
 - Use existing public study copy in results (`title`, `laySummary`, and `inclusionCriteria`). Do not surface clinician-only communication fields in the assistant.
-- The public API in `app/api/trials/match/chat/route.js` does best-effort PII redaction and a simple in-memory rate limit. Keep both protections lightweight and easy to reason about.
+- The public API in `app/api/trials/match/chat/route.js` applies identifier redaction to messages and free-text profile fields, rejects oversized bodies, and uses durable per-origin plus aggregate rate limits through `lib/securityRateLimit.js`. Do not replace these controls with process-local counters.
 - The Study Manager and approvals editors no longer collect assistant-specific matching metadata. Do not reintroduce staff-only matching fields unless product requirements change.
 - If the widget is missing locally, check the current dataset's `siteSettings.trialMatchingAssistant.enabled` value before debugging UI code. Existing documents can have `trialMatchingAssistant: null`, which disables the widget.
 
@@ -121,6 +121,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 ## Environment & Secrets
 
 - `.env.local` holds secrets (Sanity tokens, API keys). Never commit or echo values.
+- LLM provider keys must remain in server-only environment variables (`OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `TOGETHER_API_KEY`, `GROQ_API_KEY`, or `ANTHROPIC_API_KEY`). Sanity Studio code runs in the browser, so `SANITY_STUDIO_*` variables must never contain shared bearer tokens or server credentials.
 - Mutations require `SANITY_API_TOKEN` (used by `writeClient` in `lib/sanity.js`).
 - `NEXT_PUBLIC_SANITY_PROJECT_ID` and `NEXT_PUBLIC_SANITY_DATASET` are required for the app and scripts (no fallbacks).
 - `SANITY_STUDIO_PROJECT_ID` and `SANITY_STUDIO_DATASET` are required for the Studio (including cache tooling).
@@ -145,15 +146,16 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - Research digest PubMed scanning uses a curated journal whitelist and PubMed entry date windows through `lib/researchDigest.js`; do not merge it with the KCRU-authored publication cache unless product requirements change.
 - Automatic paper selection requires `triageStatus == "include"`, no triage error, complete summary copy, an allowed publication type, and a conservative priority score at or above the configured threshold. Never fill the daily quota with weak papers.
 - Research digest opportunity feeds import to pending `researchOpportunity` documents; public pages and email must query only approved rows.
-- The scheduled research digest import workflow requires `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET`, and `SANITY_API_TOKEN`; include LLM provider secrets and `PUBMED_API_KEY` when they are not stored in Sanity.
+- The scheduled research digest import workflow requires `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET`, and `SANITY_API_TOKEN`; include the selected LLM provider secret and `PUBMED_API_KEY` as GitHub Actions secrets.
 - Missing publication tags can be rebuilt without refetching PubMed by writing `pubmedClassification` docs via `npm run reclassify:pubmed`; use `--year=YYYY` for targeted backfills.
 - Scheduled PubMed refresh now runs from `.github/workflows/pubmed-refresh.yml` via `npm run refresh:pubmed`, not from Vercel cron. The workflow writes directly to Sanity, then calls `/api/pubmed/revalidate` to refresh cached public pages.
-- The PubMed GitHub Actions workflow requires repo secrets for `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET`, `SANITY_API_TOKEN`, `SITE_URL`, and `CRON_SECRET`; add LLM provider API keys there too when they are not stored in Sanity.
+- The PubMed GitHub Actions workflow requires repo secrets for `NEXT_PUBLIC_SANITY_PROJECT_ID`, `NEXT_PUBLIC_SANITY_DATASET`, `SANITY_API_TOKEN`, `SITE_URL`, and `CRON_SECRET`; add the selected LLM provider API key there too.
 - If summary-eligible publications remain but no credential is available for the configured LLM provider, the PubMed refresh script now fails the workflow instead of silently skipping summary generation.
 - Publication summary generation expects structured JSON with `summary`, `topics`, `study_design`, `methodological_focus`, and `exclude`; keep the parser tolerant of OpenRouter/Gemini variants that may return JSON-like content inside the `summary` field, and preserve recovered classification tags rather than displaying raw JSON.
-- Hosted Studio refresh controls should open the GitHub Actions workflow instead of posting to the deployed Next.js refresh route. Direct `/api/pubmed/refresh` runs remain appropriate for localhost/dev-server use where Vercel time limits do not apply.
-- Sanity Studio includes a Site Settings action to refresh SEO metadata (configure `SANITY_STUDIO_SEO_REFRESH_URL` and `SANITY_STUDIO_SEO_REFRESH_TOKEN`).
+- Hosted Studio refresh controls must open GitHub Actions workflows instead of posting shared bearer tokens from the browser. Direct `/api/pubmed/refresh` runs remain appropriate for localhost/dev-server or server-side use where Vercel time limits do not apply.
+- Sanity Studio includes a Site Settings action that opens the server-side PubMed/SEO GitHub Actions workflow; do not add a browser-side SEO refresh token.
 - DOI abstract backfill (`lib/doiAbstract.js`) uses a four-tier fallback: (1) plain fetch of publisher page meta tags, (2) CrossRef API, (3) OpenAlex API inverted-index abstract, (4) headless Chromium via `lib/browserFetch.js` to bypass Cloudflare/bot protection and extract article text.
+- Publisher and configured-feed fetches must pass `lib/outboundUrlSafety.js`: HTTPS only, public DNS addresses only, manual validation of every redirect, and bounded response bodies. Chromium subrequests must preserve the same public-network checks and work budgets.
 - Headless browser uses `puppeteer-core` + `@sparticuz/chromium-min` on Vercel, local Chrome in dev. Enabled by default on Vercel; set `DOI_BROWSER_FETCH=true` locally. Set `DOI_BROWSER_FETCH=false` to disable.
 - Both packages are listed in `serverExternalPackages` in `next.config.js` to prevent bundling.
 

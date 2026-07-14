@@ -139,7 +139,6 @@ export async function POST(request) {
     const settings = (await sanityFetch(queries.siteSettings)) || {}
     const provider = settings.llmProvider || 'openrouter'
     const model = settings.llmModel || undefined
-    const apiKey = settings.llmApiKey || undefined
     
     console.log('[pubmed/publication] Using LLM settings:', { provider, model: model || '(default)' })
 
@@ -147,7 +146,6 @@ export async function POST(request) {
     const result = await generateLaySummary(pub.title, pub.abstract, {
       provider,
       model,
-      apiKey,
       meta: { pmid: pub.pmid },
       debug: true
     })
@@ -202,4 +200,3 @@ export async function POST(request) {
 
 export const revalidate = 0
 export const dynamic = 'force-dynamic'
-

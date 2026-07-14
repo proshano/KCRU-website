@@ -7,6 +7,7 @@ import { getScopedAdminSession } from '@/lib/adminSessions'
 import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { ROLE_VALUES, SPECIALTY_VALUES } from '@/lib/communicationOptions'
 import { normalizeList, sanitizeString } from '@/lib/inputUtils'
+import { normalizeAllowedAudienceFilter } from '@/lib/newsletterAudienceFilters'
 import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
 import { isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
 import {
@@ -35,10 +36,6 @@ async function getSession(request) {
 
   const token = extractBearerToken(request)
   return getScopedAdminSession(token, { scope: 'updates' })
-}
-
-function normalizeFilterList(values, allowedSet) {
-  return normalizeList(values).filter((value) => allowedSet.has(value))
 }
 
 function buildManageUrl(token) {
@@ -136,8 +133,16 @@ export async function POST(request) {
   const dryRun = Boolean(body?.dryRun)
   const filters = body?.filters || {}
 
-  const roles = normalizeFilterList(filters?.roles, ROLE_VALUES)
-  const specialties = normalizeFilterList(filters?.specialties, SPECIALTY_VALUES)
+  const roleFilter = normalizeAllowedAudienceFilter(filters?.roles, ROLE_VALUES)
+  const specialtyFilter = normalizeAllowedAudienceFilter(filters?.specialties, SPECIALTY_VALUES)
+  if (roleFilter.invalidValues.length || specialtyFilter.invalidValues.length) {
+    return NextResponse.json(
+      { ok: false, error: 'One or more audience filters are invalid. Review the selected roles and specialties.' },
+      { status: 400, headers: CORS_HEADERS }
+    )
+  }
+  const roles = roleFilter.values
+  const specialties = specialtyFilter.values
   const areas = await fetchTherapeuticAreas()
   const rawInterestAreas = normalizeList(filters?.interestAreas || [])
   const allTherapeuticAreas = rawInterestAreas.includes(ALL_THERAPEUTIC_AREAS_VALUE)

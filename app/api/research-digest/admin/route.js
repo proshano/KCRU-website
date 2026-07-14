@@ -4,6 +4,7 @@ import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { sanitizeString } from '@/lib/inputUtils'
 import { writeClient } from '@/lib/sanity'
+import { requireSanityDocumentType } from '@/lib/sanityDocumentType'
 import {
   fetchResearchDigestSettings,
   formatResearchDigestDate,
@@ -118,6 +119,12 @@ async function fetchAdminPayload(date) {
 async function patchPaper(body) {
   const id = sanitizeString(body?._id || body?.id)
   if (!id) throw new Error('Missing paper id.')
+  await requireSanityDocumentType({
+    fetch: writeClient.fetch.bind(writeClient),
+    id,
+    expectedType: 'researchDigestPaper',
+    label: 'Paper',
+  })
 
   const now = new Date().toISOString()
   const fields = body?.fields || {}
@@ -152,6 +159,12 @@ async function patchPaper(body) {
 async function patchOpportunity(body) {
   const id = sanitizeString(body?._id || body?.id)
   if (!id) throw new Error('Missing opportunity id.')
+  await requireSanityDocumentType({
+    fetch: writeClient.fetch.bind(writeClient),
+    id,
+    expectedType: 'researchOpportunity',
+    label: 'Opportunity',
+  })
 
   const now = new Date().toISOString()
   const fields = body?.fields || {}
@@ -181,6 +194,12 @@ async function patchOpportunity(body) {
 async function approveIssue(body) {
   const id = sanitizeString(body?._id || body?.id)
   if (!id) throw new Error('Missing issue id.')
+  await requireSanityDocumentType({
+    fetch: writeClient.fetch.bind(writeClient),
+    id,
+    expectedType: 'researchDigestIssue',
+    label: 'Issue',
+  })
   const now = new Date().toISOString()
   await writeClient
     .patch(id)
@@ -287,7 +306,7 @@ export async function PATCH(request) {
     console.error('[research-digest-admin] PATCH failed', error)
     return NextResponse.json(
       { ok: false, error: error?.message || 'Research digest update failed.' },
-      { status: 500, headers: CORS_HEADERS }
+      { status: error?.statusCode || 500, headers: CORS_HEADERS }
     )
   }
 }

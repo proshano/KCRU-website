@@ -46,7 +46,6 @@ export async function POST(request) {
     const classificationPrompt = overridePrompt || settings.llmClassificationPrompt || DEFAULT_CLASSIFICATION_PROMPT
     const provider = body?.provider || settings.llmClassificationProvider || settings.llmProvider || 'openrouter'
     const model = body?.model || settings.llmClassificationModel || settings.llmModel || undefined
-    const apiKey = body?.apiKey || settings.llmClassificationApiKey || settings.llmApiKey || undefined
     const systemPrompt = settings.llmSystemPrompt || undefined
     const concurrency = clamp(Number(settings.llmConcurrency || 1), 1, 20)
     const delayMs = clamp(Number(settings.llmDelayMs || 0), 0, 60000)
@@ -64,12 +63,10 @@ export async function POST(request) {
     const resultsMap = await generateSummariesBatch(candidates, {
       provider,
       model,
-      apiKey,
       systemPrompt,
       classificationPrompt,
       classificationProvider: provider,
       classificationModel: model,
-      classificationApiKey: apiKey,
       includeExistingLaySummary: true,
       maxItems: candidates.length,
       skipIfHasSummary: false,

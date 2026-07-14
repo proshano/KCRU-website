@@ -1,20 +1,11 @@
 import { NextResponse } from 'next/server'
-import { randomUUID } from 'crypto'
 import { writeClient } from '@/lib/sanity'
 import { ROLE_VALUES, SPECIALTY_VALUES, CORRESPONDENCE_VALUES } from '@/lib/communicationOptions'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escapeHtml'
-import { getClientIp } from '@/lib/httpUtils'
 import { sanitizeString, normalizeCorrespondence } from '@/lib/inputUtils'
 import { verifyRecaptcha } from '@/lib/recaptcha'
-import {
-  DELIVERY_STATUS_ACTIVE,
-  DELIVERY_STATUS_SUPPRESSED,
-  SUBSCRIPTION_STATUS_SUBSCRIBED,
-  SUBSCRIPTION_STATUS_UNSUBSCRIBED,
-  resolveDeliveryStatus,
-  resolveSubscriptionStatus,
-} from '@/lib/updateSubscriberStatus'
+import { createOrRecoverSubscriber } from '@/lib/subscriberSignup'
 import {
   ALL_THERAPEUTIC_AREAS_VALUE,
   buildReferenceList,
@@ -65,95 +56,6 @@ async function sendSubscriptionEmail({ name, email, manageToken }) {
   `
 
   return sendEmail({ to: email, subject, text, html })
-}
-
-async function upsertSubscriber({
-  name,
-  email,
-  role,
-  specialty,
-  practiceSites,
-  interestAreas,
-  allTherapeuticAreas,
-  correspondencePreferences,
-  headers,
-  recaptchaData
-}) {
-  if (!writeClient.config().token) {
-    throw new Error('SANITY_API_TOKEN missing')
-  }
-
-  const emailLower = email.toLowerCase()
-  const existing = await writeClient.fetch(
-    `*[_type == "updateSubscriber" && lower(email) == $emailLower][0]{
-      _id,
-      manageToken,
-      subscriptionStatus,
-      deliveryStatus,
-      source
-    }`,
-    { emailLower }
-  )
-
-  const now = new Date().toISOString()
-  if (existing?._id) {
-    const manageToken = existing.manageToken || randomUUID()
-    const existingDeliveryStatus = resolveDeliveryStatus(existing)
-    const nextDeliveryStatus =
-      existingDeliveryStatus === DELIVERY_STATUS_SUPPRESSED ? DELIVERY_STATUS_SUPPRESSED : DELIVERY_STATUS_ACTIVE
-    const nextSubscriptionStatus = SUBSCRIPTION_STATUS_SUBSCRIBED
-    let patch = writeClient
-      .patch(existing._id)
-      .set({
-        name,
-        email,
-        role,
-        specialty: specialty || null,
-        practiceSites,
-        interestAreas,
-        allTherapeuticAreas,
-        correspondencePreferences,
-        subscriptionStatus: nextSubscriptionStatus,
-        deliveryStatus: nextDeliveryStatus,
-        updatedAt: now,
-        ...(existing.manageToken ? {} : { manageToken })
-      })
-
-    if (resolveSubscriptionStatus(existing) === SUBSCRIPTION_STATUS_UNSUBSCRIBED) {
-      patch = patch.unset(['unsubscribedAt'])
-    }
-
-    await patch.commit()
-    return { manageToken, created: false }
-  }
-
-  const manageToken = randomUUID()
-  await writeClient.create({
-    _type: 'updateSubscriber',
-    name,
-    email,
-    role,
-    specialty: specialty || null,
-    practiceSites,
-    interestAreas,
-    allTherapeuticAreas,
-    correspondencePreferences,
-    subscriptionStatus: SUBSCRIPTION_STATUS_SUBSCRIBED,
-    deliveryStatus: DELIVERY_STATUS_ACTIVE,
-    source: 'self',
-    manageToken,
-    createdAt: now,
-    updatedAt: now,
-    consent: {
-      source: 'self',
-      timestamp: now,
-      ip: getClientIp(headers),
-      userAgent: headers.get('user-agent') || '',
-      recaptchaScore: typeof recaptchaData?.score === 'number' ? recaptchaData.score : null
-    }
-  })
-
-  return { manageToken, created: true }
 }
 
 export async function POST(request) {
@@ -254,38 +156,39 @@ export async function POST(request) {
   }
 
   try {
-    const result = await upsertSubscriber({
-      name: trimmedName,
-      email: trimmedEmail,
-      role: normalizedRole,
-      specialty: normalizedSpecialty,
-      practiceSites: buildReferenceList(resolvedPracticeSiteIds),
-      interestAreas: buildReferenceList(resolvedInterestAreaIds),
-      allTherapeuticAreas,
-      correspondencePreferences: normalizedCorrespondence,
+    const result = await createOrRecoverSubscriber({
+      client: writeClient,
+      subscriber: {
+        name: trimmedName,
+        email: trimmedEmail,
+        role: normalizedRole,
+        specialty: normalizedSpecialty || null,
+        practiceSites: buildReferenceList(resolvedPracticeSiteIds),
+        interestAreas: buildReferenceList(resolvedInterestAreaIds),
+        allTherapeuticAreas,
+        correspondencePreferences: normalizedCorrespondence,
+      },
       headers,
-      recaptchaData: recaptchaResult.data
+      recaptchaData: recaptchaResult.data,
     })
 
-    if (result.created) {
-      try {
-        const emailResult = await sendSubscriptionEmail({
-          name: trimmedName,
-          email: trimmedEmail,
-          manageToken: result.manageToken
-        })
-        if (emailResult?.skipped) {
-          console.warn('Subscription email skipped', emailResult)
-        }
-      } catch (error) {
-        console.error('Failed to send subscription email', error)
+    try {
+      const emailResult = await sendSubscriptionEmail({
+        name: trimmedName,
+        email: trimmedEmail,
+        manageToken: result.manageToken,
+      })
+      if (emailResult?.skipped) {
+        console.warn('Subscription email skipped', emailResult)
       }
+    } catch (error) {
+      console.error('Failed to send subscription email', error)
     }
 
     return NextResponse.json({
       ok: true,
-      manageToken: result.manageToken,
-      created: result.created
+      created: result.created,
+      managementLinkSent: true,
     })
   } catch (error) {
     console.error('Failed to save update subscriber', error)

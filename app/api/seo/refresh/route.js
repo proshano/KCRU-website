@@ -204,7 +204,7 @@ async function runRefresh({ source = 'manual' } = {}) {
 
     const provider = settings.llmProvider || process.env.LLM_PROVIDER || 'openrouter'
     const model = settings.llmModel || process.env.LLM_MODEL
-    const apiKey = settings.llmApiKey || ''
+    const apiKey = undefined
     const llmAvailable = hasLlmKey(provider, apiKey)
     const llmOptions = { provider, model, apiKey }
 

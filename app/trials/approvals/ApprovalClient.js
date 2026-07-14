@@ -55,7 +55,7 @@ export default function ApprovalClient() {
   const [reviewingId, setReviewingId] = useState('')
   const [reviewingAction, setReviewingAction] = useState('')
   const { data: session, status: sessionStatus } = useSession()
-  const hasSessionAccess = Boolean(session?.user?.access?.admin)
+  const hasSessionAccess = Boolean(session?.user?.access?.approvals)
   const isAuthorized = hasSessionAccess || Boolean(token)
   const isSessionLoading = sessionStatus === 'loading'
 

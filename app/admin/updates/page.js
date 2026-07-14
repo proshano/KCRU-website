@@ -19,7 +19,7 @@ export default async function AdminUpdatesPage() {
     redirect('/login?callbackUrl=/admin/updates')
   }
 
-  const content = !access?.admin ? (
+  const content = !access?.updates ? (
     <div className="mx-auto max-w-2xl px-6 py-16">
       <h1 className="text-2xl font-semibold text-[#333]">Access restricted</h1>
       <p className="mt-4 text-base text-[#555]">

@@ -115,18 +115,15 @@ async function main() {
     *[_type == "siteSettings"][0]{
       llmProvider,
       llmModel,
-      llmApiKey,
       llmSystemPrompt,
       trialSummaryLlmProvider,
       trialSummaryLlmModel,
-      trialSummaryLlmApiKey,
       trialSummarySystemPrompt
     }
   `)) || {}
   const summaryOptions = {
     provider: settings.trialSummaryLlmProvider || settings.llmProvider,
     model: settings.trialSummaryLlmModel || settings.llmModel,
-    apiKey: settings.trialSummaryLlmApiKey || settings.llmApiKey,
     systemPrompt: settings.trialSummarySystemPrompt || undefined,
   }
   console.log(`[batch-sync] Trials to sync: ${trials.length}`)

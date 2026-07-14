@@ -85,7 +85,6 @@ async function runSummarize({ isCron = false, maxSummaries = 5 } = {}) {
       llmOptions: {
         provider: settings.llmProvider || 'openrouter',
         model: settings.llmModel,
-        apiKey: settings.llmApiKey,
         systemPrompt: settings.llmSystemPrompt,
         concurrency: settings.llmConcurrency || 1,
         delayMs: settings.llmDelayMs || 2000,

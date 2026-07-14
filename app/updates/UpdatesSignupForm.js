@@ -300,15 +300,10 @@ export default function UpdatesSignupForm({
         throw new Error(data?.error || 'Unable to subscribe right now.')
       }
 
-      const origin = typeof window !== 'undefined' ? window.location.origin : ''
-      const manageUrl = data.manageToken
-        ? `${origin}/updates/manage?token=${encodeURIComponent(data.manageToken)}`
-        : ''
-
       setStatus({
         type: 'success',
-        message: data.created ? 'You are subscribed for updates.' : 'Your preferences have been updated.',
-        manageUrl
+        message: 'Check your email for a secure link to manage your subscription.',
+        manageUrl: ''
       })
     } catch (error) {
       setStatus({ type: 'error', message: error.message || 'Unable to subscribe right now.' })

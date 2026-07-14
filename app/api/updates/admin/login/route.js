@@ -5,6 +5,7 @@ import { sanitizeString } from '@/lib/studySubmissions'
 import { createAdminPasscodeSession, getAdminEmails, getAdminScopeLabel } from '@/lib/adminSessions'
 import { buildCorsHeaders } from '@/lib/httpUtils'
 import { getSanityWriteErrorMessage } from '@/lib/sanityErrors'
+import { getRateLimitResponseDetails } from '@/lib/securityRateLimit'
 
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
@@ -89,6 +90,13 @@ export async function POST(request) {
     return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })
   } catch (error) {
     console.error('[updates-admin-login] failed', error)
+    const rateLimit = getRateLimitResponseDetails(error)
+    if (rateLimit) {
+      return NextResponse.json(
+        { ok: false, error: rateLimit.message },
+        { status: rateLimit.status, headers: { ...CORS_HEADERS, 'Retry-After': String(rateLimit.retryAfter) } }
+      )
+    }
     return NextResponse.json(
       {
         ok: false,

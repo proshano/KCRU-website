@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { mergePatientProfiles, sanitizePatientProfile } from '@/lib/patientProfileSchema'
+import { mergePatientProfiles } from '@/lib/patientProfileSchema'
 import { selectTrialMatchFollowUp, shouldRankTrialMatches } from '@/lib/trialMatchChat'
 import { sanityFetch, queries } from '@/lib/sanity'
 import {
@@ -10,6 +10,12 @@ import {
 } from '@/lib/summaries'
 import { isTrialMatchingAssistantEnabled, resolveTrialMatchingLlmOptions } from '@/lib/trialMatchingSettings'
 import { buildTrialCatalogForPrompt, matchTrialToPatient, rankTrialMatches } from '@/lib/trialMatcher'
+import { claimSecurityRateLimit, getRateLimitResponseDetails } from '@/lib/securityRateLimit'
+import {
+  getTrustedClientIp,
+  sanitizeTrialMatchMessages,
+  sanitizeTrialMatchProfile,
+} from '@/lib/trialMatchPrivacy'
 import {
   isQuantitativeUrineProteinUnavailable,
   parseUrineProteinProfileFromText,
@@ -32,7 +38,9 @@ const URINE_PROTEIN_FOLLOW_UP_REPLY =
   'If available, do you have a recent ACR, PCR, or 24-hour urine protein value? If not, say that and I can still keep possible studies on the list.'
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
 const MAX_REQUESTS_PER_WINDOW = 20
-const rateLimitStore = new Map()
+const GLOBAL_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
+const MAX_GLOBAL_REQUESTS_PER_WINDOW = 500
+const MAX_REQUEST_BODY_BYTES = 32 * 1024
 
 function sanitizeText(value) {
   return String(value || '').replace(/\s+/g, ' ').trim()
@@ -182,84 +190,6 @@ function buildLlmRankingShortlist(studies, profile, messages) {
   return studies.slice(0, MAX_LLM_RANK_STUDIES)
 }
 
-function getClientIp(headers) {
-  const forwarded = headers.get('x-forwarded-for')
-  if (forwarded) {
-    return sanitizeText(forwarded.split(',')[0])
-  }
-
-  return sanitizeText(headers.get('x-real-ip')) || 'unknown'
-}
-
-function checkRateLimit(ipAddress) {
-  const now = Date.now()
-  const existing = rateLimitStore.get(ipAddress)
-
-  if (!existing || now > existing.resetAt) {
-    rateLimitStore.set(ipAddress, {
-      count: 1,
-      resetAt: now + RATE_LIMIT_WINDOW_MS,
-    })
-    return null
-  }
-
-  existing.count += 1
-  rateLimitStore.set(ipAddress, existing)
-
-  if (existing.count > MAX_REQUESTS_PER_WINDOW) {
-    return Math.max(1, Math.ceil((existing.resetAt - now) / 1000))
-  }
-
-  return null
-}
-
-function redactPotentialIdentifiers(value) {
-  const original = sanitizeText(value)
-  if (!original) {
-    return { text: '', hadRedaction: false }
-  }
-
-  let redacted = original
-  redacted = redacted.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted email]')
-  redacted = redacted.replace(/\b(?:mrn|medical record number)\s*[:#]?\s*[A-Za-z0-9-]+\b/gi, '[redacted record number]')
-  redacted = redacted.replace(/\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/g, '[redacted date]')
-  redacted = redacted.replace(/\b\d{6,}\b/g, '[redacted number]')
-  redacted = redacted.replace(
-    /\b(?:dob|date of birth)\s*[:#]?\s*\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/gi,
-    '[redacted date of birth]'
-  )
-  redacted = redacted.replace(/\+?\d[\d\s().-]{7,}\d/g, '[redacted phone]')
-
-  return {
-    text: redacted,
-    hadRedaction: redacted !== original,
-  }
-}
-
-function sanitizeMessages(value) {
-  if (!Array.isArray(value)) {
-    return { messages: [], hadRedaction: false }
-  }
-
-  let hadRedaction = false
-  const messages = value
-    .slice(-MAX_MESSAGES)
-    .map((message) => {
-      if (!message || typeof message !== 'object') return null
-      const role = message.role === 'assistant' ? 'assistant' : 'user'
-      const { text, hadRedaction: redacted } = redactPotentialIdentifiers(message.content)
-      if (redacted) hadRedaction = true
-      if (!text) return null
-      return {
-        role,
-        content: text.slice(0, MAX_MESSAGE_LENGTH),
-      }
-    })
-    .filter(Boolean)
-
-  return { messages, hadRedaction }
-}
-
 function buildResponse(body, status = 200) {
   return NextResponse.json(body, {
     status,
@@ -288,15 +218,34 @@ function sliceRankedTrialMatches(ranked, maxResults = MAX_RESULTS) {
 }
 
 export async function POST(request) {
-  const retryAfter = checkRateLimit(getClientIp(request.headers))
-  if (retryAfter) {
+  try {
+    await claimSecurityRateLimit({
+      namespace: 'trial-match-origin',
+      key: getTrustedClientIp(request.headers),
+      limit: MAX_REQUESTS_PER_WINDOW,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+      minimumIntervalMs: 500,
+    })
+    await claimSecurityRateLimit({
+      namespace: 'trial-match-global',
+      key: 'all-public-callers',
+      limit: MAX_GLOBAL_REQUESTS_PER_WINDOW,
+      windowMs: GLOBAL_RATE_LIMIT_WINDOW_MS,
+      minimumIntervalMs: 50,
+    })
+  } catch (error) {
+    const rateLimit = getRateLimitResponseDetails(error)
+    if (!rateLimit) {
+      console.error('[trial-match-chat] rate-limit check failed', error)
+      return buildResponse({ ok: false, error: 'The trial matching assistant is temporarily unavailable.' }, 503)
+    }
     return NextResponse.json(
       { ok: false, error: 'Too many requests. Please wait a few minutes before trying again.' },
       {
-        status: 429,
+        status: rateLimit.status,
         headers: {
           'Cache-Control': 'no-store',
-          'Retry-After': String(retryAfter),
+          'Retry-After': String(rateLimit.retryAfter),
         },
       }
     )
@@ -304,17 +253,32 @@ export async function POST(request) {
 
   let body
   try {
-    body = await request.json()
+    const contentLength = Number(request.headers.get('content-length'))
+    if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BODY_BYTES) {
+      return buildResponse({ ok: false, error: 'Request payload is too large.' }, 413)
+    }
+    const rawBody = await request.text()
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BODY_BYTES) {
+      return buildResponse({ ok: false, error: 'Request payload is too large.' }, 413)
+    }
+    if (!rawBody.trim()) return buildResponse({ ok: false, error: 'Invalid JSON payload.' }, 400)
+    body = JSON.parse(rawBody)
   } catch {
     return buildResponse({ ok: false, error: 'Invalid JSON payload.' }, 400)
   }
 
-  const { messages, hadRedaction } = sanitizeMessages(body?.messages)
+  const sanitizedMessages = sanitizeTrialMatchMessages(body?.messages, {
+    maxMessages: MAX_MESSAGES,
+    maxMessageLength: MAX_MESSAGE_LENGTH,
+  })
+  const messages = sanitizedMessages.messages
   if (!messages.some((message) => message.role === 'user')) {
     return buildResponse({ ok: false, error: 'Provide at least one user message.' }, 400)
   }
 
-  const currentProfile = sanitizePatientProfile(body?.profile)
+  const sanitizedProfile = sanitizeTrialMatchProfile(body?.profile)
+  const currentProfile = sanitizedProfile.profile
+  const hadRedaction = sanitizedMessages.hadRedaction || sanitizedProfile.hadRedaction
   const latestUserLabProfile = buildLatestUserLabProfile(messages)
   const preLlmProfile = mergePatientProfiles(currentProfile, latestUserLabProfile)
 

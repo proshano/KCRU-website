@@ -216,7 +216,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   const piNameInputRef = useRef(null)
   const { data: session, status: sessionStatus } = useSession()
   const hasSessionAccess = Boolean(
-    adminMode ? session?.user?.access?.admin : session?.user?.access?.coordinator
+    adminMode ? session?.user?.access?.approvals : session?.user?.access?.coordinator
   )
   const hasAuth = Boolean(token) || hasSessionAccess
   const isSessionLoading = sessionStatus === 'loading'
@@ -693,7 +693,10 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     try {
       const res = await fetch('/api/trials/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           nctId: form.nctId,
           generateSummary: true,

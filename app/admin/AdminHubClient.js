@@ -49,7 +49,7 @@ export default function AdminHubClient() {
   const access = session?.user?.access || EMPTY_ACCESS
   const isLoading = status === 'loading'
   const isSignedIn = Boolean(session?.user?.email)
-  const hasAdminAccess = Boolean(access.admin)
+  const hasAdminAccess = Boolean(access.approvals || access.updates)
 
   return (
     <main className="max-w-[1400px] mx-auto px-6 md:px-12 py-10 space-y-8">
@@ -104,7 +104,7 @@ export default function AdminHubClient() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {MODULES.map((module) => {
               const accessKey = module.accessKey || module.key
-              const allowed = Boolean(access.admin || access[accessKey])
+              const allowed = Boolean(access[accessKey])
               return (
                 <article
                   key={module.key}

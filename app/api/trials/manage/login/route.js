@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
-import {
-  emailMatchesCoordinatorDomain,
-  formatCoordinatorDomains,
-  getCoordinatorDomains,
-} from '@/lib/coordinatorDomains'
+import { getConfiguredAuthAccess } from '@/lib/configuredAuthAccess'
 import { writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
 import { sanitizeString } from '@/lib/studySubmissions'
 import { buildCorsHeaders } from '@/lib/httpUtils'
 import { getSanityWriteErrorMessage } from '@/lib/sanityErrors'
+import { claimSecurityRateLimit, getRateLimitResponseDetails } from '@/lib/securityRateLimit'
 
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
@@ -37,15 +34,23 @@ export async function POST(request) {
       )
     }
 
-    const domains = await getCoordinatorDomains()
-    if (!emailMatchesCoordinatorDomain(email, domains)) {
+    const access = await getConfiguredAuthAccess(email)
+    if (!access.allowed || !access.coordinator) {
       return NextResponse.json(
-        { ok: false, error: `Email must be at one of: ${formatCoordinatorDomains(domains)}.` },
+        { ok: false, error: 'Email is not authorized for study management.' },
         { status: 403, headers: CORS_HEADERS }
       )
     }
 
-    const code = String(Math.floor(100000 + Math.random() * 900000))
+    await claimSecurityRateLimit({
+      namespace: 'coordinator-passcode-send',
+      key: email,
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+      minimumIntervalMs: 60 * 1000,
+    })
+
+    const code = String(crypto.randomInt(100000, 1000000))
     const codeHash = crypto.createHash('sha256').update(code).digest('hex')
     const createdAt = new Date().toISOString()
     const codeExpiresAt = new Date(Date.now() + CODE_TTL_MINUTES * 60 * 1000).toISOString()
@@ -56,6 +61,7 @@ export async function POST(request) {
       codeHash,
       codeExpiresAt,
       createdAt,
+      failedAttempts: 0,
       revoked: false,
     })
 
@@ -97,6 +103,13 @@ export async function POST(request) {
     return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })
   } catch (error) {
     console.error('[manage-login] failed', error)
+    const rateLimit = getRateLimitResponseDetails(error)
+    if (rateLimit) {
+      return NextResponse.json(
+        { ok: false, error: rateLimit.message },
+        { status: rateLimit.status, headers: { ...CORS_HEADERS, 'Retry-After': String(rateLimit.retryAfter) } }
+      )
+    }
     return NextResponse.json(
       {
         ok: false,

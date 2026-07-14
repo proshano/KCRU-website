@@ -17,21 +17,17 @@ test('prefers trial matching assistant LLM settings over trial summary settings'
     resolveTrialMatchingLlmOptions({
       llmProvider: 'openrouter',
       llmModel: 'google/gemini-3.5-flash',
-      llmApiKey: 'summary-key',
       trialSummaryLlmProvider: 'openrouter',
       trialSummaryLlmModel: 'google/gemini-3.5-flash',
-      trialSummaryLlmApiKey: 'trial-summary-key',
       trialMatchingAssistant: {
         enabled: true,
         llmProvider: 'openrouter',
         llmModel: 'google/gemini-3-flash-preview',
-        llmApiKey: 'assistant-key',
       },
     }),
     {
       provider: 'openrouter',
       model: 'google/gemini-3-flash-preview',
-      apiKey: 'assistant-key',
     }
   )
 })
@@ -41,10 +37,8 @@ test('falls back to trial summary LLM settings for older datasets', () => {
     resolveTrialMatchingLlmOptions({
       llmProvider: 'openrouter',
       llmModel: 'google/gemini-3.5-flash',
-      llmApiKey: 'summary-key',
       trialSummaryLlmProvider: 'openrouter',
       trialSummaryLlmModel: 'google/gemini-3-flash-preview',
-      trialSummaryLlmApiKey: 'trial-summary-key',
       trialMatchingAssistant: {
         enabled: true,
       },
@@ -52,7 +46,6 @@ test('falls back to trial summary LLM settings for older datasets', () => {
     {
       provider: 'openrouter',
       model: 'google/gemini-3-flash-preview',
-      apiKey: 'trial-summary-key',
     }
   )
 })
@@ -62,12 +55,10 @@ test('falls back to summary LLM settings when no task-specific assistant setting
     resolveTrialMatchingLlmOptions({
       llmProvider: 'openrouter',
       llmModel: 'google/gemini-3.5-flash',
-      llmApiKey: 'summary-key',
     }),
     {
       provider: 'openrouter',
       model: 'google/gemini-3.5-flash',
-      apiKey: 'summary-key',
     }
   )
 })
