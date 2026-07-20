@@ -141,6 +141,8 @@ export default async function TeamMemberPage({ params }) {
     name: r.name,
     slug: r.slug,
     pubmedQuery: r.pubmedQuery,
+    publicationAuthorName: r.publicationAuthorName,
+    publicationExclusions: r.publicationExclusions,
     orcid: r.orcid,
   }))
   let publicationsBundle = null

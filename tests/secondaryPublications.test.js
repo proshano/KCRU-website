@@ -76,3 +76,37 @@ test('secondary author matching accepts full names and family-name-first initial
   assert.equal(matchesResearcherAuthorList(['Naylor KL'], 'Kyla Naylor'), true)
   assert.equal(matchesResearcherAuthorList(['Vivian S. Tan', 'David A. Palma'], 'Kyla Naylor'), false)
 })
+
+test('Crossref name discovery rejects a namesake with a conflicting middle initial', async () => {
+  const fetchFn = async () => new Response(JSON.stringify({
+    message: {
+      items: [
+        {
+          DOI: '10.1000/canadian-matthew',
+          type: 'journal-article',
+          title: ['Canadian Matthew paper'],
+          author: [{ given: 'Matthew A.', family: 'Weir' }],
+          'published-online': { 'date-parts': [[2026, 1, 1]] },
+        },
+        {
+          DOI: '10.1000/us-matthew',
+          type: 'journal-article',
+          title: ['US Matthew paper'],
+          author: [{ given: 'Matthew R.', family: 'Weir' }],
+          'published-online': { 'date-parts': [[2026, 1, 1]] },
+        },
+      ],
+    },
+  }), { status: 200 })
+
+  const publications = await fetchCrossrefPublications(
+    {
+      name: 'Matthew Weir',
+      publicationAuthorName: 'Matthew A. Weir',
+      orcid: '0000-0001-6736-603X',
+    },
+    { fetchFn, sinceYear: 2025 }
+  )
+
+  assert.deepEqual(publications.map((publication) => publication.doi), ['10.1000/canadian-matthew'])
+})

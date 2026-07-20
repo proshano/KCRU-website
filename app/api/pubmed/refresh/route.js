@@ -104,6 +104,8 @@ async function runRefresh({ isCron = false } = {}) {
       name: r.name,
       slug: r.slug,
       pubmedQuery: r.pubmedQuery,
+      publicationAuthorName: r.publicationAuthorName,
+      publicationExclusions: r.publicationExclusions,
       orcid: r.orcid,
     }))
 

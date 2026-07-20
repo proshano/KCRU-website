@@ -64,6 +64,20 @@ const researcher = {
       description: 'Use full PubMed syntax (Boolean + field tags). Examples: \n- Smith J[Author] AND ("Western University"[Affiliation] OR "University of Western Ontario"[Affiliation])\n- ("Doe J"[Author] OR "Doe John"[Author]) AND London[Affiliation] AND 2020:2025[dp]\nTip: combine OR variants for institution names; include [Author]/[Affiliation]/[dp] for date ranges.'
     },
     {
+      name: 'publicationAuthorName',
+      title: 'Publication Author Name',
+      type: 'string',
+      description: 'Optional precise publication name, including middle initial, used to distinguish researchers with the same first and last name. This does not change the displayed name.'
+    },
+    {
+      name: 'publicationExclusions',
+      title: 'Excluded Publications',
+      type: 'array',
+      of: [{ type: 'string' }],
+      validation: Rule => Rule.unique(),
+      description: 'PMIDs or DOIs known to belong to a namesake. Use this only for verified false matches.'
+    },
+    {
       name: 'researchTags',
       title: 'Research Tags',
       type: 'array',

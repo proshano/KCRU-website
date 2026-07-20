@@ -68,6 +68,8 @@ export default async function PublicationsPage() {
     _id: r._id,
     name: r.name,
     pubmedQuery: r.pubmedQuery,
+    publicationAuthorName: r.publicationAuthorName,
+    publicationExclusions: r.publicationExclusions,
     orcid: r.orcid,
   }))
 

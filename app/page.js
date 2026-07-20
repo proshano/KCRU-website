@@ -48,6 +48,8 @@ export default async function HomePage() {
       _id: r._id,
       name: r.name,
       pubmedQuery: r.pubmedQuery,
+      publicationAuthorName: r.publicationAuthorName,
+      publicationExclusions: r.publicationExclusions,
       orcid: r.orcid,
     }))
     const pubData = await getCachedPublicationsDisplay({

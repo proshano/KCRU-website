@@ -30,6 +30,8 @@ async function main() {
       name: r.name,
       slug: r.slug,
       pubmedQuery: r.pubmedQuery,
+      publicationAuthorName: r.publicationAuthorName,
+      publicationExclusions: r.publicationExclusions,
       orcid: r.orcid,
     }))
     const provider = settings.llmProvider || process.env.LLM_PROVIDER || 'openrouter'
