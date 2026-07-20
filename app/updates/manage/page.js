@@ -1,5 +1,7 @@
 import { Suspense } from 'react'
 import { ROLE_OPTIONS, SPECIALTY_OPTIONS, CORRESPONDENCE_OPTIONS } from '@/lib/communicationOptions'
+import { getPublicCorrespondenceOptions } from '@/lib/researchDigestPublic'
+import { sanityFetch, queries } from '@/lib/sanity'
 import { buildSiteOptions, fetchSites } from '@/lib/sites'
 import { buildTherapeuticAreaOptions, fetchTherapeuticAreas } from '@/lib/therapeuticAreas'
 import ManagePreferencesClient from './ManagePreferencesClient'
@@ -7,7 +9,12 @@ import ManagePreferencesClient from './ManagePreferencesClient'
 export const revalidate = 3600
 
 export default async function ManageUpdatesPage() {
-  const [areas, sites] = await Promise.all([fetchTherapeuticAreas(), fetchSites()])
+  const [settingsRaw, areas, sites] = await Promise.all([
+    sanityFetch(queries.siteSettings),
+    fetchTherapeuticAreas(),
+    fetchSites(),
+  ])
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
   const interestAreaOptions = buildTherapeuticAreaOptions(areas)
   const practiceSiteOptions = buildSiteOptions(sites)
 
@@ -19,7 +26,7 @@ export default async function ManageUpdatesPage() {
           specialtyOptions={SPECIALTY_OPTIONS}
           interestAreaOptions={interestAreaOptions}
           practiceSiteOptions={practiceSiteOptions}
-          correspondenceOptions={CORRESPONDENCE_OPTIONS}
+          correspondenceOptions={getPublicCorrespondenceOptions(CORRESPONDENCE_OPTIONS, settings)}
         />
       </Suspense>
     </main>

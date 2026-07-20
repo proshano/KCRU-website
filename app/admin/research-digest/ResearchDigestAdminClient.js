@@ -10,6 +10,7 @@ const EMPTY_PAYLOAD = {
   opportunities: [],
   stats: {},
   digestSettings: {
+    publicEnabled: false,
     automaticSelection: true,
     maxPapers: 3,
     minPriorityScore: 75,
@@ -142,6 +143,13 @@ export default function ResearchDigestAdminClient() {
           Use this page only to inspect what was selected or recover from an exceptional failure.
         </p>
       </header>
+
+      {!payload.digestSettings?.publicEnabled && (
+        <section className="bg-amber-50 border border-amber-200 p-4 text-sm text-amber-950">
+          Public launch is off. Public pages and subscription choices are hidden, and scheduled delivery is limited to
+          explicitly configured pilot or testing recipients.
+        </section>
+      )}
 
       {payload.digestSettings?.automaticSelection && (
         <section className="bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-900">

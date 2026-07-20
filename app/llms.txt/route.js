@@ -1,4 +1,5 @@
 import { sanityFetch, queries } from '@/lib/sanity'
+import { isResearchDigestPublicEnabled } from '@/lib/researchDigestPublic'
 import { getSiteBaseUrl, normalizeDescription, resolveSiteDescription, resolveSiteTitle } from '@/lib/seo'
 
 export const revalidate = 3600
@@ -42,7 +43,7 @@ export async function GET() {
   const keyPages = [
     { label: asTitle(content.studiesTitle, 'Clinical Studies'), path: '/trials' },
     { label: asTitle(content.publicationsTitle, 'Publications'), path: '/publications' },
-    { label: 'Kidney research digest', path: '/research-digest' },
+    { label: 'Kidney research digest', path: '/research-digest', researchDigestOnly: true },
     { label: 'Research opportunities', path: '/opportunities' },
     { label: asTitle(content.teamTitle, 'Team'), path: '/team' },
     { label: asTitle(content.newsTitle, 'News'), path: '/news' },
@@ -50,7 +51,7 @@ export async function GET() {
     { label: asTitle(content.contactTitle, 'Contact'), path: '/contact' },
     { label: asTitle(content.trainingTitle, 'Training opportunities'), path: '/training' },
     { label: 'Capabilities (sponsors and partners)', path: '/capabilities' }
-  ]
+  ].filter((page) => !page.researchDigestOnly || isResearchDigestPublicEnabled(settings))
 
   const lines = []
   lines.push(`# ${siteTitle}`)

@@ -1,4 +1,5 @@
 import { ROLE_OPTIONS, SPECIALTY_OPTIONS, CORRESPONDENCE_OPTIONS } from '@/lib/communicationOptions'
+import { getPublicCorrespondenceOptions } from '@/lib/researchDigestPublic'
 import { sanityFetch, queries } from '@/lib/sanity'
 import { buildOpenGraph, buildTwitterMetadata, normalizeDescription } from '@/lib/seo'
 import { buildSiteOptions, fetchSites } from '@/lib/sites'
@@ -39,7 +40,12 @@ export async function generateMetadata() {
 
 export default async function UpdatesPage() {
   const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''
-  const [areas, sites] = await Promise.all([fetchTherapeuticAreas(), fetchSites()])
+  const [settingsRaw, areas, sites] = await Promise.all([
+    sanityFetch(queries.siteSettings),
+    fetchTherapeuticAreas(),
+    fetchSites(),
+  ])
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
   const interestAreaOptions = areas.map((area) => ({
     value: area._id,
     title: area?.name || ''
@@ -66,7 +72,7 @@ export default async function UpdatesPage() {
             specialtyOptions={SPECIALTY_OPTIONS}
             interestAreaOptions={interestAreaOptions}
             practiceSiteOptions={practiceSiteOptions}
-            correspondenceOptions={CORRESPONDENCE_OPTIONS}
+            correspondenceOptions={getPublicCorrespondenceOptions(CORRESPONDENCE_OPTIONS, settings)}
             recaptchaSiteKey={recaptchaSiteKey}
           />
         </div>

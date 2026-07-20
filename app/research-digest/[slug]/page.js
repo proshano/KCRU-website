@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { sanityFetch, queries } from '@/lib/sanity'
+import { isResearchDigestPublicEnabled } from '@/lib/researchDigestPublic'
 import { buildOpenGraph, buildTwitterMetadata, normalizeDescription } from '@/lib/seo'
 
 export const revalidate = 1800
@@ -12,6 +13,9 @@ export async function generateMetadata({ params }) {
     sanityFetch(queries.researchDigestIssueBySlug, { slug }),
   ])
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  if (!isResearchDigestPublicEnabled(settings)) {
+    return { title: 'Research Digest', robots: { index: false, follow: false } }
+  }
   const issue = JSON.parse(JSON.stringify(issueRaw || {}))
   if (!issue?._id) return {}
 
@@ -33,7 +37,12 @@ export async function generateMetadata({ params }) {
 
 export default async function ResearchDigestIssuePage({ params }) {
   const { slug } = await params
-  const issueRaw = await sanityFetch(queries.researchDigestIssueBySlug, { slug })
+  const [settingsRaw, issueRaw] = await Promise.all([
+    sanityFetch(queries.siteSettings),
+    sanityFetch(queries.researchDigestIssueBySlug, { slug }),
+  ])
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  if (!isResearchDigestPublicEnabled(settings)) notFound()
   const issue = JSON.parse(JSON.stringify(issueRaw || {}))
   if (!issue?._id) notFound()
 

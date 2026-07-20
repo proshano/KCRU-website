@@ -7,6 +7,7 @@ import AltmetricScript from './components/AltmetricScript'
 import JsonLd from './components/JsonLd'
 import TrialAssistantWidget from './components/TrialAssistantWidget'
 import './globals.css'
+import { isResearchDigestPublicEnabled } from '@/lib/researchDigestPublic'
 import { isTrialMatchingAssistantEnabled } from '@/lib/trialMatchingSettings'
 
 function collectTopicKeywords(settings) {
@@ -63,7 +64,7 @@ const navLinks = [
   { href: '/trials', label: 'Studies' },
   { href: '/team', label: 'Team' },
   { href: '/publications', label: 'Publications' },
-  { href: '/research-digest', label: 'Digest' },
+  { href: '/research-digest', label: 'Digest', researchDigestOnly: true },
   { href: '/updates', label: 'Subscribe' },
   { href: '/contact', label: 'Contact' },
 ]
@@ -73,6 +74,7 @@ export default async function RootLayout({ children }) {
   // Strip Sanity data to plain JSON to break any circular references
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
   const altmetricEnabled = settings?.altmetric?.enabled === true
+  const digestPublicEnabled = isResearchDigestPublicEnabled(settings)
   const trialMatchingEnabled = isTrialMatchingAssistantEnabled(settings)
   const siteTitle = resolveSiteTitle(settings)
   const siteDescription = normalizeDescription(resolveSiteDescription(settings))
@@ -150,7 +152,7 @@ export default async function RootLayout({ children }) {
                 {settings?.unitName || 'London Kidney Clinical Research'}
               </Link>
               <div className="grid w-full grid-cols-3 gap-x-4 gap-y-3 text-sm font-medium text-[#444] sm:flex sm:w-auto sm:flex-wrap sm:gap-4 md:gap-9 md:text-base">
-                {navLinks.map((link) => (
+                {navLinks.filter((link) => !link.researchDigestOnly || digestPublicEnabled).map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}

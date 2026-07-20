@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
-import { writeClient } from '@/lib/sanity'
+import { writeClient, sanityFetch, queries } from '@/lib/sanity'
 import { ROLE_VALUES, SPECIALTY_VALUES, CORRESPONDENCE_VALUES } from '@/lib/communicationOptions'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escapeHtml'
 import { sanitizeString, normalizeCorrespondence } from '@/lib/inputUtils'
 import { verifyRecaptcha } from '@/lib/recaptcha'
 import { createOrRecoverSubscriber } from '@/lib/subscriberSignup'
+import { getPublicCorrespondenceOptions } from '@/lib/researchDigestPublic'
 import {
   ALL_THERAPEUTIC_AREAS_VALUE,
   buildReferenceList,
@@ -111,7 +112,17 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Please select a valid specialty.' }, { status: 400 })
   }
 
-  const normalizedCorrespondence = normalizeCorrespondence(correspondencePreferences, CORRESPONDENCE_VALUES)
+  const siteSettings = await sanityFetch(queries.siteSettings)
+  const publicCorrespondenceValues = new Set(
+    getPublicCorrespondenceOptions(
+      Array.from(CORRESPONDENCE_VALUES, (value) => ({ value })),
+      siteSettings || {}
+    ).map((option) => option.value)
+  )
+  const normalizedCorrespondence = normalizeCorrespondence(
+    correspondencePreferences,
+    CORRESPONDENCE_VALUES
+  ).filter((value) => publicCorrespondenceValues.has(value))
   if (!normalizedCorrespondence.length) {
     return NextResponse.json({ error: 'Please select at least one correspondence option.' }, { status: 400 })
   }

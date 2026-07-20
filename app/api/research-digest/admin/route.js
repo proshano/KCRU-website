@@ -230,6 +230,7 @@ export async function GET(request) {
     return NextResponse.json({
       ok: true,
       digestSettings: {
+        publicEnabled: settings.publicEnabled,
         automaticSelection: settings.automaticSelection,
         maxPapers: settings.maxPapers,
         minPriorityScore: settings.minPriorityScore,

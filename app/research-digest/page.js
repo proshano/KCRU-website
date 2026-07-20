@@ -1,5 +1,7 @@
 import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { sanityFetch, queries } from '@/lib/sanity'
+import { isResearchDigestPublicEnabled } from '@/lib/researchDigestPublic'
 import { buildOpenGraph, buildTwitterMetadata, normalizeDescription } from '@/lib/seo'
 
 export const revalidate = 1800
@@ -7,6 +9,9 @@ export const revalidate = 1800
 export async function generateMetadata() {
   const settingsRaw = await sanityFetch(queries.siteSettings)
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  if (!isResearchDigestPublicEnabled(settings)) {
+    return { title: 'Research Digest', robots: { index: false, follow: false } }
+  }
   const title = 'Kidney Research Digest'
   const description = normalizeDescription(
     'Approved daily kidney research digests from London Kidney Clinical Research.',
@@ -23,7 +28,12 @@ export async function generateMetadata() {
 }
 
 export default async function ResearchDigestPage() {
-  const issuesRaw = await sanityFetch(queries.researchDigestIssues)
+  const [settingsRaw, issuesRaw] = await Promise.all([
+    sanityFetch(queries.siteSettings),
+    sanityFetch(queries.researchDigestIssues),
+  ])
+  const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
+  if (!isResearchDigestPublicEnabled(settings)) notFound()
   const issues = JSON.parse(JSON.stringify(issuesRaw || []))
 
   return (

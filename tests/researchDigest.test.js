@@ -101,10 +101,16 @@ test('research digest settings default to a small automated daily send', () => {
   const settings = normalizeSettingsFromConfig({})
 
   assert.equal(settings.automaticSelection, true)
+  assert.equal(settings.publicEnabled, false)
   assert.equal(settings.maxPapers, 3)
   assert.equal(settings.minPriorityScore, 75)
   assert.equal(settings.pilotMode, false)
   assert.deepEqual(settings.pilotRecipients, [])
+})
+
+test('research digest public launch requires an explicit enable flag', () => {
+  assert.equal(normalizeSettingsFromConfig({ publicEnabled: true }).publicEnabled, true)
+  assert.equal(normalizeSettingsFromConfig({ publicEnabled: 'true' }).publicEnabled, false)
 })
 
 test('research digest settings normalize pilot recipients', () => {

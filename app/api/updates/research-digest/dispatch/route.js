@@ -148,6 +148,15 @@ async function runDispatch({ force = false, issueDate, settingsPayload } = {}) {
   const settings = resolvedSettingsPayload.settings || {}
   const testSettings = normalizeUpdateEmailTesting(resolvedSettingsPayload.testing)
   const selectedDate = normalizeDate(issueDate)
+  const hasPrivateRecipients = settings.pilotMode || (testSettings.enabled && testSettings.recipients.length > 0)
+  if (!settings.publicEnabled && !hasPrivateRecipients) {
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'Research digest public launch is disabled; general subscriber delivery is paused.',
+      issueDate: selectedDate,
+    }
+  }
   const bundle = await fetchIssueBundle({
     issueDate: selectedDate,
     maxPapers: settings.maxPapers,

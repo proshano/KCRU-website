@@ -782,6 +782,13 @@ const siteSettings = {
       description: 'Configure the specialty-wide kidney research digest and opportunity imports.',
       fields: [
         {
+          name: 'publicEnabled',
+          title: 'Publish Research Digest Publicly',
+          type: 'boolean',
+          description: 'Show the digest in public navigation, archives, subscription choices, and general subscriber emails. Leave disabled while the feature is being developed.',
+          initialValue: false
+        },
+        {
           name: 'subjectTemplate',
           title: 'Email Subject Template',
           type: 'string',

@@ -1,4 +1,5 @@
 import { sanityFetch, queries } from '@/lib/sanity'
+import { isResearchDigestPublicEnabled } from '@/lib/researchDigestPublic'
 import { getSiteBaseUrl } from '@/lib/seo'
 
 export const revalidate = 3600
@@ -20,17 +21,23 @@ const STATIC_ROUTES = [
   '/llms.txt'
 ]
 
+function getStaticRoutes(settings = {}) {
+  if (isResearchDigestPublicEnabled(settings)) return STATIC_ROUTES
+  return STATIC_ROUTES.filter((route) => route !== '/research-digest')
+}
+
 export default async function sitemap() {
   const baseUrl = getSiteBaseUrl()
   const now = new Date()
 
   try {
-    const [researchers, trials, news] = await Promise.all([
+    const [settings, researchers, trials, news] = await Promise.all([
+      sanityFetch(queries.siteSettings),
       sanityFetch(queries.sitemapResearchers),
       sanityFetch(queries.sitemapTrials),
       sanityFetch(queries.sitemapNews)
     ])
-    const staticEntries = STATIC_ROUTES.map((route) => ({
+    const staticEntries = getStaticRoutes(settings).map((route) => ({
       url: `${baseUrl}${route}`,
       lastModified: now
     }))
@@ -57,7 +64,7 @@ export default async function sitemap() {
     return [...staticEntries, ...teamEntries, ...trialEntries, ...newsEntries]
   } catch (err) {
     console.error('Failed to generate sitemap', err)
-    return STATIC_ROUTES.map((route) => ({
+    return getStaticRoutes().map((route) => ({
       url: `${baseUrl}${route}`,
       lastModified: now
     }))
