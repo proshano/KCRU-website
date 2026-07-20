@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   fetchCrossrefPublications,
+  matchesResearcherAuthorList,
   reconstructOpenAlexAbstract,
 } from '../lib/secondaryPublications.js'
 
@@ -43,4 +44,35 @@ test('reconstructs OpenAlex inverted-index abstracts in word order', () => {
     reconstructOpenAlexAbstract({ abstract: [2], This: [0], is: [1], ordered: [3] }),
     'This is abstract ordered'
   )
+})
+
+test('secondary discovery rejects an ORCID result whose authors do not match the researcher', async () => {
+  const fetchFn = async () => new Response(JSON.stringify({
+    message: {
+      items: [{
+        DOI: '10.1200/jco-26-01201',
+        type: 'journal-article',
+        title: ['EXTENDing the Role of Radiation in Oligometastatic Disease'],
+        author: [
+          { given: 'Vivian S.', family: 'Tan', ORCID: 'https://orcid.org/0000-0001-9086-220X' },
+          { given: 'David A.', family: 'Palma' },
+        ],
+        'container-title': ['Journal of Clinical Oncology'],
+        'published-online': { 'date-parts': [[2026, 6, 24]] },
+      }],
+    },
+  }), { status: 200 })
+
+  const publications = await fetchCrossrefPublications(
+    { name: 'Kyla Naylor', orcid: '0000-0001-9086-220X' },
+    { fetchFn, sinceYear: 2025 }
+  )
+
+  assert.deepEqual(publications, [])
+})
+
+test('secondary author matching accepts full names and family-name-first initials', () => {
+  assert.equal(matchesResearcherAuthorList(['Kyla L. Naylor'], 'Kyla Naylor'), true)
+  assert.equal(matchesResearcherAuthorList(['Naylor KL'], 'Kyla Naylor'), true)
+  assert.equal(matchesResearcherAuthorList(['Vivian S. Tan', 'David A. Palma'], 'Kyla Naylor'), false)
 })
