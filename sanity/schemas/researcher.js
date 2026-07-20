@@ -67,7 +67,7 @@ const researcher = {
       name: 'publicationAuthorName',
       title: 'Publication Author Name',
       type: 'string',
-      description: 'Optional precise publication name, including middle initial, used to distinguish researchers with the same first and last name. This does not change the displayed name.'
+      description: 'Optional precise publication name, including middle initial, used to reject explicitly conflicting name variants. Sources that omit the middle initial remain eligible. This does not change the displayed name.'
     },
     {
       name: 'publicationExclusions',

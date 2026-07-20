@@ -95,6 +95,13 @@ test('Crossref name discovery rejects a namesake with a conflicting middle initi
           author: [{ given: 'Matthew R.', family: 'Weir' }],
           'published-online': { 'date-parts': [[2026, 1, 1]] },
         },
+        {
+          DOI: '10.1000/canadian-matthew-no-middle',
+          type: 'journal-article',
+          title: ['Canadian Matthew paper with no middle initial'],
+          author: [{ given: 'Matthew', family: 'Weir' }],
+          'published-online': { 'date-parts': [[2026, 1, 1]] },
+        },
       ],
     },
   }), { status: 200 })
@@ -108,5 +115,8 @@ test('Crossref name discovery rejects a namesake with a conflicting middle initi
     { fetchFn, sinceYear: 2025 }
   )
 
-  assert.deepEqual(publications.map((publication) => publication.doi), ['10.1000/canadian-matthew'])
+  assert.deepEqual(publications.map((publication) => publication.doi), [
+    '10.1000/canadian-matthew',
+    '10.1000/canadian-matthew-no-middle',
+  ])
 })
