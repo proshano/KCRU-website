@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { buildOutboundRedirectUrl } from '@/lib/outboundLinks'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
+import { getProvenanceIds, getPublicationKey } from '@/lib/publicationIdentity'
 import { isPublicationExcluded } from '@/lib/publicationExclusions'
 import FeaturedStudy from './components/FeaturedStudy'
 
@@ -46,7 +47,8 @@ export default async function HomePage() {
     const strippedResearchers = (normalizedResearchers || []).map(r => ({
       _id: r._id,
       name: r.name,
-      pubmedQuery: r.pubmedQuery
+      pubmedQuery: r.pubmedQuery,
+      orcid: r.orcid,
     }))
     const pubData = await getCachedPublicationsDisplay({
       researchers: strippedResearchers,
@@ -149,14 +151,14 @@ export default async function HomePage() {
     if (yearB !== yearA) return yearB - yearA  // newest first
     
     // Within same year, prioritize papers with more investigators for variety
-    const invCountA = (provenance?.[a.pmid] || []).length
-    const invCountB = (provenance?.[b.pmid] || []).length
+    const invCountA = getProvenanceIds(a, provenance).length
+    const invCountB = getProvenanceIds(b, provenance).length
     return invCountB - invCountA
   })
   
   const tickerItems = sortedPubs.slice(0, 20).map(pub => {
     // Get all investigators linked to this publication from provenance
-    const linkedInvestigators = (provenance?.[pub.pmid] || [])
+    const linkedInvestigators = getProvenanceIds(pub, provenance)
       .map(id => investigatorLookup.get(id))
       .filter(Boolean)
     
@@ -448,7 +450,7 @@ export default async function HomePage() {
                 const pubUrl = buildOutboundRedirectUrl(rawPubUrl)
                 return (
                   <a
-                    key={`${loop}-${pub.pmid || idx}`}
+                    key={`${loop}-${getPublicationKey(pub) || idx}`}
                     href={pubUrl}
                     target="_blank"
                     rel="noopener noreferrer"

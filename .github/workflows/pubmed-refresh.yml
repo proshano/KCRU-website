@@ -46,7 +46,9 @@ jobs:
           TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
           PUBMED_DOI_ABSTRACT_BACKFILL: "true"
+          DOI_BROWSER_FETCH: "true"
         run: npm run refresh:pubmed
 
       - name: Revalidate publication pages

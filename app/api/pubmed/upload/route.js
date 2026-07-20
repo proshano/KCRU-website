@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs/promises'
 import { writeClient } from '@/lib/sanity'
+import { getPublicationKey, toSanityPublicationKey, withPublicationKey } from '@/lib/publicationIdentity'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { CACHE_PATH } from '@/lib/pubmedCache'
 
@@ -77,24 +78,37 @@ export async function POST(request) {
     }
 
     // Convert to Sanity format
-    const publications = (localCache.publications || []).map((pub, idx) => ({
-      _key: pub.pmid || `pub-${idx}`,
-      pmid: pub.pmid,
-      title: pub.title,
-      publishedAt: pub.publishedAt || null,
-      authors: pub.authors || [],
-      journal: pub.journal,
-      year: pub.year,
-      month: pub.month,
-      abstract: pub.abstract,
-      doi: pub.doi,
-      pubmedUrl: pub.pubmedUrl || pub.url || null,
-      laySummary: pub.laySummary || null,
-    }))
+    const publications = (localCache.publications || []).map((pub, idx) => {
+      const normalized = withPublicationKey(pub)
+      return {
+        _key: toSanityPublicationKey(normalized, `pub-${idx}`),
+        publicationKey: normalized.publicationKey,
+        pmid: normalized.pmid || null,
+        title: normalized.title,
+        publishedAt: normalized.publishedAt || null,
+        authors: normalized.authors || [],
+        journal: normalized.journal,
+        year: normalized.year,
+        month: normalized.month,
+        abstract: normalized.abstract,
+        abstractContentType: normalized.abstractContentType || null,
+        abstractSource: normalized.abstractSource || null,
+        doi: normalized.doi,
+        source: normalized.source || null,
+        sources: normalized.sources || [],
+        openAlexId: normalized.openAlexId || null,
+        europePmcId: normalized.europePmcId || null,
+        url: normalized.url || normalized.pubmedUrl || null,
+        pubmedUrl: normalized.pubmedUrl || (normalized.source === 'pubmed' && normalized.pmid ? normalized.url : null) || null,
+        laySummary: normalized.laySummary || null,
+      }
+    })
 
-    const provenanceArray = Object.entries(localCache.provenance || {}).map(([pmid, ids]) => ({
-      _key: pmid,
-      pmid,
+    const publicationsByKey = new Map((localCache.publications || []).map((pub) => [getPublicationKey(pub), pub]))
+    const provenanceArray = Object.entries(localCache.provenance || {}).map(([publicationKey, ids]) => ({
+      _key: toSanityPublicationKey({ publicationKey }),
+      publicationKey,
+      pmid: publicationsByKey.get(publicationKey)?.pmid || null,
       researcherIds: Array.isArray(ids) ? ids : Array.from(ids || []),
     }))
 

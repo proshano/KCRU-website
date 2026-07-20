@@ -5,6 +5,7 @@ import { buildOutboundRedirectUrl } from '@/lib/outboundLinks'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
 import { isPublicationExcluded } from '@/lib/publicationExclusions'
+import { getProvenanceIds } from '@/lib/publicationIdentity'
 import PublicationsBrowser from '@/app/publications/PublicationsBrowser'
 import { buildOpenGraph, buildTwitterMetadata, getSiteBaseUrl, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 import JsonLd from '@/app/components/JsonLd'
@@ -139,10 +140,11 @@ export default async function TeamMemberPage({ params }) {
     _id: r._id,
     name: r.name,
     slug: r.slug,
-    pubmedQuery: r.pubmedQuery
+    pubmedQuery: r.pubmedQuery,
+    orcid: r.orcid,
   }))
   let publicationsBundle = null
-  if (profile.pubmedQuery) {
+  if (profile.pubmedQuery || profile.orcid) {
     try {
       const fullBundle = await getCachedPublicationsDisplay({
         researchers: strippedResearchers,
@@ -274,7 +276,7 @@ export default async function TeamMemberPage({ params }) {
 
         <PublicationsSection
           publicationsBundle={publicationsBundle}
-          hasQuery={Boolean(profile.pubmedQuery)}
+          hasQuery={Boolean(profile.pubmedQuery || profile.orcid)}
           altmetricEnabled={altmetricEnabled}
           researchers={(researchers || []).map(r => ({
             _id: r._id,
@@ -302,7 +304,7 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers, altmet
     return (
       <section className="space-y-3">
         <h2 className="text-xl font-bold tracking-tight">Publications</h2>
-        <p className="text-[#666] text-sm">Add a PubMed query in Sanity to show this researcher&apos;s publications.</p>
+        <p className="text-[#666] text-sm">Add a PubMed query or ORCID in Sanity to show this researcher&apos;s publications.</p>
       </section>
     )
   }
@@ -345,7 +347,7 @@ function filterPublicationsForResearcher(bundle, researcherId, researcherName) {
   if (!bundle) return []
   const provenance = bundle.provenance || {}
   const pubs = bundle.publications || []
-  const fromProvenance = pubs.filter(pub => (provenance[pub.pmid] || []).includes(researcherId))
+  const fromProvenance = pubs.filter(pub => getProvenanceIds(pub, provenance).includes(researcherId))
   if (fromProvenance.length > 0) return fromProvenance
 
   if (!researcherName) return []

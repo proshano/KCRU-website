@@ -38,6 +38,7 @@ const pubmedCache = {
         {
           type: 'object',
           fields: [
+            { name: 'publicationKey', type: 'string', title: 'Canonical Publication Key' },
             { name: 'pmid', type: 'string', title: 'PMID' },
             { name: 'title', type: 'string', title: 'Title' },
             { name: 'publishedAt', type: 'datetime', title: 'Published At' },
@@ -45,9 +46,26 @@ const pubmedCache = {
             { name: 'journal', type: 'string', title: 'Journal' },
             { name: 'year', type: 'number', title: 'Year' },
             { name: 'month', type: 'string', title: 'Month' },
-            { name: 'abstract', type: 'text', title: 'Abstract' },
+            { name: 'abstract', type: 'text', title: 'Abstract or Article Body Text' },
+            {
+              name: 'abstractContentType',
+              type: 'string',
+              title: 'Publication Text Type',
+              options: {
+                list: [
+                  { title: 'Abstract', value: 'abstract' },
+                  { title: 'Article body fallback', value: 'article_body' },
+                ],
+              },
+            },
+            { name: 'abstractSource', type: 'string', title: 'Publication Text Source' },
             { name: 'doi', type: 'string', title: 'DOI' },
+            { name: 'source', type: 'string', title: 'Primary Metadata Source' },
+            { name: 'sources', type: 'array', of: [{ type: 'string' }], title: 'Discovery Sources' },
+            { name: 'openAlexId', type: 'string', title: 'OpenAlex ID' },
+            { name: 'europePmcId', type: 'string', title: 'Europe PMC ID' },
             { name: 'publicationTypes', type: 'array', of: [{ type: 'string' }], title: 'PubMed Publication Types' },
+            { name: 'url', type: 'url', title: 'Publication URL' },
             { name: 'pubmedUrl', type: 'url', title: 'PubMed URL' },
             { name: 'laySummary', type: 'text', title: 'Lay Summary' },
             { name: 'topics', type: 'array', of: [{ type: 'string' }], title: 'Topics' },
@@ -67,6 +85,7 @@ const pubmedCache = {
         {
           type: 'object',
           fields: [
+            { name: 'publicationKey', type: 'string', title: 'Canonical Publication Key' },
             { name: 'pmid', type: 'string', title: 'PMID' },
             { name: 'researcherIds', type: 'array', of: [{ type: 'string' }], title: 'Researcher IDs' },
           ],

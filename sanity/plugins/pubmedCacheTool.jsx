@@ -75,7 +75,9 @@ function PubmedCacheTool() {
     setSearching(true)
     try {
       const publications = await fetchSanityQuery(`*[_type == "pubmedCache"][0].publications[]{
+        publicationKey,
         pmid,
+        doi,
         title,
         journal,
         year,
@@ -85,6 +87,7 @@ function PubmedCacheTool() {
       const matches = (publications || []).filter((publication) => {
         return publication.title?.toLowerCase().includes(term) ||
           publication.pmid?.includes(term) ||
+          publication.doi?.toLowerCase().includes(term) ||
           publication.journal?.toLowerCase().includes(term) ||
           publication.authors?.some((author) => author?.toLowerCase().includes(term)) ||
           publication.laySummary?.toLowerCase().includes(term)
@@ -157,10 +160,12 @@ function PubmedCacheTool() {
               <Stack space={3}>
                 <Text size={1} muted>{searchResults.length ? `${searchResults.length} result(s)` : 'No results found'}</Text>
                 {searchResults.map((publication) => (
-                  <Card key={publication.pmid} padding={3} radius={2} tone="transparent">
+                  <Card key={publication.publicationKey || publication.pmid || publication.doi} padding={3} radius={2} tone="transparent">
                     <Stack space={2}>
                       <Text size={1} weight="semibold">{publication.title}</Text>
-                      <Text size={0} muted>{publication.journal} | {publication.year} | PMID {publication.pmid}</Text>
+                      <Text size={0} muted>
+                        {publication.journal} | {publication.year} | {publication.pmid ? `PMID ${publication.pmid}` : `DOI ${publication.doi}`}
+                      </Text>
                       {publication.laySummary && <Text size={1}>{publication.laySummary}</Text>}
                     </Stack>
                   </Card>

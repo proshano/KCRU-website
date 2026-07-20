@@ -10,6 +10,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import { createClient } from '@sanity/client'
 import { isPublicationExcluded, normalizePublicationTypes } from '../lib/publicationExclusions.js'
+import { getPublicationKey, toSanityPublicationKey, withPublicationKey } from '../lib/publicationIdentity.js'
 
 const CACHE_PATH = path.join(process.cwd(), 'runtime', 'pubmed-cache.json')
 const CACHE_DOC_ID = 'pubmedCache'
@@ -57,31 +58,42 @@ async function main() {
   }
 
   const publications = (localCache.publications || []).map((pub, idx) => {
+    const normalized = withPublicationKey(pub)
     const publicationTypes = normalizePublicationTypes(pub.publicationTypes || pub.pubTypes || pub.pubtype)
     return {
-      _key: pub.pmid || `pub-${idx}`,
-      pmid: pub.pmid,
-      title: pub.title,
-      publishedAt: pub.publishedAt || null,
-      authors: pub.authors || [],
-      journal: pub.journal,
-      year: pub.year,
-      month: pub.month,
-      abstract: pub.abstract,
-      doi: pub.doi,
+      _key: toSanityPublicationKey(normalized, `pub-${idx}`),
+      publicationKey: normalized.publicationKey,
+      pmid: normalized.pmid || null,
+      title: normalized.title,
+      publishedAt: normalized.publishedAt || null,
+      authors: normalized.authors || [],
+      journal: normalized.journal,
+      year: normalized.year,
+      month: normalized.month,
+      abstract: normalized.abstract,
+      abstractContentType: normalized.abstractContentType || null,
+      abstractSource: normalized.abstractSource || null,
+      doi: normalized.doi,
+      source: normalized.source || null,
+      sources: normalized.sources || [],
+      openAlexId: normalized.openAlexId || null,
+      europePmcId: normalized.europePmcId || null,
       publicationTypes,
-      pubmedUrl: pub.pubmedUrl || pub.url || null,
-      laySummary: pub.laySummary || null,
-      topics: pub.topics || [],
-      studyDesign: pub.studyDesign || [],
-      methodologicalFocus: pub.methodologicalFocus || [],
-      exclude: isPublicationExcluded({ ...pub, publicationTypes }),
+      url: normalized.url || normalized.pubmedUrl || null,
+      pubmedUrl: normalized.pubmedUrl || (normalized.source === 'pubmed' && normalized.pmid ? normalized.url : null) || null,
+      laySummary: normalized.laySummary || null,
+      topics: normalized.topics || [],
+      studyDesign: normalized.studyDesign || [],
+      methodologicalFocus: normalized.methodologicalFocus || [],
+      exclude: isPublicationExcluded({ ...normalized, publicationTypes }),
     }
   })
 
-  const provenanceArray = Object.entries(localCache.provenance || {}).map(([pmid, ids]) => ({
-    _key: pmid,
-    pmid,
+  const publicationsByKey = new Map((localCache.publications || []).map((pub) => [getPublicationKey(pub), pub]))
+  const provenanceArray = Object.entries(localCache.provenance || {}).map(([publicationKey, ids]) => ({
+    _key: toSanityPublicationKey({ publicationKey }),
+    publicationKey,
+    pmid: publicationsByKey.get(publicationKey)?.pmid || null,
     researcherIds: Array.isArray(ids) ? ids : Array.from(ids || []),
   }))
 

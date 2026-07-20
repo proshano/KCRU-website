@@ -132,7 +132,7 @@ export async function POST(request) {
     const pub = cache.publications[pubIndex]
     
     if (!pub.abstract || pub.abstract.length < 50) {
-      return NextResponse.json({ ok: false, error: 'Publication has no abstract - cannot generate summary' }, { status: 400, headers: CORS_HEADERS })
+      return NextResponse.json({ ok: false, error: 'Publication has no abstract or article body text - cannot generate summary' }, { status: 400, headers: CORS_HEADERS })
     }
 
     // Fetch settings from Sanity
@@ -144,6 +144,7 @@ export async function POST(request) {
 
     // Generate new summary using settings
     const result = await generateLaySummary(pub.title, pub.abstract, {
+      sourceTextType: pub.abstractContentType,
       provider,
       model,
       meta: { pmid: pub.pmid },

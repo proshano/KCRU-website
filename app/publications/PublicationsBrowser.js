@@ -8,6 +8,7 @@ import { getShareButtons, shareIcons } from '@/lib/sharing'
 import { urlFor } from '@/lib/sanity'
 import { comparePublicationsByDisplayDate, findResearchersForPublication } from '@/lib/publicationUtils'
 import { isPublicationExcluded } from '@/lib/publicationExclusions'
+import { getPublicationKey } from '@/lib/publicationIdentity'
 
 const DEFAULT_VISIBLE_TAGS = 5
 const METHODS_VISIBLE_TAGS = 4
@@ -405,7 +406,7 @@ function YearBlock({ year, pubs, researchers, provenance, altmetricEnabled, onTa
         <div className="border-t border-black/[0.06] divide-y divide-black/[0.06]">
           {pubs.map((pub) => (
             <PublicationItem
-              key={pub.pmid}
+              key={getPublicationKey(pub)}
               pub={pub}
               researchers={researchers}
               provenance={provenance}
@@ -428,7 +429,8 @@ function PublicationItem({ pub, researchers, provenance, altmetricEnabled, onTag
   const matchedResearchers = findResearchersForPublication(pub, researchers, provenance)
   const hasAltmetricId = Boolean(pub?.doi || pub?.pmid)
   const showAltmetric = altmetricEnabled && hasAltmetricId
-  const publicationHref = buildOutboundRedirectUrl(pub.url || `https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/`)
+  const rawPublicationHref = pub.url || (pub.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/` : `https://doi.org/${pub.doi}`)
+  const publicationHref = buildOutboundRedirectUrl(rawPublicationHref)
 
   return (
     <article className="p-6 space-y-3 bg-white border border-black/[0.05] shadow-sm rounded">

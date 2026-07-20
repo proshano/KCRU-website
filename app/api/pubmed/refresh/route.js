@@ -104,6 +104,7 @@ async function runRefresh({ isCron = false } = {}) {
       name: r.name,
       slug: r.slug,
       pubmedQuery: r.pubmedQuery,
+      orcid: r.orcid,
     }))
 
     // Cron runs with limited summaries to fit timeout; manual runs do all

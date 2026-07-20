@@ -30,6 +30,7 @@ async function main() {
       name: r.name,
       slug: r.slug,
       pubmedQuery: r.pubmedQuery,
+      orcid: r.orcid,
     }))
     const provider = settings.llmProvider || process.env.LLM_PROVIDER || 'openrouter'
 
@@ -58,9 +59,9 @@ async function main() {
     })
 
     if (!hasLlmAccess && summaryCandidates.length > 0) {
-      const samplePmids = summaryCandidates.slice(0, 5).map((pub) => pub.pmid).filter(Boolean)
+      const sampleIds = summaryCandidates.slice(0, 5).map((pub) => pub.pmid || pub.doi).filter(Boolean)
       throw new Error(
-        `[pubmed] ${summaryCandidates.length} publication(s) still need summaries, but no LLM credentials are configured for provider "${provider}". Configure the GitHub Actions secret for that provider. Sample PMID(s): ${samplePmids.join(', ')}`
+        `[pubmed] ${summaryCandidates.length} publication(s) still need summaries, but no LLM credentials are configured for provider "${provider}". Configure the GitHub Actions secret for that provider. Sample publication ID(s): ${sampleIds.join(', ')}`
       )
     }
 

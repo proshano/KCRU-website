@@ -67,7 +67,8 @@ export default async function PublicationsPage() {
   const strippedResearchers = (researchers || []).map(r => ({
     _id: r._id,
     name: r.name,
-    pubmedQuery: r.pubmedQuery
+    pubmedQuery: r.pubmedQuery,
+    orcid: r.orcid,
   }))
 
   let bundle = { publications: [], provenance: {}, byYear: {}, years: [], meta: {} }
