@@ -69,22 +69,15 @@ export default async function ResearchDigestIssuePage({ params }) {
       <section className="space-y-5">
         {papers.map((paper) => (
           <article key={paper._id} className="bg-white border border-black/[0.06] p-5 md:p-6 space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-2">
-                <h2 className="text-xl font-semibold leading-snug">
-                  <a href={paper.url || `https://pubmed.ncbi.nlm.nih.gov/${paper.pmid}/`} target="_blank" rel="noreferrer">
-                    {paper.title}
-                  </a>
-                </h2>
-                <p className="text-sm text-[#666]">
-                  {[paper.journal, paper.pubDate || paper.year].filter(Boolean).join(' - ')}
-                </p>
-              </div>
-              {paper.tier && (
-                <span className="text-xs font-semibold text-purple bg-purple/10 px-3 py-1">
-                  {paper.tier}
-                </span>
-              )}
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold leading-snug">
+                <a href={paper.url || `https://pubmed.ncbi.nlm.nih.gov/${paper.pmid}/`} target="_blank" rel="noreferrer">
+                  {paper.title}
+                </a>
+              </h2>
+              <p className="text-sm text-[#666]">
+                {[paper.journal, paper.pubDate || paper.year].filter(Boolean).join(' - ')}
+              </p>
             </div>
             {paper.whyItMatters && (
               <p className="text-sm text-[#333]">

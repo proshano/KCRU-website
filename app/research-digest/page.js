@@ -41,8 +41,9 @@ export default async function ResearchDigestPage() {
       <header className="space-y-3">
         <h1 className="text-4xl font-bold tracking-tight">Kidney research digest</h1>
         <p className="text-[#666] max-w-3xl">
-          A curated weekday scan of kidney-relevant papers from high-impact medicine, nephrology, dialysis,
-          transplantation, and adjacent journals. Items appear here after staff approval.
+          A weekday scan of kidney-relevant papers from high-impact medicine, nephrology, dialysis,
+          transplantation, and adjacent journals. Each issue carries only the strongest new work,
+          so quiet days are skipped rather than padded.
         </p>
         <div className="flex flex-wrap gap-3">
           <Link href="/updates" className="btn-primary" prefetch={false}>Subscribe</Link>

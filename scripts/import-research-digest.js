@@ -28,8 +28,13 @@ function summarize(result) {
       created: papers.created || 0,
       llmTriageAttempts: papers.llmTriageAttempts || 0,
       triageErrors: papers.triageErrors || 0,
+      pool: papers.selection?.pool || 0,
       eligible: papers.selection?.eligible || 0,
       selected: papers.selection?.selected || 0,
+      carriedOver: papers.selection?.carriedOver || 0,
+      deferred: papers.selection?.deferred || 0,
+      scores: papers.selection?.scores || { count: 0 },
+      truncatedGroups: Array.isArray(papers.truncatedGroups) ? papers.truncatedGroups : [],
       errors: Array.isArray(papers.errors) ? papers.errors.length : 0,
     },
     opportunities: {
@@ -44,18 +49,48 @@ function summarize(result) {
 
 async function writeGitHubSummary(summary) {
   if (!process.env.GITHUB_STEP_SUMMARY) return
+  const scores = summary.papers.scores || { count: 0 }
   const lines = [
     '## Research digest import',
     '',
     `- Issue date: ${summary.issueDate || 'unknown'}`,
     `- Papers fetched: ${summary.papers.fetched}`,
     `- New papers triaged: ${summary.papers.created}`,
+    `- Selection pool (today + carryover): ${summary.papers.pool}`,
     `- Qualifying papers: ${summary.papers.eligible}`,
     `- Papers selected for email: ${summary.papers.selected}`,
+    `- Carried over from an earlier day: ${summary.papers.carriedOver}`,
+    `- Deferred to a later issue: ${summary.papers.deferred}`,
     `- Triage errors: ${summary.papers.triageErrors}`,
     `- Source errors: ${summary.papers.errors + summary.opportunities.errors}`,
     '',
   ]
+
+  // Score distribution makes threshold drift visible instead of silently changing volume.
+  if (scores.count) {
+    lines.push(
+      '### Priority score distribution',
+      '',
+      `- Scored papers: ${scores.count}`,
+      `- Max / median / min: ${scores.max} / ${scores.median} / ${scores.min}`,
+      `- At least 90: ${scores.atLeast90} | at least 75: ${scores.atLeast75} | at least 60: ${scores.atLeast60}`,
+      '',
+    )
+  }
+
+  if (summary.papers.truncatedGroups?.length) {
+    lines.push(
+      '### Truncated journal groups',
+      '',
+      ...summary.papers.truncatedGroups.map(
+        (group) => `- ${group.source}: retrieved ${group.retrieved} of ${group.total} matches`
+      ),
+      '',
+      'Raise `RESEARCH_DIGEST_MAX_PUBMED_PER_GROUP` if these are dropping relevant papers.',
+      '',
+    )
+  }
+
   await appendFile(process.env.GITHUB_STEP_SUMMARY, lines.join('\n'))
 }
 
@@ -78,8 +113,13 @@ async function main() {
           created: 0,
           llmTriageAttempts: 0,
           triageErrors: 0,
+          pool: selection.pool || 0,
           eligible: selection.eligible || 0,
           selected: selection.selected || 0,
+          carriedOver: selection.carriedOver || 0,
+          deferred: selection.deferred || 0,
+          scores: selection.scores || { count: 0 },
+          truncatedGroups: [],
           errors: 0,
         },
         opportunities: {

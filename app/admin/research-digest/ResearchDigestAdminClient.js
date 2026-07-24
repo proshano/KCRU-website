@@ -12,8 +12,9 @@ const EMPTY_PAYLOAD = {
   digestSettings: {
     publicEnabled: false,
     automaticSelection: true,
-    maxPapers: 3,
+    maxPapers: 1,
     minPriorityScore: 75,
+    carryoverDays: 7,
     pilotMode: false,
   },
 }
@@ -154,10 +155,13 @@ export default function ResearchDigestAdminClient() {
       {payload.digestSettings?.automaticSelection && (
         <section className="bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-900">
           Automated mode is on. Each weekday the system selects up to{' '}
-          {payload.digestSettings.maxPapers} papers scoring at least{' '}
+          {payload.digestSettings.maxPapers}{' '}
+          {payload.digestSettings.maxPapers === 1 ? 'paper' : 'papers'} scoring at least{' '}
           {payload.digestSettings.minPriorityScore}/100, approves the issue when at least one paper qualifies, and sends
           only if subscribers opted into the research digest
-          {payload.digestSettings.pilotMode ? ' (pilot recipients only).' : '.'}
+          {payload.digestSettings.pilotMode ? ' (pilot recipients only).' : '.'}{' '}
+          A qualifying paper that loses its slot stays eligible for{' '}
+          {payload.digestSettings.carryoverDays ?? 7} days rather than being discarded.
         </section>
       )}
 

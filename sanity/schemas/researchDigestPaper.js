@@ -31,7 +31,22 @@ const researchDigestPaper = {
       name: 'issueDate',
       title: 'Issue Date',
       type: 'date',
+      description: 'The issue this paper belongs to. A deferred paper moves forward to a later issue when it is finally selected.',
       validation: (Rule) => Rule.required(),
+    },
+    {
+      name: 'discoveredDate',
+      title: 'Discovered Date',
+      type: 'date',
+      description: 'The day this paper was first imported. Bounds how long a deferred paper stays eligible for carryover.',
+      readOnly: true,
+    },
+    {
+      name: 'carriedOverFrom',
+      title: 'Carried Over From',
+      type: 'date',
+      description: 'Set when a paper was selected for a later issue than the one it was discovered in.',
+      readOnly: true,
     },
     {
       name: 'pmid',
@@ -168,6 +183,7 @@ const researchDigestPaper = {
       options: {
         list: [
           { title: 'Selected', value: 'selected' },
+          { title: 'Deferred (still eligible for a later issue)', value: 'deferred' },
           { title: 'Not selected', value: 'not_selected' },
         ],
       },

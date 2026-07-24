@@ -67,6 +67,13 @@ const researchDigestIssue = {
       readOnly: true,
     },
     {
+      name: 'carriedOverPaperCount',
+      title: 'Carried Over Paper Count',
+      type: 'number',
+      description: 'How many of the selected papers were discovered on an earlier day and deferred until this issue.',
+      readOnly: true,
+    },
+    {
       name: 'createdAt',
       title: 'Created At',
       type: 'datetime',

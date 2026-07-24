@@ -792,8 +792,8 @@ const siteSettings = {
           name: 'subjectTemplate',
           title: 'Email Subject Template',
           type: 'string',
-          description: 'Use {{date}}, {{paperCount}}, or {{opportunityCount}}.',
-          initialValue: 'Today’s kidney research: {{paperCount}} papers - {{date}}'
+          description: 'Use {{leadTitle}} (top paper, truncated), {{andMore}} (" + 2 more"), {{date}}, {{paperCount}}, {{paperNoun}}, {{opportunityCount}}, or {{opportunityNoun}}. Noun tokens pluralize automatically. Leading with {{leadTitle}} is the strongest subject line; it falls back automatically on days with no papers.',
+          initialValue: '{{leadTitle}}{{andMore}} - {{date}}'
         },
         {
           name: 'introText',
@@ -825,9 +825,17 @@ const siteSettings = {
           name: 'maxPapers',
           title: 'Max Papers Per Email',
           type: 'number',
-          description: 'The automated selector sends no more than this many papers per weekday.',
-          initialValue: 3,
-          validation: Rule => Rule.min(1).max(30)
+          description: 'The automated selector sends no more than this many papers per weekday. Defaults to the single top paper; 3 is the hard maximum a subscriber can ever receive in a day.',
+          initialValue: 1,
+          validation: Rule => Rule.min(1).max(3)
+        },
+        {
+          name: 'carryoverDays',
+          title: 'Carryover Days',
+          type: 'number',
+          description: 'A qualifying paper that loses its slot stays eligible for this many days so a strong paper is not discarded just because a stronger one arrived the same day. Set to 0 to only ever consider papers found that day.',
+          initialValue: 7,
+          validation: Rule => Rule.min(0).max(30)
         },
         {
           name: 'minPriorityScore',

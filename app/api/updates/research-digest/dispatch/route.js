@@ -276,6 +276,9 @@ async function runDispatch({ force = false, issueDate, settingsPayload } = {}) {
         subject: email.subject,
         text: email.text,
         html: email.html,
+        // Surfaces the native unsubscribe affordance in Gmail/Outlook, which materially
+        // helps inbox placement for a recurring send.
+        headers: email.manageUrl ? { 'List-Unsubscribe': `<${email.manageUrl}>` } : undefined,
         idempotencyKey: force ? undefined : buildIdempotencyKey(bundle.issue._id, subscriber),
       })
       if (result?.skipped) {

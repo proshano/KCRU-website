@@ -234,6 +234,7 @@ export async function GET(request) {
         automaticSelection: settings.automaticSelection,
         maxPapers: settings.maxPapers,
         minPriorityScore: settings.minPriorityScore,
+        carryoverDays: settings.carryoverDays,
         pilotMode: settings.pilotMode,
       },
       ...payload,

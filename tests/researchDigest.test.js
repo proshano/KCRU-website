@@ -7,11 +7,13 @@ process.env.NEXT_PUBLIC_SANITY_DATASET ||= 'test'
 const {
   buildJournalGroupPubMedQuery,
   buildKidneyTopicPubMedFilter,
+  getCarryoverStartDate,
   getResearchDigestWindow,
   hasExcludedDigestPublicationType,
   normalizeOpportunityUrl,
   parseOpportunityFeed,
   selectAutomatedDigestPapers,
+  summarizeDigestPoolScores,
 } = await import('../lib/researchDigest.js')
 
 const {
@@ -102,10 +104,43 @@ test('research digest settings default to a small automated daily send', () => {
 
   assert.equal(settings.automaticSelection, true)
   assert.equal(settings.publicEnabled, false)
-  assert.equal(settings.maxPapers, 3)
+  assert.equal(settings.maxPapers, 1)
   assert.equal(settings.minPriorityScore, 75)
   assert.equal(settings.pilotMode, false)
   assert.deepEqual(settings.pilotRecipients, [])
+})
+
+test('research digest never sends more than three papers a day', () => {
+  assert.equal(normalizeSettingsFromConfig({ maxPapers: 30 }).maxPapers, 3)
+  assert.equal(normalizeSettingsFromConfig({ maxPapers: 4 }).maxPapers, 3)
+  assert.equal(normalizeSettingsFromConfig({ maxPapers: 3 }).maxPapers, 3)
+  assert.equal(normalizeSettingsFromConfig({ maxPapers: 2 }).maxPapers, 2)
+  assert.equal(normalizeSettingsFromConfig({ maxPapers: 0 }).maxPapers, 1)
+  assert.equal(normalizeSettingsFromConfig({ maxPapers: -5 }).maxPapers, 1)
+})
+
+test('automated selection defaults to the single top paper', () => {
+  const base = {
+    triageStatus: 'include',
+    tier: 'Tier 2',
+    whyItMatters: 'Useful to kidney clinicians.',
+    summary: 'A concise, complete summary.',
+    publicationTypes: ['Journal Article'],
+  }
+  const papers = [
+    { ...base, _id: 'runner-up', pmid: '2', priorityScore: 88 },
+    { ...base, _id: 'top', pmid: '1', priorityScore: 95 },
+    { ...base, _id: 'third', pmid: '3', priorityScore: 80 },
+  ]
+
+  assert.deepEqual(
+    selectAutomatedDigestPapers(papers, normalizeSettingsFromConfig({})).map((paper) => paper._id),
+    ['top']
+  )
+  assert.deepEqual(
+    selectAutomatedDigestPapers(papers, normalizeSettingsFromConfig({ maxPapers: 30 })).map((paper) => paper._id),
+    ['top', 'runner-up', 'third']
+  )
 })
 
 test('research digest public launch requires an explicit enable flag', () => {
@@ -166,6 +201,51 @@ test('automated selection supports legacy papers using tier fallback scores', ()
   })
 
   assert.deepEqual(selected.map((paper) => paper._id), ['tier-1', 'tier-2'])
+})
+
+test('carryover window bounds how long a deferred paper stays eligible', () => {
+  assert.equal(getCarryoverStartDate('2026-07-24', 7), '2026-07-17')
+  assert.equal(getCarryoverStartDate('2026-07-24', 0), '2026-07-24')
+  assert.equal(getCarryoverStartDate('2026-03-01', 1), '2026-02-28')
+  assert.equal(getCarryoverStartDate('2026-01-01', 1), '2025-12-31')
+  assert.equal(getCarryoverStartDate('2026-07-24', undefined), '2026-07-24')
+})
+
+test('research digest carries qualifying papers forward by default', () => {
+  assert.equal(normalizeSettingsFromConfig({}).carryoverDays, 7)
+  assert.equal(normalizeSettingsFromConfig({ carryoverDays: 60 }).carryoverDays, 30)
+  assert.equal(normalizeSettingsFromConfig({ carryoverDays: 0 }).carryoverDays, 0)
+  assert.equal(normalizeSettingsFromConfig({ carryoverDays: null }).carryoverDays, 7)
+})
+
+test('a deferred paper still beats a weaker paper found today', () => {
+  const base = {
+    triageStatus: 'include',
+    tier: 'Tier 1',
+    whyItMatters: 'Useful to kidney clinicians.',
+    summary: 'A concise, complete summary.',
+    publicationTypes: ['Journal Article'],
+  }
+  const pool = [
+    { ...base, _id: 'today-weaker', pmid: '9', priorityScore: 78, discoveredDate: '2026-07-24' },
+    { ...base, _id: 'deferred-stronger', pmid: '8', priorityScore: 93, discoveredDate: '2026-07-21', autoSelectionStatus: 'deferred' },
+  ]
+
+  const selected = selectAutomatedDigestPapers(pool, normalizeSettingsFromConfig({}))
+  assert.deepEqual(selected.map((paper) => paper._id), ['deferred-stronger'])
+})
+
+test('pool score summary exposes threshold drift', () => {
+  const papers = [95, 88, 76, 74, 60, 30].map((priorityScore, index) => ({ _id: `p${index}`, priorityScore }))
+  const summary = summarizeDigestPoolScores(papers)
+
+  assert.equal(summary.count, 6)
+  assert.equal(summary.max, 95)
+  assert.equal(summary.min, 30)
+  assert.equal(summary.atLeast90, 1)
+  assert.equal(summary.atLeast75, 3)
+  assert.equal(summary.atLeast60, 5)
+  assert.deepEqual(summarizeDigestPoolScores([]), { count: 0 })
 })
 
 test('excludes low-value publication types before LLM selection', () => {
