@@ -6,6 +6,7 @@ import { sendEmail } from '@/lib/email'
 import { extractBearerToken } from '@/lib/httpUtils'
 import { buildResearchDigestEmail } from '@/lib/researchDigestEmailTemplate'
 import {
+  fetchResearchDigestIssueBundle,
   fetchResearchDigestSettings,
   formatResearchDigestDate,
   isWeekdayInTimeZone,
@@ -28,58 +29,6 @@ const CRON_SECRET = process.env.CRON_SECRET || ''
 
 function normalizeDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? String(value) : formatResearchDigestDate()
-}
-
-async function fetchIssueBundle({ issueDate, maxPapers, maxOpportunities, automaticSelection }) {
-  const today = formatResearchDigestDate()
-  const query = `{
-    "issue": *[_type == "researchDigestIssue" && date == $issueDate][0]{
-      _id,
-      title,
-      date,
-      "slug": slug.current,
-      status,
-      intro,
-      approvedAt,
-      sentAt
-    },
-    "papers": *[_type == "researchDigestPaper" && issueDate == $issueDate && approvalStatus == "approved" && autoSelectionExcluded != true && ($automaticSelection == false || autoSelected == true)] | order(priorityScore desc, tier asc, journal asc, title asc)[0...$maxPapers]{
-      _id,
-      pmid,
-      doi,
-      title,
-      authors,
-      journal,
-      pubDate,
-      year,
-      url,
-      matchedJournalGroups,
-      tier,
-      priorityScore,
-      whyItMatters,
-      summary,
-      topics
-    },
-    "opportunities": *[_type == "researchOpportunity" && $automaticSelection == false && approvalStatus == "approved" && status in ["open", "upcoming"] && (!defined(deadline) || deadline >= $today)] | order(deadline asc, title asc)[0...$maxOpportunities]{
-      _id,
-      type,
-      status,
-      sourceName,
-      title,
-      description,
-      deadline,
-      eligibility,
-      url,
-      topics
-    }
-  }`
-  return writeClient.fetch(query, {
-    issueDate,
-    today,
-    maxPapers,
-    maxOpportunities,
-    automaticSelection,
-  })
 }
 
 async function fetchSubscribers({ issueDate, force }) {
@@ -157,7 +106,7 @@ async function runDispatch({ force = false, issueDate, settingsPayload } = {}) {
       issueDate: selectedDate,
     }
   }
-  const bundle = await fetchIssueBundle({
+  const bundle = await fetchResearchDigestIssueBundle({
     issueDate: selectedDate,
     maxPapers: settings.maxPapers,
     maxOpportunities: settings.maxOpportunities,

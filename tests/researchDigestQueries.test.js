@@ -6,15 +6,64 @@ process.env.NEXT_PUBLIC_SANITY_DATASET ||= 'test'
 
 const { parse, evaluate } = await import('groq-js')
 const { buildDigestSelectionPoolQuery } = await import('../lib/researchDigest.js')
+const { buildResearchDigestAdminQuery } = await import('../lib/researchDigestAdminView.js')
 const { queries } = await import('../lib/sanity.js')
 
 const POOL_QUERY = buildDigestSelectionPoolQuery()
+const ADMIN_QUERY = buildResearchDigestAdminQuery()
 
 // GROQ syntax errors only surface at runtime against a live dataset, so parse them here.
 test('research digest GROQ queries parse', () => {
   assert.doesNotThrow(() => parse(POOL_QUERY), 'selection pool query')
+  assert.doesNotThrow(() => parse(buildDigestSelectionPoolQuery({ includeAdminFields: true })), 'admin pool query')
+  assert.doesNotThrow(() => parse(ADMIN_QUERY), 'admin console payload query')
   assert.doesNotThrow(() => parse(queries.researchDigestIssues), 'archive list query')
   assert.doesNotThrow(() => parse(queries.researchDigestIssueBySlug), 'archive issue query')
+})
+
+// The admin query embeds the selection-pool sub-query, which reads $issueDate. Introducing a
+// separate $date param for the outer sections leaves the pool comparing against undefined, which
+// quietly drops every already-selected paper instead of erroring.
+test('the admin query and its embedded pool sub-query share one date parameter', () => {
+  assert.match(POOL_QUERY, /\$issueDate/)
+  assert.match(ADMIN_QUERY, /\$issueDate/)
+  assert.doesNotMatch(ADMIN_QUERY, /\$date\b/)
+})
+
+test('the admin console query returns every section the page reads', async () => {
+  const dataset = [
+    { _id: 'issue-today', _type: 'researchDigestIssue', date: '2026-07-24', status: 'approved', selectedPaperCount: 1, carriedOverPaperCount: 1, slug: { current: '2026-07-24' } },
+    { _id: 'issue-old', _type: 'researchDigestIssue', date: '2026-07-23', status: 'sent', selectedPaperCount: 1, slug: { current: '2026-07-23' } },
+    // Discovered on the 21st, shipped on the 24th: it must count as imported on the day it was
+    // found, not the day it went out, or the history row would double-count it.
+    { _id: 'paper-carried', _type: 'researchDigestPaper', issueDate: '2026-07-24', discoveredDate: '2026-07-21', carriedOverFrom: '2026-07-21', approvalStatus: 'approved', autoSelectionStatus: 'selected', priorityScore: 92, title: 'Carried paper', journal: 'Kidney International' },
+    { _id: 'paper-today', _type: 'researchDigestPaper', issueDate: '2026-07-24', discoveredDate: '2026-07-24', approvalStatus: 'rejected', autoSelectionStatus: 'deferred', priorityScore: 81, title: 'Today paper', journal: 'JASN' },
+    { _id: 'paper-pending', _type: 'researchDigestPaper', issueDate: '2026-07-24', discoveredDate: '2026-07-24', approvalStatus: 'pending', priorityScore: 50, title: 'Pending paper', journal: 'CJASN' },
+    { _id: 'sub-active', _type: 'updateSubscriber', email: 'a@example.com', correspondencePreferences: ['research_digest'], subscriptionStatus: 'subscribed', deliveryStatus: 'active' },
+    { _id: 'sub-other', _type: 'updateSubscriber', email: 'b@example.com', correspondencePreferences: ['study_updates'], subscriptionStatus: 'subscribed', deliveryStatus: 'active' },
+    { _id: 'opp-open', _type: 'researchOpportunity', approvalStatus: 'pending', status: 'open', title: 'A grant' },
+  ]
+
+  const tree = parse(ADMIN_QUERY)
+  const value = await evaluate(tree, { dataset, params: { issueDate: '2026-07-24', carryoverFrom: '2026-07-17' } })
+  const result = await value.get()
+
+  assert.equal(result.issue._id, 'issue-today')
+  assert.equal(result.history.length, 2)
+  assert.equal(result.history[0].date, '2026-07-24', 'history is newest first')
+  assert.equal(result.papers.length, 3)
+  assert.equal(result.pool.length, 3)
+  assert.equal(result.pool[0]._id, 'paper-carried', 'the pool is ordered by score')
+  assert.ok('title' in result.pool[0], 'the admin pool carries display fields')
+  assert.deepEqual(result.subscribers.map((row) => row.email), ['a@example.com'])
+  assert.equal(result.opportunities.length, 1)
+  assert.equal(result.stats.totalPapers, 3)
+  assert.equal(result.stats.deferredPapers, 1)
+  assert.equal(result.stats.pendingPapers, 1)
+
+  const carriedDay = result.history.find((issue) => issue.date === '2026-07-21')
+  assert.equal(carriedDay, undefined, 'no issue document exists for the discovery day')
+  assert.equal(result.history[0].importedPapers, 2, 'the carried paper counts against the day it was found')
 })
 
 test('the archive queries cap papers at the hard daily ceiling', () => {

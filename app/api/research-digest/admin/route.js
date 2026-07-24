@@ -5,14 +5,37 @@ import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { sanitizeString } from '@/lib/inputUtils'
 import { writeClient } from '@/lib/sanity'
 import { requireSanityDocumentType } from '@/lib/sanityDocumentType'
+import { buildResearchDigestEmail } from '@/lib/researchDigestEmailTemplate'
 import {
+  fetchResearchDigestIssueBundle,
   fetchResearchDigestSettings,
   formatResearchDigestDate,
+  getCarryoverStartDate,
   importResearchDigestContent,
+  reselectAutomatedDigestIssue,
 } from '@/lib/researchDigest'
-import { RESEARCH_DIGEST_APPROVAL, RESEARCH_DIGEST_ISSUE_STATUS } from '@/lib/researchDigestConfig'
+import {
+  buildDigestSettingsPatch,
+  buildResearchDigestAdminQuery,
+  describePoolPaperDisposition,
+  findDigestSettingsWarnings,
+  summarizeDigestPoolDispositions,
+  summarizeDigestSubscribers,
+} from '@/lib/researchDigestAdminView'
+import {
+  RESEARCH_DIGEST_APPROVAL,
+  RESEARCH_DIGEST_ISSUE_STATUS,
+  getResearchDigestJournalGroups,
+  getResearchDigestOpportunitySources,
+} from '@/lib/researchDigestConfig'
+import { normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
 
 const CORS_HEADERS = buildCorsHeaders('GET, POST, PATCH, OPTIONS')
+const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
+  /\/$/,
+  ''
+)
+const ADMIN_PAYLOAD_QUERY = buildResearchDigestAdminQuery()
 
 async function getSession(request) {
   const sessionAccess = await getSessionAccess()
@@ -32,88 +55,23 @@ function normalizeStringList(values) {
   return values.map((value) => sanitizeString(value)).filter(Boolean).slice(0, 12)
 }
 
-async function fetchAdminPayload(date) {
+async function fetchAdminPayload(date, settings) {
   const selectedDate = sanitizeString(date) || formatResearchDigestDate()
-  const query = `{
-    "issue": *[_type == "researchDigestIssue" && date == $date][0]{
-      _id,
-      title,
-      date,
-      "slug": slug.current,
-      status,
-      intro,
-      approvedAt,
-      sentAt,
-      retrievalWindowDays,
-      selectionMode,
-      selectedPaperCount
-    },
-    "issues": *[_type == "researchDigestIssue"] | order(date desc)[0...14]{
-      _id,
-      title,
-      date,
-      "slug": slug.current,
-      status,
-      approvedAt,
-      sentAt,
-      "pendingPapers": count(*[_type == "researchDigestPaper" && issueDate == ^.date && approvalStatus == "pending"]),
-      "approvedPapers": count(*[_type == "researchDigestPaper" && issueDate == ^.date && approvalStatus == "approved"])
-    },
-    "papers": *[_type == "researchDigestPaper" && issueDate == $date] | order(approvalStatus asc, triageStatus asc, journal asc, title asc) {
-      _id,
-      issueDate,
-      pmid,
-      doi,
-      title,
-      abstract,
-      authors,
-      publicationTypes,
-      journal,
-      pubDate,
-      year,
-      url,
-      matchedJournalGroups,
-      triageStatus,
-      approvalStatus,
-      tier,
-      priorityScore,
-      whyItMatters,
-      summary,
-      topics,
-      triageError,
-      autoSelected,
-      autoSelectionStatus,
-      autoSelectionExcluded,
-      retrievedAt,
-      approvedAt,
-      rejectedAt
-    },
-    "opportunities": *[_type == "researchOpportunity" && approvalStatus in ["pending", "approved"] && status in ["open", "upcoming"]] | order(approvalStatus asc, deadline asc, title asc)[0...80] {
-      _id,
-      type,
-      status,
-      approvalStatus,
-      sourceName,
-      sourceUrl,
-      title,
-      description,
-      deadline,
-      eligibility,
-      url,
-      topics,
-      retrievedAt,
-      approvedAt,
-      rejectedAt
-    },
-    "stats": {
-      "pendingPapers": count(*[_type == "researchDigestPaper" && approvalStatus == "pending"]),
-      "approvedPapersToday": count(*[_type == "researchDigestPaper" && issueDate == $date && approvalStatus == "approved"]),
-      "pendingOpportunities": count(*[_type == "researchOpportunity" && approvalStatus == "pending"]),
-      "approvedOpenOpportunities": count(*[_type == "researchOpportunity" && approvalStatus == "approved" && status in ["open", "upcoming"]])
-    }
-  }`
-  const payload = await writeClient.fetch(query, { date: selectedDate })
-  return { date: selectedDate, ...(payload || {}) }
+  const carryoverFrom = getCarryoverStartDate(selectedDate, settings.carryoverDays)
+  const payload = await writeClient.fetch(ADMIN_PAYLOAD_QUERY, { issueDate: selectedDate, carryoverFrom })
+  const pool = (payload?.pool || []).map((paper) => ({
+    ...paper,
+    disposition: describePoolPaperDisposition(paper, settings, { issueDate: selectedDate }),
+  }))
+
+  return {
+    date: selectedDate,
+    carryoverFrom,
+    ...(payload || {}),
+    pool,
+    poolSummary: summarizeDigestPoolDispositions(pool.map((paper) => paper.disposition)),
+    subscriberCounts: summarizeDigestSubscribers(payload?.subscribers || []),
+  }
 }
 
 async function patchPaper(body) {
@@ -211,6 +169,63 @@ async function approveIssue(body) {
     .commit({ returnDocuments: false })
 }
 
+// The only write path to siteSettings in the app, so it is deliberately narrow: it reads the
+// stored researchDigest object, merges the form-owned keys over it, and writes that one field.
+async function patchSettings(body) {
+  const current = await writeClient.fetch(`*[_type == "siteSettings"][0]{ _id, researchDigest }`)
+  if (!current?._id) {
+    throw new Error('No siteSettings document exists yet. Create one in Sanity Studio first.')
+  }
+
+  const next = buildDigestSettingsPatch(body?.fields || {}, current.researchDigest || {})
+  await writeClient
+    .patch(current._id)
+    .set({ researchDigest: next })
+    .commit({ returnDocuments: false })
+
+  return next
+}
+
+async function buildEmailPreview(issueDate, settingsPayload) {
+  const settings = settingsPayload.settings
+  const bundle = await fetchResearchDigestIssueBundle({
+    issueDate,
+    maxPapers: settings.maxPapers,
+    maxOpportunities: settings.maxOpportunities,
+    automaticSelection: settings.automaticSelection,
+  })
+
+  if (!bundle?.issue?._id) {
+    return { available: false, reason: `No research digest issue exists for ${issueDate}.` }
+  }
+
+  const papers = Array.isArray(bundle.papers) ? bundle.papers : []
+  const opportunities = Array.isArray(bundle.opportunities) ? bundle.opportunities : []
+  const email = buildResearchDigestEmail({
+    // A placeholder recipient: the real send personalizes the greeting and manage link per
+    // subscriber, and no real manage token should ever be rendered into a diagnostics page.
+    subscriber: { name: 'Sample Subscriber', manageToken: 'PREVIEW-TOKEN-NOT-REAL' },
+    issue: { ...bundle.issue, slug: bundle.issue.slug || bundle.issue.date },
+    papers,
+    opportunities,
+    settings,
+    siteBaseUrl: SITE_BASE_URL,
+  })
+
+  return {
+    available: true,
+    issueDate,
+    issueStatus: bundle.issue.status,
+    sentAt: bundle.issue.sentAt || null,
+    paperCount: papers.length,
+    opportunityCount: opportunities.length,
+    wouldSend: papers.length > 0 || opportunities.length > 0 || Boolean(settings.sendEmpty),
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
+  }
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
 }
@@ -223,12 +238,14 @@ export async function GET(request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const [{ settings }, payload] = await Promise.all([
-      fetchResearchDigestSettings(),
-      fetchAdminPayload(searchParams.get('date')),
-    ])
+    const settingsPayload = await fetchResearchDigestSettings()
+    const { settings } = settingsPayload
+    const testing = normalizeUpdateEmailTesting(settingsPayload.testing)
+    const payload = await fetchAdminPayload(searchParams.get('date'), settings)
+
     return NextResponse.json({
       ok: true,
+      // Kept for the existing banners; `settings` below is the full picture.
       digestSettings: {
         publicEnabled: settings.publicEnabled,
         automaticSelection: settings.automaticSelection,
@@ -237,6 +254,14 @@ export async function GET(request) {
         carryoverDays: settings.carryoverDays,
         pilotMode: settings.pilotMode,
       },
+      settings,
+      testing: { enabled: testing.enabled, recipients: testing.recipients },
+      journalGroups: getResearchDigestJournalGroups(settings),
+      opportunitySources: getResearchDigestOpportunitySources(settings),
+      warnings: findDigestSettingsWarnings(settings, {
+        subscriberCounts: payload.subscriberCounts,
+        testing,
+      }),
       ...payload,
     }, { headers: CORS_HEADERS })
   } catch (error) {
@@ -256,23 +281,41 @@ export async function POST(request) {
 
   if (!writeClient.config().token) {
     return NextResponse.json(
-      { ok: false, error: 'SANITY_API_TOKEN missing; cannot import research digest content.' },
+      { ok: false, error: 'SANITY_API_TOKEN missing; cannot run research digest actions.' },
       { status: 500, headers: CORS_HEADERS }
     )
   }
 
   try {
     const body = await request.json().catch(() => ({}))
-    if (body?.action !== 'import') {
-      return NextResponse.json({ ok: false, error: 'Unsupported action.' }, { status: 400, headers: CORS_HEADERS })
+    const action = sanitizeString(body?.action)
+    const settingsPayload = await fetchResearchDigestSettings()
+
+    if (action === 'import') {
+      const result = await importResearchDigestContent({ settings: settingsPayload.settings })
+      return NextResponse.json({ ok: true, action, result }, { headers: CORS_HEADERS })
     }
-    const { settings } = await fetchResearchDigestSettings()
-    const result = await importResearchDigestContent({ settings })
-    return NextResponse.json({ ok: true, result }, { headers: CORS_HEADERS })
+
+    if (action === 'reselect') {
+      const issueDate = sanitizeString(body?.issueDate) || formatResearchDigestDate()
+      const result = await reselectAutomatedDigestIssue({
+        settings: settingsPayload.settings,
+        issueDate,
+      })
+      return NextResponse.json({ ok: true, action, result }, { headers: CORS_HEADERS })
+    }
+
+    if (action === 'preview') {
+      const issueDate = sanitizeString(body?.issueDate) || formatResearchDigestDate()
+      const preview = await buildEmailPreview(issueDate, settingsPayload)
+      return NextResponse.json({ ok: true, action, preview }, { headers: CORS_HEADERS })
+    }
+
+    return NextResponse.json({ ok: false, error: 'Unsupported action.' }, { status: 400, headers: CORS_HEADERS })
   } catch (error) {
-    console.error('[research-digest-admin] import failed', error)
+    console.error('[research-digest-admin] POST failed', error)
     return NextResponse.json(
-      { ok: false, error: error?.message || 'Research digest import failed.' },
+      { ok: false, error: error?.message || 'Research digest action failed.' },
       { status: 500, headers: CORS_HEADERS }
     )
   }
@@ -299,6 +342,9 @@ export async function PATCH(request) {
       await patchOpportunity(body)
     } else if (body?.resource === 'issue' && body?.action === 'approve') {
       await approveIssue(body)
+    } else if (body?.resource === 'settings') {
+      const settings = await patchSettings(body)
+      return NextResponse.json({ ok: true, settings }, { headers: CORS_HEADERS })
     } else {
       return NextResponse.json({ ok: false, error: 'Unsupported update.' }, { status: 400, headers: CORS_HEADERS })
     }

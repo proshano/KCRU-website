@@ -4,7 +4,7 @@
 
 Send active subscribers who explicitly selected `research_digest` a short weekday email containing only the strongest new kidney research. By default the digest carries the single top paper of the day. Three papers is a hard ceiling that settings cannot exceed, and the system sends nothing when no paper clears the quality threshold.
 
-Routine operation does not require staff review. The admin page at `/admin/research-digest` is diagnostics-only.
+Routine operation does not require staff review. The console at `/admin/research-digest` exists so the system can be inspected and tuned without opening Sanity Studio.
 
 ## Daily flow
 
@@ -106,11 +106,21 @@ The import job summary also reports the priority-score distribution for the sele
 
 The send workflow records the HTTP status and response body in its job summary. Recipient identifiers, rather than email addresses, are included in delivery errors.
 
-## Optional diagnostics
+## The admin console
 
-`/admin/research-digest` and its API remain available for inspection and exceptional recovery. They are not part of the routine publishing path.
+`/admin/research-digest` requires `updates` access and is the way to see the system without Sanity Studio. It is not part of the routine publishing path; nothing on it needs to be touched on a normal day.
 
-To re-run automated selection on an existing issue without re-importing every paper:
+- **Overview** — the settings actually in force, the journal groups being scanned, and this issue's status.
+- **Pipeline** — the full selection pool for a date with each paper's score and the specific reason it was selected, deferred, or rejected. Reasons are evaluated in the same order as `isAutomatedDigestCandidate`, so the reported reason is the one selection stopped at rather than the first a reader might guess. Also carries the score distribution that otherwise exists only in the GitHub Actions job summary.
+- **History** — the last 30 issues with papers imported, papers shipped, how many were carried over, and when each was sent.
+- **Email preview** — the real subject and body for a date, rendered through `fetchResearchDigestIssueBundle` and `buildResearchDigestEmail`, the same functions the dispatch route uses. A placeholder recipient is substituted so no real manage token is ever rendered.
+- **Subscribers** — everyone opted into `research_digest`, including unsubscribed and suppressed rows, so drop-off is visible. `deliverable` uses the same predicate the send path uses.
+- **Paper review** — the manual approve/reject cards, still needed when `automaticSelection` is off.
+- **Settings** — writes `siteSettings.researchDigest`. Every bound the selector depends on is clamped server-side in `buildDigestSettingsPatch`, so the 3-paper ceiling and 30-day carryover cap hold regardless of what is submitted. Keys absent from a request keep their stored value, which is what keeps the Studio-managed `journalGroups` and `opportunitySources` from being dropped. Pilot recipients are written from the submitted list only: running them through `normalizeResearchDigestSettings` would fold `RESEARCH_DIGEST_PILOT_EMAILS` into the stored document and make an env-only recipient permanent.
+
+The console can also trigger an import, re-run selection, and force a resend. Force intentionally bypasses the already-sent check and can deliver an issue twice, so it sits behind an explicit confirmation.
+
+To re-run automated selection from the command line instead:
 
 ```bash
 npm run reselect:research-digest
