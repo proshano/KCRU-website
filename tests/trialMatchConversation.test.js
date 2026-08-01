@@ -10,6 +10,7 @@ import {
   TRIAL_MATCH_CHAT_MAX_TOKENS,
   TRIAL_MATCH_CHAT_REASONING,
   TRIAL_MATCH_CHAT_TEMPERATURE,
+  TRIAL_MATCH_RANKING_REASONING,
   buildOpenRouterReasoningOptions,
   cleanTrialMatchAssistantReply,
   resolveCompletionBudget,
@@ -23,15 +24,23 @@ test('the patient-facing chat turn asks for the lowest reasoning effort', () => 
   )
 })
 
-test('only the conversation turn is downgraded, not study ranking', () => {
-  // Ranking runs once and is the clinical matching judgement, so it keeps full effort.
-  const src = readFileSync(new URL('../lib/summaries.js', import.meta.url), 'utf8')
-  const conversation = src.slice(src.indexOf('export async function generateTrialMatchConversation'))
-  const ranking = src.slice(src.indexOf('export async function generateTrialMatchStudyRanking'))
+test('each trial matching turn gets its own reasoning effort', () => {
+  // Three distinct levels, cheapest where it is felt most: chat turns run on every patient
+  // message, ranking runs once per session, batch work has nobody waiting on it.
+  assert.deepEqual(TRIAL_MATCH_RANKING_REASONING, { effort: 'medium', exclude: true })
+  assert.equal(TRIAL_MATCH_CHAT_REASONING.effort, 'minimal')
+  assert.equal(OPENROUTER_REASONING.effort, 'max')
 
-  assert.match(conversation.slice(0, ranking.length ? conversation.length - ranking.length : undefined),
-    /buildOpenRouterReasoningOptions\(model, TRIAL_MATCH_CHAT_REASONING\)/)
-  assert.match(ranking, /buildOpenRouterReasoningOptions\(model\)/)
+  const src = readFileSync(new URL('../lib/summaries.js', import.meta.url), 'utf8')
+  const rankingStart = src.indexOf('export async function generateTrialMatchStudyRanking')
+  const conversation = src.slice(
+    src.indexOf('export async function generateTrialMatchConversation'),
+    rankingStart
+  )
+  const ranking = src.slice(rankingStart)
+
+  assert.match(conversation, /buildOpenRouterReasoningOptions\(model, TRIAL_MATCH_CHAT_REASONING\)/)
+  assert.match(ranking, /buildOpenRouterReasoningOptions\(model, TRIAL_MATCH_RANKING_REASONING\)/)
   assert.ok(!/TRIAL_MATCH_CHAT_REASONING/.test(ranking), 'ranking must not use the chat effort')
 })
 
