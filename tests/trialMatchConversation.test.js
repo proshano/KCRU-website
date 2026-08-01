@@ -1,16 +1,39 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import { readFileSync } from 'node:fs'
+
 import {
   DEFAULT_LLM_MODEL,
   OPENROUTER_REASONING,
   REASONING_TOKEN_HEADROOM,
   TRIAL_MATCH_CHAT_MAX_TOKENS,
+  TRIAL_MATCH_CHAT_REASONING,
   TRIAL_MATCH_CHAT_TEMPERATURE,
   buildOpenRouterReasoningOptions,
   cleanTrialMatchAssistantReply,
   resolveCompletionBudget,
 } from '../lib/summaries.js'
+
+test('the patient-facing chat turn asks for the lowest reasoning effort', () => {
+  assert.deepEqual(TRIAL_MATCH_CHAT_REASONING, { effort: 'minimal', exclude: true })
+  assert.deepEqual(
+    buildOpenRouterReasoningOptions(DEFAULT_LLM_MODEL, TRIAL_MATCH_CHAT_REASONING),
+    TRIAL_MATCH_CHAT_REASONING
+  )
+})
+
+test('only the conversation turn is downgraded, not study ranking', () => {
+  // Ranking runs once and is the clinical matching judgement, so it keeps full effort.
+  const src = readFileSync(new URL('../lib/summaries.js', import.meta.url), 'utf8')
+  const conversation = src.slice(src.indexOf('export async function generateTrialMatchConversation'))
+  const ranking = src.slice(src.indexOf('export async function generateTrialMatchStudyRanking'))
+
+  assert.match(conversation.slice(0, ranking.length ? conversation.length - ranking.length : undefined),
+    /buildOpenRouterReasoningOptions\(model, TRIAL_MATCH_CHAT_REASONING\)/)
+  assert.match(ranking, /buildOpenRouterReasoningOptions\(model\)/)
+  assert.ok(!/TRIAL_MATCH_CHAT_REASONING/.test(ranking), 'ranking must not use the chat effort')
+})
 
 test('reasoning gets its own token budget so it cannot starve the answer', () => {
   // Measured: gpt-5.6-luna at max effort spent all 1000 tokens of a 1000-token budget on
