@@ -5,7 +5,29 @@ import {
   getPublicationKey,
   mergePublications,
   normalizeDoi,
+  withPublicationKey,
 } from '../lib/publicationIdentity.js'
+
+test('discovery sources are deduplicated and ordered so comparisons are stable', () => {
+  const withCrossref = mergePublications([
+    { source: 'pubmed', doi: '10.1000/stable', sources: ['pubmed'] },
+    { source: 'crossref', doi: '10.1000/stable', sources: ['crossref'] },
+    { source: 'europepmc', doi: '10.1000/stable', sources: ['europepmc'] },
+  ])[0]
+  const reordered = mergePublications([
+    { source: 'europepmc', doi: '10.1000/stable', sources: ['europepmc'] },
+    { source: 'pubmed', doi: '10.1000/stable', sources: ['pubmed'] },
+    { source: 'crossref', doi: '10.1000/stable', sources: ['crossref'] },
+  ])[0]
+
+  assert.deepEqual(withCrossref.sources, ['crossref', 'europepmc', 'pubmed'])
+  assert.deepEqual(withCrossref.sources, reordered.sources)
+})
+
+test('the primary source is always represented in the sources list', () => {
+  assert.deepEqual(withPublicationKey({ source: 'pubmed', doi: '10.1000/x' }).sources, ['pubmed'])
+  assert.deepEqual(withPublicationKey({ doi: '10.1000/x' }).sources, [])
+})
 
 test('normalizes DOI variants into one canonical publication key', () => {
   assert.equal(normalizeDoi(' HTTPS://doi.org/10.1000/Example '), '10.1000/example')

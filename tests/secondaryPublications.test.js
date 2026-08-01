@@ -3,6 +3,8 @@ import test from 'node:test'
 
 import {
   fetchCrossrefPublications,
+  fetchOpenAlexPublications,
+  getSecondaryPublicationsForResearcher,
   matchesResearcherAuthorList,
   reconstructOpenAlexAbstract,
 } from '../lib/secondaryPublications.js'
@@ -37,6 +39,96 @@ test('Crossref discovery keeps an ORCID-matched DOI even when its abstract is ab
   assert.equal(requestedUrls.length, 2)
   assert.ok(requestedUrls.some((url) => url.includes('orcid%3A0000-0001-2345-6789')))
   assert.ok(requestedUrls.some((url) => url.includes('query.author=Jane+Smith')))
+})
+
+test('OpenAlex requests use the field:direction sort syntax the API accepts', async () => {
+  const requestedUrls = []
+  const fetchFn = async (url) => {
+    requestedUrls.push(String(url))
+    return new Response(JSON.stringify({ results: [] }), { status: 200 })
+  }
+
+  await fetchOpenAlexPublications(
+    { name: 'Jane Smith', orcid: '0000-0001-2345-6789' },
+    { fetchFn, sinceYear: 2025, openAlexApiKey: 'key-123' }
+  )
+
+  assert.equal(requestedUrls.length, 1)
+  // `-publication_date` is parsed as a field named `_publication_date` and 400s.
+  assert.ok(requestedUrls[0].includes('sort=publication_date%3Adesc'))
+  assert.ok(!requestedUrls[0].includes('-publication_date'))
+})
+
+test('OpenAlex discovery still runs when no API key is configured', async () => {
+  let calls = 0
+  const fetchFn = async () => {
+    calls += 1
+    return new Response(JSON.stringify({ results: [] }), { status: 200 })
+  }
+
+  await fetchOpenAlexPublications(
+    { name: 'Jane Smith', orcid: '0000-0001-2345-6789' },
+    { fetchFn, sinceYear: 2025, openAlexApiKey: '' }
+  )
+
+  assert.equal(calls, 1)
+})
+
+test('a throttled discovery request is retried instead of dropping the researcher', async () => {
+  const statuses = [429, 200]
+  let calls = 0
+  const fetchFn = async () => {
+    calls += 1
+    const status = statuses.shift() ?? 200
+    if (status === 429) {
+      return new Response('rate limited', { status: 429, headers: { 'retry-after': '0' } })
+    }
+    return new Response(JSON.stringify({ results: [] }), { status: 200 })
+  }
+
+  await fetchOpenAlexPublications(
+    { name: 'Jane Smith', orcid: '0000-0001-2345-6789' },
+    { fetchFn, sinceYear: 2025, retryDelayMs: 0 }
+  )
+
+  assert.equal(calls, 2)
+})
+
+test('a persistently failing source is reported so the run counts as degraded', async () => {
+  const fetchFn = async () => new Response('rate limited', { status: 429, headers: { 'retry-after': '0' } })
+  const failures = []
+
+  const publications = await getSecondaryPublicationsForResearcher(
+    { _id: 'researcher-1', name: 'Jane Smith', orcid: '0000-0001-2345-6789' },
+    {
+      fetchFn,
+      sinceYear: 2025,
+      retryAttempts: 1,
+      retryDelayMs: 0,
+      sourceDelayMs: 0,
+      onSourceError: ({ source }) => failures.push(source),
+    }
+  )
+
+  assert.deepEqual(publications, [])
+  assert.deepEqual(failures, ['Crossref', 'OpenAlex', 'Europe PMC'])
+})
+
+test('a non-retryable client error fails fast without burning retries', async () => {
+  let calls = 0
+  const fetchFn = async () => {
+    calls += 1
+    return new Response('bad request', { status: 400 })
+  }
+
+  await assert.rejects(
+    fetchOpenAlexPublications(
+      { name: 'Jane Smith', orcid: '0000-0001-2345-6789' },
+      { fetchFn, sinceYear: 2025, retryDelayMs: 0 }
+    ),
+    /400/
+  )
+  assert.equal(calls, 1)
 })
 
 test('reconstructs OpenAlex inverted-index abstracts in word order', () => {

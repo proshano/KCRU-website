@@ -47,6 +47,10 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+          # Identifies us to PubMed and Crossref so requests are not throttled into the
+          # shared anonymous pools. Crossref 429s were silently dropping publications.
+          PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
+          CROSSREF_MAILTO: ${{ secrets.CROSSREF_MAILTO }}
           PUBMED_DOI_ABSTRACT_BACKFILL: "true"
           DOI_BROWSER_FETCH: "true"
         run: npm run refresh:pubmed
