@@ -2,9 +2,23 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  TRIAL_RANK_SYSTEM_PROMPT,
   buildTrialEligibilityCatalogForPrompt,
   buildTrialRankingCatalogForPrompt,
 } from '../lib/summaries.js'
+
+test('the ranker is told an unstated criterion is unknown, not unmet', () => {
+  // Without this, a criterion the patient simply had not mentioned (biopsy confirmation,
+  // a proteinuria threshold) was counted against the study, dropping it to "weak" - and
+  // weak results are hidden. A diagnosis-specific trial surfaced for a matching patient
+  // in 1 of 5 runs before this guidance and 13 of 15 after it.
+  assert.match(TRIAL_RANK_SYSTEM_PROMPT, /unknown, not unmet/i)
+  assert.match(TRIAL_RANK_SYSTEM_PROMPT, /only an explicit conflict/i)
+})
+
+test('the ranker still excludes populations the profile explicitly contradicts', () => {
+  assert.match(TRIAL_RANK_SYSTEM_PROMPT, /dialysis-only trials for a predialysis patient/i)
+})
 
 test('eligibility prompt includes full inclusion criteria and omits exclusion text', () => {
   const longInclusion = `full-inclusion-${'A'.repeat(2500)}`
