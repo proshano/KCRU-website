@@ -232,7 +232,7 @@ const siteSettings = {
       name: 'llmModel',
       title: 'LLM Model (summaries)',
       type: 'string',
-      description: 'e.g., openrouter/gpt-4o-mini or meta-llama/llama-3.1-8b-instruct:free'
+      description: 'Root default for every LLM task that has no more specific setting. e.g., google/gemini-3.6-flash'
     },
     {
       name: 'llmSystemPrompt',
@@ -265,7 +265,7 @@ const siteSettings = {
       name: 'trialSummaryLlmModel',
       title: 'LLM Model (trial summaries)',
       type: 'string',
-      description: 'e.g., google/gemma-2-9b-it or openrouter/gpt-4o-mini'
+      description: 'Overrides LLM Model (summaries) for trial work. Leave blank to inherit it. e.g., google/gemini-3.6-flash'
     },
     {
       name: 'trialSummarySystemPrompt',
