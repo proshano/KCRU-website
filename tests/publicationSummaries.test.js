@@ -2,10 +2,25 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  buildOpenRouterAttributionHeaders,
   generateLaySummary,
   normalizePublicationLaySummary,
   normalizePublicationSummaryPayload,
 } from '../lib/summaries.js'
+
+test('OpenRouter usage is attributed to the configured site', () => {
+  const headers = buildOpenRouterAttributionHeaders('https://londonkidney.ca')
+  assert.equal(headers['HTTP-Referer'], 'https://londonkidney.ca')
+  assert.equal(headers['X-Title'], 'Research Unit Publications')
+})
+
+test('an unset site URL leaves usage unattributed rather than claiming localhost', () => {
+  for (const value of [undefined, null, '', '   ']) {
+    const headers = buildOpenRouterAttributionHeaders(value)
+    assert.equal('HTTP-Referer' in headers, false, `expected no referer for ${JSON.stringify(value)}`)
+    assert.equal(headers['X-Title'], 'Research Unit Publications')
+  }
+})
 
 const TITLE = 'CRT-Estimands Framework'
 const ABSTRACT = `${'This abstract describes a consensus framework for cluster randomized trials. '.repeat(8)}It reports recommendations for defining treatment effects.`

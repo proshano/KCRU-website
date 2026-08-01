@@ -51,6 +51,9 @@ jobs:
           # shared anonymous pools. Crossref 429s were silently dropping publications.
           PUBMED_API_KEY: ${{ secrets.PUBMED_API_KEY }}
           CROSSREF_MAILTO: ${{ secrets.CROSSREF_MAILTO }}
+          # Attributes OpenRouter usage to the site. Without it these calls were reported
+          # against a localhost URL, making scheduled runs look like local development.
+          SITE_URL: ${{ secrets.SITE_URL }}
           PUBMED_DOI_ABSTRACT_BACKFILL: "true"
           DOI_BROWSER_FETCH: "true"
         run: npm run refresh:pubmed
