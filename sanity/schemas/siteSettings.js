@@ -232,7 +232,7 @@ const siteSettings = {
       name: 'llmModel',
       title: 'LLM Model (summaries)',
       type: 'string',
-      description: 'Root default for every LLM task that has no more specific setting. e.g., google/gemini-3.6-flash'
+      description: 'Root default for every LLM task that has no more specific setting. e.g., openai/gpt-5.6-luna'
     },
     {
       name: 'llmSystemPrompt',
@@ -265,7 +265,7 @@ const siteSettings = {
       name: 'trialSummaryLlmModel',
       title: 'LLM Model (trial summaries)',
       type: 'string',
-      description: 'Overrides LLM Model (summaries) for trial work. Leave blank to inherit it. e.g., google/gemini-3.6-flash'
+      description: 'Overrides LLM Model (summaries) for trial work. Leave blank to inherit it. e.g., openai/gpt-5.6-luna'
     },
     {
       name: 'trialSummarySystemPrompt',
