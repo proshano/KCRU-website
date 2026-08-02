@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server'
 
 import { mergePatientProfiles, sanitizePatientProfile } from '@/lib/patientProfileSchema'
-import { selectTrialMatchFollowUp, shouldRankTrialMatches } from '@/lib/trialMatchChat'
+import {
+  isConversationAlreadyComplete,
+  isOffTopicConversation,
+  selectTrialMatchFollowUp,
+  shouldRankTrialMatches,
+} from '@/lib/trialMatchChat'
 import { sanityFetch, queries } from '@/lib/sanity'
 import {
   buildTrialEligibilityCatalogForPrompt,
@@ -23,6 +28,15 @@ const MAX_MESSAGE_LENGTH = 600
 const MAX_RESULTS = 6
 const MAX_LLM_RANK_STUDIES = 12
 const MAX_USER_TURNS_BEFORE_LLM_RANKING = 5
+/**
+ * Bounds on the study catalog sent with each conversation turn. Every recruiting study is listed,
+ * but in abridged form: the ranking turn is where full criteria are read, and it only ever sees
+ * the shortlist. Without these the assistant re-sends the entire catalog on every patient message.
+ */
+const MAX_CONVERSATION_CRITERIA_PER_STUDY = 6
+const MAX_CONVERSATION_CRITERION_LENGTH = 240
+/** Consecutive idle user turns tolerated before replying without an LLM call. */
+const OFF_TOPIC_USER_TURNS_BEFORE_REDIRECT = 2
 /** When at least one match/possible exists, limit how many insufficient_info rows appear in the top list. */
 const MAX_INSUFFICIENT_WHEN_BETTER_EXISTS = 2
 const RESULTS_READY_REPLY = 'See the potential studies below. A coordinator would confirm final eligibility.'
@@ -32,6 +46,10 @@ const NO_RESULTS_REPLY =
   'I could not shortlist any studies from that information alone. Add age, sex, dialysis or transplant status, or any recent urine protein value if one matters for the likely studies.'
 const URINE_PROTEIN_FOLLOW_UP_REPLY =
   'If available, do you have a recent ACR, PCR, or 24-hour urine protein value? If not, say that and I can still keep possible studies on the list.'
+const OFF_TOPIC_REPLY =
+  'I can only help match a patient to the kidney studies on file. Share the diagnosis and the eGFR, or say the patient is on dialysis.'
+const CONVERSATION_COMPLETE_REPLY =
+  'This conversation already produced its study matches. Start a new conversation to screen another patient.'
 const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
 const MAX_REQUESTS_PER_WINDOW = 20
 const GLOBAL_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
@@ -300,12 +318,37 @@ export async function POST(request) {
       })
     }
 
+    // Both guards answer without an LLM call. A conversation turn carries the study catalog, so a
+    // turn that cannot advance a prescreen is the most expensive way to say nothing.
+    if (isConversationAlreadyComplete({ messages, completionReply: RESULTS_READY_REPLY })) {
+      return buildResponse({
+        ok: true,
+        reply: CONVERSATION_COMPLETE_REPLY,
+        profile: preLlmProfile,
+        conversationComplete: true,
+        results: [],
+      })
+    }
+
+    if (isOffTopicConversation({ messages, minUserTurns: OFF_TOPIC_USER_TURNS_BEFORE_REDIRECT })) {
+      return buildResponse({
+        ok: true,
+        reply: OFF_TOPIC_REPLY,
+        profile: preLlmProfile,
+        conversationComplete: false,
+        results: [],
+      })
+    }
+
     const llmTurn = await generateTrialMatchConversation(
       {
         currentProfile: preLlmProfile,
         messages,
-        trialCatalog: buildTrialCatalogForPrompt(studies),
-        trialEligibilityCatalog: buildTrialEligibilityCatalogForPrompt(studies),
+        trialCatalog: buildTrialCatalogForPrompt(studies, { includeDetail: false }),
+        trialEligibilityCatalog: buildTrialEligibilityCatalogForPrompt(studies, {
+          maxCriteriaPerStudy: MAX_CONVERSATION_CRITERIA_PER_STUDY,
+          maxCriterionLength: MAX_CONVERSATION_CRITERION_LENGTH,
+        }),
       },
       resolveTrialMatchingLlmOptions(settings)
     )
