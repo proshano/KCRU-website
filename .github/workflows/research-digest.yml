@@ -9,10 +9,16 @@ concurrency:
   cancel-in-progress: false
 
 on:
-  schedule:
-    # Weekdays. Import selects the strongest papers; send runs afterward.
-    - cron: "0 10 * * 1-5"
-    - cron: "0 13 * * 1-5"
+  # Scheduled runs are paused while the digest is still being trialled. Each import runs
+  # LLM triage across every candidate paper, so leaving the schedule on spends tokens every
+  # weekday whether or not anyone is looking at the output.
+  #
+  # To resume, uncomment the schedule block below. Until then both jobs remain available
+  # from the Actions tab via "Run workflow", choosing import or send.
+  # schedule:
+  #   # Weekdays. Import selects the strongest papers; send runs afterward.
+  #   - cron: "0 10 * * 1-5"
+  #   - cron: "0 13 * * 1-5"
   workflow_dispatch:
     inputs:
       action:
