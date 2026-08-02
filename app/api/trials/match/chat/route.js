@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-import { mergePatientProfiles } from '@/lib/patientProfileSchema'
+import { mergePatientProfiles, sanitizePatientProfile } from '@/lib/patientProfileSchema'
 import { selectTrialMatchFollowUp, shouldRankTrialMatches } from '@/lib/trialMatchChat'
 import { sanityFetch, queries } from '@/lib/sanity'
 import {
@@ -11,11 +11,7 @@ import {
 import { isTrialMatchingAssistantEnabled, resolveTrialMatchingLlmOptions } from '@/lib/trialMatchingSettings'
 import { buildTrialCatalogForPrompt, matchTrialToPatient, rankTrialMatches } from '@/lib/trialMatcher'
 import { claimSecurityRateLimit, getRateLimitResponseDetails } from '@/lib/securityRateLimit'
-import {
-  getTrustedClientIp,
-  sanitizeTrialMatchMessages,
-  sanitizeTrialMatchProfile,
-} from '@/lib/trialMatchPrivacy'
+import { getTrustedClientIp, sanitizeTrialMatchMessages } from '@/lib/trialMatchRequest'
 import {
   isQuantitativeUrineProteinUnavailable,
   parseUrineProteinProfileFromText,
@@ -267,18 +263,15 @@ export async function POST(request) {
     return buildResponse({ ok: false, error: 'Invalid JSON payload.' }, 400)
   }
 
-  const sanitizedMessages = sanitizeTrialMatchMessages(body?.messages, {
+  const messages = sanitizeTrialMatchMessages(body?.messages, {
     maxMessages: MAX_MESSAGES,
     maxMessageLength: MAX_MESSAGE_LENGTH,
   })
-  const messages = sanitizedMessages.messages
   if (!messages.some((message) => message.role === 'user')) {
     return buildResponse({ ok: false, error: 'Provide at least one user message.' }, 400)
   }
 
-  const sanitizedProfile = sanitizeTrialMatchProfile(body?.profile)
-  const currentProfile = sanitizedProfile.profile
-  const hadRedaction = sanitizedMessages.hadRedaction || sanitizedProfile.hadRedaction
+  const currentProfile = sanitizePatientProfile(body?.profile)
   const latestUserLabProfile = buildLatestUserLabProfile(messages)
   const preLlmProfile = mergePatientProfiles(currentProfile, latestUserLabProfile)
 
@@ -373,9 +366,6 @@ export async function POST(request) {
       }
     }
 
-    const privacyPrefix = hadRedaction
-      ? 'I removed some obvious identifying details before continuing. Please avoid names, contact information, exact birth dates, or record numbers. '
-      : ''
     const reply =
       shouldRankMatches && rankedResults.length
         ? RESULTS_READY_REPLY
@@ -389,7 +379,7 @@ export async function POST(request) {
     return buildResponse({
       ok: true,
       conversationComplete,
-      reply: `${privacyPrefix}${reply}`.trim(),
+      reply: sanitizeText(reply),
       profile: enrichedProfile,
       results: rankedResults,
     })
