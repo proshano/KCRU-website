@@ -107,6 +107,23 @@ const pubmedCache = {
       ],
     },
     {
+      name: 'doiBackfillFailures',
+      title: 'DOI Backfill Failures',
+      type: 'array',
+      description: 'DOIs where every abstract source came back empty. Retried on a weekly interval instead of every refresh; entries disappear once the DOI gains an abstract or leaves the publication set.',
+      readOnly: true,
+      of: [
+        {
+          type: 'object',
+          fields: [
+            { name: 'doi', type: 'string', title: 'DOI' },
+            { name: 'lastAttemptedAt', type: 'datetime', title: 'Last Attempted' },
+            { name: 'attempts', type: 'number', title: 'Consecutive Failed Attempts' },
+          ],
+        },
+      ],
+    },
+    {
       name: 'stats',
       title: 'Statistics',
       type: 'object',

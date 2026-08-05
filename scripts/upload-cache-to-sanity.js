@@ -11,6 +11,7 @@ import path from 'path'
 import { createClient } from '@sanity/client'
 import { isPublicationExcluded, normalizePublicationTypes } from '../lib/publicationExclusions.js'
 import { getPublicationKey, toSanityPublicationKey, withPublicationKey } from '../lib/publicationIdentity.js'
+import { toSanityBackfillFailures } from '../lib/doiBackfillHistory.js'
 
 const CACHE_PATH = path.join(process.cwd(), 'runtime', 'pubmed-cache.json')
 const CACHE_DOC_ID = 'pubmedCache'
@@ -108,6 +109,9 @@ async function main() {
     refreshStartedAt: null,
     publications,
     provenance: provenanceArray,
+    // createOrReplace drops anything omitted here, so the DOI backfill history has to
+    // ride along or an upload would reset the weekly retry schedule.
+    doiBackfillFailures: toSanityBackfillFailures(localCache.meta?.doiBackfillFailures),
     stats: {
       totalPublications: publications.length,
       totalWithSummary,
