@@ -61,6 +61,14 @@ test('uses publisher article body text only after every abstract source misses',
   assert.deepEqual(calls, ['publisher metadata', 'Crossref', 'OpenAlex', 'Europe PMC', 'publisher browser'])
 })
 
+test('returns no article text when the publisher HTML is missing', () => {
+  // A blocked browser fetch yields null. This used to throw, which aborted the
+  // publisher-page source before its plain-HTML fallback could be tried.
+  assert.equal(extractArticleBodyText(null), null)
+  assert.equal(extractArticleBodyText(undefined), null)
+  assert.equal(extractArticleBodyText(''), null)
+})
+
 test('extracts substantive article text without navigation or sidebars', () => {
   const paragraph = 'The study methods, measured outcomes, detailed results, and interpretation are reported here. '.repeat(8)
   const html = `<html><body><article><nav>Journal navigation</nav><p>${paragraph}</p><aside>Related articles</aside></article></body></html>`
