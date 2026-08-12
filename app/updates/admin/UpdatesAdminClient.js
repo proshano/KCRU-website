@@ -26,7 +26,6 @@ const DEFAULT_PUBLICATION_SETTINGS = {
   emptyIntroText: '',
   outroText: '',
   signature: '',
-  windowMode: 'rolling_days',
   windowDays: '',
   maxPublications: '',
   sendEmpty: false,
@@ -304,7 +303,6 @@ export default function UpdatesAdminClient() {
         emptyIntroText: nextSettings.emptyIntroText || '',
         outroText: nextSettings.outroText || '',
         signature: nextSettings.signature || '',
-        windowMode: nextSettings.windowMode || 'rolling_days',
         windowDays: nextSettings.windowDays ? String(nextSettings.windowDays) : '',
         maxPublications: nextSettings.maxPublications ? String(nextSettings.maxPublications) : '',
         sendEmpty: Boolean(nextSettings.sendEmpty),
@@ -587,7 +585,6 @@ export default function UpdatesAdminClient() {
         emptyIntroText: publicationSettings.emptyIntroText,
         outroText: publicationSettings.outroText,
         signature: publicationSettings.signature,
-        windowMode: publicationSettings.windowMode,
         windowDays: publicationSettings.windowDays ? Number(publicationSettings.windowDays) : null,
         maxPublications: publicationSettings.maxPublications ? Number(publicationSettings.maxPublications) : null,
         sendEmpty: Boolean(publicationSettings.sendEmpty),
@@ -611,7 +608,6 @@ export default function UpdatesAdminClient() {
         emptyIntroText: nextSettings.emptyIntroText || '',
         outroText: nextSettings.outroText || '',
         signature: nextSettings.signature || '',
-        windowMode: nextSettings.windowMode || 'rolling_days',
         windowDays: nextSettings.windowDays ? String(nextSettings.windowDays) : '',
         maxPublications: nextSettings.maxPublications ? String(nextSettings.maxPublications) : '',
         sendEmpty: Boolean(nextSettings.sendEmpty),
@@ -1480,32 +1476,22 @@ export default function UpdatesAdminClient() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="publication-window-mode" className="text-sm font-medium">Date window mode</label>
-                  <select
-                    id="publication-window-mode"
-                    value={publicationSettings.windowMode}
-                    onChange={(event) => updatePublicationSetting('windowMode', event.target.value)}
-                    className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple bg-white"
-                  >
-                    <option value="rolling_days">Rolling days (last N days)</option>
-                    <option value="last_sent">Since last email</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="publication-window-days" className="text-sm font-medium">Date window (days)</label>
-                  <input
-                    id="publication-window-days"
-                    type="number"
-                    min="1"
-                    max="365"
-                    value={publicationSettings.windowDays}
-                    onChange={(event) => updatePublicationSetting('windowDays', event.target.value)}
-                    placeholder="30"
-                    className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                  />
-                </div>
+              <div>
+                <label htmlFor="publication-window-days" className="text-sm font-medium">Minimum days between sends</label>
+                <input
+                  id="publication-window-days"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={publicationSettings.windowDays}
+                  onChange={(event) => updatePublicationSetting('windowDays', event.target.value)}
+                  placeholder="55"
+                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Checked on the scheduled day, so this decides how many of those days are used.
+                  55 gives every second one. Each email covers everything published since the last send.
+                </p>
               </div>
               <label className="inline-flex items-center gap-2 text-sm text-gray-600">
                 <input

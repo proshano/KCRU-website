@@ -5,6 +5,7 @@ import { getScopedAdminSession } from '@/lib/adminSessions'
 import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
+import { hasWindowElapsed, parseLastGlobalSentAt } from '@/lib/publicationNewsletterWindow'
 
 const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
 
@@ -26,18 +27,12 @@ async function getSession(request) {
   return getScopedAdminSession(token, { scope: 'updates' })
 }
 
-function normalizeWindowMode(value) {
-  const normalized = sanitizeString(value).toLowerCase()
-  return normalized === 'last_sent' ? 'last_sent' : 'rolling_days'
-}
-
 function normalizeSettingsPayload(body) {
   const subjectTemplate = sanitizeString(body?.subjectTemplate) || null
   const introText = sanitizeString(body?.introText) || null
   const emptyIntroText = sanitizeString(body?.emptyIntroText) || null
   const outroText = sanitizeString(body?.outroText) || null
   const signature = sanitizeString(body?.signature) || null
-  const windowMode = normalizeWindowMode(body?.windowMode)
   const windowDaysRaw = Number(body?.windowDays)
   const windowDays = Number.isFinite(windowDaysRaw) && windowDaysRaw > 0
     ? Math.min(Math.round(windowDaysRaw), 365)
@@ -54,7 +49,6 @@ function normalizeSettingsPayload(body) {
     emptyIntroText,
     outroText,
     signature,
-    windowMode,
     windowDays,
     maxPublications,
     sendEmpty,
@@ -84,10 +78,10 @@ export async function GET(request) {
           emptyIntroText,
           outroText,
           signature,
-          windowMode,
           windowDays,
           maxPublications,
-          sendEmpty
+          sendEmpty,
+          lastGlobalSentAt
         },
         updateEmailTesting{
           enabled,
@@ -97,7 +91,6 @@ export async function GET(request) {
     )
 
     const settings = settingsRaw?.publicationNewsletter || {}
-    const windowMode = normalizeWindowMode(settings.windowMode)
     const windowDays = Number.isFinite(Number(settings.windowDays)) && Number(settings.windowDays) > 0
       ? Number(settings.windowDays)
       : DEFAULT_WINDOW_DAYS
@@ -106,35 +99,41 @@ export async function GET(request) {
       : DEFAULT_MAX_PUBLICATIONS
     const normalizedSettings = {
       ...settings,
-      windowMode,
       windowDays,
       maxPublications,
       sendEmpty: Boolean(settings.sendEmpty),
     }
-    const cutoffIso = windowMode === 'rolling_days'
-      ? new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString()
-      : null
-    const eligibleFilter = windowMode === 'rolling_days'
-      ? ' && (!defined(lastPublicationNewsletterSentAt) || lastPublicationNewsletterSentAt < $cutoffIso)'
-      : ''
 
     const statsRaw = await fetcher(
       `{
         "total": count(*[_type == "updateSubscriber"]),
         "active": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER}]),
         "optedIn": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER} && "newsletter" in correspondencePreferences && defined(email)]),
-        "eligible": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER} && "newsletter" in correspondencePreferences && defined(email)${eligibleFilter}]),
         "suppressed": count(*[_type == "updateSubscriber" && deliveryStatus == "suppressed"]),
-        "lastSentAt": *[_type == "updateSubscriber" && defined(lastPublicationNewsletterSentAt)] | order(lastPublicationNewsletterSentAt desc)[0].lastPublicationNewsletterSentAt
-      }`,
-      { cutoffIso }
+        "derivedLastSentAt": *[_type == "updateSubscriber" && defined(lastPublicationNewsletterSentAt)] | order(lastPublicationNewsletterSentAt desc)[0].lastPublicationNewsletterSentAt
+      }`
     )
+
+    // Eligibility is a property of the run now, not of individual subscribers: either the
+    // window has elapsed and everyone opted in receives the issue, or nobody does.
+    // Falls back to the newest per-subscriber send for sends that predate the global
+    // timestamp, matching the same bootstrap the dispatch uses, so this panel does not
+    // promise a send the dispatch would decline.
+    const { derivedLastSentAt, ...counts } = statsRaw || {}
+    const lastGlobalSentAt =
+      parseLastGlobalSentAt(settings) || parseLastGlobalSentAt({ lastGlobalSentAt: derivedLastSentAt })
+    const windowElapsed = hasWindowElapsed({ lastGlobalSentAt, windowDays })
 
     return NextResponse.json(
       {
         ok: true,
         adminEmail: session.email,
-        stats: statsRaw || {},
+        stats: {
+          ...counts,
+          eligible: windowElapsed ? counts.optedIn || 0 : 0,
+          windowElapsed,
+          lastSentAt: lastGlobalSentAt ? lastGlobalSentAt.toISOString() : null,
+        },
         settings: normalizedSettings,
         testSettings: normalizeUpdateEmailTesting(settingsRaw?.updateEmailTesting),
       },
@@ -182,11 +181,13 @@ export async function PATCH(request) {
         'publicationNewsletter.emptyIntroText': updates.emptyIntroText,
         'publicationNewsletter.outroText': updates.outroText,
         'publicationNewsletter.signature': updates.signature,
-        'publicationNewsletter.windowMode': updates.windowMode,
         'publicationNewsletter.windowDays': updates.windowDays,
         'publicationNewsletter.maxPublications': updates.maxPublications,
         'publicationNewsletter.sendEmpty': updates.sendEmpty,
       })
+      // Clears the retired per-subscriber window mode. lastGlobalSentAt is deliberately
+      // absent from this patch: it is owned by the dispatch, not editable here.
+      .unset(['publicationNewsletter.windowMode'])
       .commit({ returnDocuments: false })
 
     const refreshed = await writeClient.fetch(
@@ -197,10 +198,10 @@ export async function PATCH(request) {
           emptyIntroText,
           outroText,
           signature,
-          windowMode,
           windowDays,
           maxPublications,
-          sendEmpty
+          sendEmpty,
+          lastGlobalSentAt
         },
         updateEmailTesting{
           enabled,

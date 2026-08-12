@@ -10,6 +10,7 @@ import { mergeWithClassifications } from '@/lib/publications'
 import { isPublicationExcluded } from '@/lib/publicationExclusions'
 import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
 import { isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
+import { getWindowStart, hasWindowElapsed, parseLastGlobalSentAt } from '@/lib/publicationNewsletterWindow'
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
   /\/$/,
@@ -81,23 +82,6 @@ function buildManageUrl(token) {
   return `${SITE_BASE_URL}/updates/manage?token=${encodeURIComponent(token)}`
 }
 
-function normalizeWindowMode(value) {
-  return value === 'last_sent' ? 'last_sent' : 'rolling_days'
-}
-
-function getStartDate({ subscriber, now, windowMode, windowDays }) {
-  if (windowMode === 'last_sent') {
-    const lastSent = subscriber?.lastPublicationNewsletterSentAt
-      ? new Date(subscriber.lastPublicationNewsletterSentAt)
-      : null
-    if (lastSent && !Number.isNaN(lastSent.getTime())) return lastSent
-  }
-  if (windowDays > 0) {
-    return new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000)
-  }
-  return null
-}
-
 function preparePublications(publications = []) {
   return publications
     .filter((pub) => pub && !isPublicationExcluded(pub))
@@ -135,10 +119,10 @@ async function fetchNewsletterSettings() {
         signature,
         scheduleOccurrence,
         scheduleDayOfWeek,
-        windowMode,
         windowDays,
         maxPublications,
-        sendEmpty
+        sendEmpty,
+        lastGlobalSentAt
       },
       updateEmailTesting{
         enabled,
@@ -153,18 +137,67 @@ async function fetchNewsletterSettings() {
   }
 }
 
-async function fetchSubscribers({ cutoffIso, force, windowMode }) {
+/**
+ * The newest per-subscriber send, used only to bootstrap the global timestamp.
+ *
+ * Sends that predate this scheme left no global record, so without this the first run
+ * would fall back to a rolling window and lose the real boundary - resending or skipping
+ * whatever sits between the two. It is a migration path, not a source of truth: the
+ * moment a send completes, recordGlobalSend stores the real value and this stops being
+ * consulted. See recordGlobalSend for why the derived value cannot be trusted long-term.
+ */
+async function fetchBootstrapSentAt() {
   const fetcher = writeClient.config().token ? writeClient.fetch.bind(writeClient) : sanityFetch
-  const windowFilter = !force && windowMode === 'rolling_days' && cutoffIso
-    ? ' && (!defined(lastPublicationNewsletterSentAt) || lastPublicationNewsletterSentAt < $cutoffIso)'
-    : ''
+  try {
+    const raw = await fetcher(
+      `*[_type == "updateSubscriber" && defined(lastPublicationNewsletterSentAt)]
+        | order(lastPublicationNewsletterSentAt desc)[0].lastPublicationNewsletterSentAt`
+    )
+    return parseLastGlobalSentAt({ lastGlobalSentAt: raw })
+  } catch (error) {
+    console.warn('[publication-newsletter] Could not read a bootstrap send timestamp', error?.message || error)
+    return null
+  }
+}
+
+/**
+ * Close the window by stamping the site settings.
+ *
+ * Stored rather than derived from the newest lastPublicationNewsletterSentAt across
+ * subscribers: that maximum regresses if the people who received the last send later
+ * unsubscribe or are deleted, which would silently reopen a window and resend its
+ * publications. Returns false rather than throwing so a failure here cannot lose a send
+ * that already went out.
+ */
+async function recordGlobalSend(sentAt) {
+  try {
+    const doc = await writeClient.fetch(`*[_type == "siteSettings"][0]{ _id }`)
+    if (!doc?._id) {
+      console.error('[publication-newsletter] Site settings not found; cannot record global send')
+      return false
+    }
+    await writeClient
+      .patch(doc._id)
+      .setIfMissing({ publicationNewsletter: {} })
+      .set({ 'publicationNewsletter.lastGlobalSentAt': sentAt.toISOString() })
+      .commit({ returnDocuments: false })
+    return true
+  } catch (error) {
+    console.error('[publication-newsletter] Failed to record global send timestamp', error)
+    return false
+  }
+}
+
+// No per-subscriber date filter: hasWindowElapsed decides whether the run happens at all,
+// and once it does every deliverable subscriber gets the same issue.
+async function fetchSubscribers() {
+  const fetcher = writeClient.config().token ? writeClient.fetch.bind(writeClient) : sanityFetch
   const query = `
     *[_type == "updateSubscriber"
       && subscriptionStatus == "subscribed"
       && deliveryStatus != "suppressed"
       && "${NEWSLETTER_PREF}" in correspondencePreferences
       && defined(email)
-      ${windowFilter}
     ]{
       _id,
       name,
@@ -175,7 +208,7 @@ async function fetchSubscribers({ cutoffIso, force, windowMode }) {
       lastPublicationNewsletterSentAt
     }
   `
-  return fetcher(query, { cutoffIso })
+  return fetcher(query)
 }
 
 async function fetchResearchers() {
@@ -212,7 +245,6 @@ async function runDispatch({ force = false, settingsPayload } = {}) {
       error: 'Update email sending is locked. Add at least one test recipient or disable test mode.',
     }
   }
-  const windowMode = normalizeWindowMode(settings.windowMode)
   const windowDays = Number.isFinite(Number(settings.windowDays)) && Number(settings.windowDays) > 0
     ? Number(settings.windowDays)
     : DEFAULT_WINDOW_DAYS
@@ -220,13 +252,20 @@ async function runDispatch({ force = false, settingsPayload } = {}) {
     ? Number(settings.maxPublications)
     : DEFAULT_MAX_PUBLICATIONS
   const sendEmpty = Boolean(settings?.sendEmpty)
+  const lastGlobalSentAt = parseLastGlobalSentAt(settings) || await fetchBootstrapSentAt()
 
-  const cutoffIso = windowMode === 'rolling_days'
-    ? new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString()
-    : null
+  if (!force && !hasWindowElapsed({ lastGlobalSentAt, now, windowDays })) {
+    return {
+      ok: true,
+      skipped: true,
+      reason: `Last send was less than ${windowDays} days ago`,
+      lastGlobalSentAt: lastGlobalSentAt?.toISOString() || null,
+      windowDays,
+    }
+  }
 
   const [subscribersRaw, cache, researchersRaw] = await Promise.all([
-    fetchSubscribers({ cutoffIso, force, windowMode }),
+    fetchSubscribers(),
     readCache(),
     fetchResearchers(),
   ])
@@ -247,11 +286,19 @@ async function runDispatch({ force = false, settingsPayload } = {}) {
     countSince2022: countPublicationsSinceYear(publications, 2022),
   }
 
+  // One window, one publication list, one issue - resolved before the loop rather than
+  // per subscriber, because that is the whole point of the global timestamp.
+  const startDate = getWindowStart({ lastGlobalSentAt, now, windowDays })
+  const rangeLabel = formatRangeLabel(startDate, now) || monthLabel
+  const topPublications = filterPublicationsByDate(publications, startDate).slice(0, maxPublications)
+
   const stats = {
     total: subscribers.length,
     sent: 0,
     skipped: 0,
     errors: 0,
+    publications: topPublications.length,
+    windowStart: startDate ? startDate.toISOString() : null,
   }
   if (testSettings.enabled) {
     stats.testMode = true
@@ -259,17 +306,18 @@ async function runDispatch({ force = false, settingsPayload } = {}) {
   }
   const errors = []
 
+  if (!topPublications.length && !sendEmpty) {
+    return {
+      ok: true,
+      skipped: true,
+      reason: 'No new publications in the window',
+      stats: { ...stats, skipped: subscribers.length },
+      errors: [],
+    }
+  }
+
   for (const subscriber of subscribers) {
     if (!isSubscriberDeliverable(subscriber)) {
-      stats.skipped += 1
-      continue
-    }
-    const startDate = getStartDate({ subscriber, now, windowMode, windowDays })
-    const rangeLabel = formatRangeLabel(startDate, now) || monthLabel
-    const relevant = filterPublicationsByDate(publications, startDate)
-    const topPublications = relevant.slice(0, maxPublications)
-
-    if (!topPublications.length && !sendEmpty) {
       stats.skipped += 1
       continue
     }
@@ -312,6 +360,21 @@ async function runDispatch({ force = false, settingsPayload } = {}) {
       errors.push({
         email: subscriber.email,
         message: error?.message || 'Failed to send',
+      })
+    }
+  }
+
+  // Advance the global timestamp only once something actually reached a real subscriber.
+  // Advancing on a run that sent nothing would mark that stretch of publications as
+  // covered when nobody received it, and they would never appear in a later issue. A test
+  // send goes to the test recipients alone, so it must not close the window either.
+  if (stats.sent > 0 && !testSettings.enabled) {
+    const recorded = await recordGlobalSend(now)
+    stats.lastGlobalSentAt = recorded ? now.toISOString() : null
+    if (!recorded) {
+      errors.push({
+        email: null,
+        message: 'Sent, but failed to record the global send timestamp; the next run may repeat this window.',
       })
     }
   }

@@ -741,22 +741,11 @@ const siteSettings = {
           }
         },
         {
-          name: 'windowMode',
-          title: 'Date Window Mode',
-          type: 'string',
-          initialValue: 'rolling_days',
-          options: {
-            list: [
-              { title: 'Rolling days (last N days)', value: 'rolling_days' },
-              { title: 'Since last email', value: 'last_sent' }
-            ]
-          }
-        },
-        {
           name: 'windowDays',
-          title: 'Date Window (days)',
+          title: 'Minimum Days Between Sends',
           type: 'number',
-          description: 'Used for rolling days and as the fallback for first-time sends.',
+          description:
+            'A send is skipped unless this many days have passed since the last one. The scheduled day above is checked first, so this decides how many of those days are used: 35-55 gives every second one. Also the window covered by the very first send, before there is a last-send date to measure from.',
           validation: Rule => Rule.min(1).max(365)
         },
         {
@@ -772,6 +761,14 @@ const siteSettings = {
           type: 'boolean',
           description: 'Send a newsletter even if there are no new publications in the window.',
           initialValue: false
+        },
+        {
+          name: 'lastGlobalSentAt',
+          title: 'Last Sent',
+          type: 'datetime',
+          readOnly: true,
+          description:
+            'Set automatically when a newsletter goes out. Every email covers publications since this moment, so editing it by hand would either resend or skip publications.'
         }
       ]
     },
