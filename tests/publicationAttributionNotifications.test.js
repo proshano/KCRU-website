@@ -88,3 +88,15 @@ test('authenticated dry-run selection does not send or mark', async () => {
   assert.equal(sent, false)
   assert.equal(marked, false)
 })
+
+test('an empty dry run is still identified explicitly', async () => {
+  const result = await dispatchPublicationAttributionNotifications({
+    reviews: [],
+    recipients: ['admin@example.test'],
+    dryRun: true,
+    now: NOW,
+  })
+  assert.equal(result.skipped, true)
+  assert.equal(result.dryRun, true)
+  assert.equal(result.due, 0)
+})
