@@ -43,6 +43,31 @@ const pubmedCache = {
             { name: 'title', type: 'string', title: 'Title' },
             { name: 'publishedAt', type: 'datetime', title: 'Published At' },
             { name: 'authors', type: 'array', of: [{ type: 'string' }], title: 'Authors' },
+            {
+              name: 'attributionAuthors',
+              type: 'array',
+              title: 'Structured Authors for Attribution',
+              readOnly: true,
+              of: [
+                {
+                  type: 'object',
+                  fields: [
+                    { name: 'given', type: 'string', title: 'Given Name' },
+                    { name: 'family', type: 'string', title: 'Family Name' },
+                    { name: 'displayName', type: 'string', title: 'Display Name' },
+                    { name: 'orcid', type: 'string', title: 'ORCID' },
+                    { name: 'affiliations', type: 'array', of: [{ type: 'string' }], title: 'Affiliations' },
+                  ],
+                },
+              ],
+            },
+            {
+              name: 'attributionQueryPaths',
+              type: 'array',
+              of: [{ type: 'string' }],
+              title: 'Attribution Query Paths',
+              readOnly: true,
+            },
             { name: 'journal', type: 'string', title: 'Journal' },
             { name: 'year', type: 'number', title: 'Year' },
             { name: 'month', type: 'string', title: 'Month' },

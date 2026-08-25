@@ -10,6 +10,7 @@ import alumnus from './alumnus'
 import site from './site'
 import pubmedCache from './pubmedCache'
 import pubmedClassification from './pubmedClassification'
+import publicationAttributionReview from './publicationAttributionReview'
 import pageContent from './pageContent'
 import contactRouting from './contactRouting'
 import contactLocation from './contactLocation'
@@ -34,6 +35,7 @@ export const schemaTypes = [
   referralInfo,
   pubmedCache,
   pubmedClassification,
+  publicationAttributionReview,
   pageContent,
   contactRouting,
   contactLocation,

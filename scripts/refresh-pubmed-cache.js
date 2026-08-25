@@ -41,6 +41,7 @@ async function main() {
       maxPerResearcher: MAX_PER_RESEARCHER,
       force: true,
       summariesPerRun: Infinity,
+      attributionReviewEnabled: settings.publicationAttributionReview?.enabled === true,
       llmOptions: {
         provider,
         model: settings.llmModel,

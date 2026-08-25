@@ -118,6 +118,7 @@ async function runRefresh({ isCron = false } = {}) {
       summariesPerRun,
       force: true,
       enableDoiAbstractBackfill: isCron ? true : undefined,
+      attributionReviewEnabled: settings.publicationAttributionReview?.enabled === true,
       llmOptions: {
         provider: settings.llmProvider || 'openrouter',
         model: settings.llmModel,

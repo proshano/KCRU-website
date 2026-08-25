@@ -666,6 +666,21 @@ const siteSettings = {
       ]
     },
     {
+      name: 'publicationAttributionReview',
+      title: 'Publication Attribution Review',
+      type: 'object',
+      description: 'Hold ambiguous researcher-publication links for approval before they appear publicly.',
+      fields: [
+        {
+          name: 'enabled',
+          title: 'Enable attribution review gate',
+          type: 'boolean',
+          description: 'When disabled or unset, publication discovery keeps its legacy behavior while researcher exclusions still apply.',
+          initialValue: false,
+        },
+      ],
+    },
+    {
       name: 'publicationNewsletter',
       title: 'Publication Newsletter',
       type: 'object',

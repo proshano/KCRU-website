@@ -20,6 +20,14 @@ const MODULES = [
     actionLabel: 'Open approvals',
   },
   {
+    key: 'publications',
+    accessKey: 'approvals',
+    title: 'Publication attributions',
+    description: 'Review ambiguous researcher-publication links before they appear publicly.',
+    href: '/admin/publications',
+    actionLabel: 'Open publication review',
+  },
+  {
     key: 'studies',
     accessKey: 'approvals',
     title: 'Study manager',
