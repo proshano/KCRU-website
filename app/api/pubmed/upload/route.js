@@ -87,12 +87,6 @@ export async function POST(request) {
         title: normalized.title,
         publishedAt: normalized.publishedAt || null,
         authors: normalized.authors || [],
-        attributionAuthors: (normalized.attributionAuthors || []).map((author, authorIndex) => ({
-          _key: `author-${authorIndex}`,
-          ...author,
-          affiliations: Array.from(new Set(author?.affiliations || [])),
-        })),
-        attributionQueryPaths: normalized.attributionQueryPaths || [],
         journal: normalized.journal,
         year: normalized.year,
         month: normalized.month,
