@@ -7,6 +7,7 @@ import {
   decideAttributionEvidence,
   evaluatePublicationAttribution,
   getPublicationAttributionReviewId,
+  preferPubmedAttributionMetadata,
 } from '../lib/publicationAttribution.js'
 
 test('recognizes full and abbreviated versions of a researcher name', () => {
@@ -64,10 +65,29 @@ test('a conflicting ORCID on a PubMed name match requires review', () => {
   assert.equal(decideAttributionEvidence({ isPubmedConfirmed: true, nameKind: 'full', hasConflictingOrcid: true }).decision, 'hold')
 })
 
+test('verified PubMed metadata prevents a secondary namesake label from hiding a genuine paper', () => {
+  const researcher = { name: 'Matthew Weir', publicationAuthorName: 'Matthew A Weir' }
+  const secondary = {
+    source: 'openalex', sources: ['openalex'], attributionQueryPaths: ['openalex:orcid'],
+    authors: ['M. Lynn Weir'], attributionAuthors: [{ given: 'M. Lynn', family: 'Weir' }],
+  }
+  const pubmed = {
+    source: 'pubmed', sources: ['pubmed'], attributionQueryPaths: ['pubmed:researcher-query'],
+    authors: ['Weir M'], attributionAuthors: [{ given: 'Matthew', family: 'Weir' }],
+  }
+  const publication = preferPubmedAttributionMetadata(secondary, pubmed)
+  const result = evaluatePublicationAttribution({ researcher, publication, isPubmedConfirmed: true })
+  assert.equal(result.decision, 'confirmed')
+  assert.equal(result.evidence.matchedAuthor, 'Matthew Weir')
+  assert.deepEqual(publication.authors, ['Weir M'])
+  assert.deepEqual(result.evidence.queryPaths, ['openalex:orcid', 'pubmed:researcher-query'])
+  assert.equal(evaluatePublicationAttribution({ researcher, publication: secondary }).decision, 'hold')
+})
+
 test('confirms PubMed and ORCID evidence without requiring both', () => {
   assert.deepEqual(
     decideAttributionEvidence({ isPubmedConfirmed: true, nameKind: 'abbreviated' }),
-    { decision: 'confirmed', reason: 'researcher-specific PubMed query' }
+    { decision: 'confirmed', reason: 'compatible indexed PubMed author or collaborator' }
   )
   assert.deepEqual(
     decideAttributionEvidence({ hasExactOrcid: true, nameKind: 'abbreviated' }),
