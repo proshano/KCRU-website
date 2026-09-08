@@ -22,6 +22,11 @@ test('PubMed efetch preserves structured author, ORCID, and affiliation evidence
               </Author>
             </AuthorList>
           </Article>
+          <InvestigatorList>
+            <Investigator ValidYN="Y">
+              <LastName>Weir</LastName><ForeName>Matthew A</ForeName><Initials>MA</Initials>
+            </Investigator>
+          </InvestigatorList>
         </MedlineCitation>
       </PubmedArticle>
     </PubmedArticleSet>
@@ -36,6 +41,13 @@ test('PubMed efetch preserves structured author, ORCID, and affiliation evidence
       displayName: 'Jane A. Smith',
       orcid: 'https://orcid.org/0000-0001-2345-6789',
       affiliations: ['Western University, London, Ontario.'],
+    }, {
+      given: 'Matthew A',
+      family: 'Weir',
+      displayName: 'Matthew A Weir',
+      orcid: null,
+      affiliations: [],
+      role: 'investigator',
     }])
   } finally {
     globalThis.fetch = originalFetch

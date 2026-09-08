@@ -70,6 +70,14 @@ const researcher = {
       description: 'Optional precise publication name, including middle initial, used to reject explicitly conflicting name variants. Sources that omit the middle initial remain eligible. This does not change the displayed name.'
     },
     {
+      name: 'publicationAuthorAliases',
+      title: 'Other Publication Names',
+      type: 'array',
+      of: [{ type: 'string' }],
+      validation: Rule => Rule.unique(),
+      description: 'Verified alternative full names used in publications, such as a longer given name or a known nickname. Initials are handled automatically. Add only names known to belong to this researcher.'
+    },
+    {
       name: 'publicationExclusions',
       title: 'Excluded Publications',
       type: 'array',

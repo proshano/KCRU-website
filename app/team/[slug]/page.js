@@ -142,6 +142,7 @@ export default async function TeamMemberPage({ params }) {
     slug: r.slug,
     pubmedQuery: r.pubmedQuery,
     publicationAuthorName: r.publicationAuthorName,
+    publicationAuthorAliases: r.publicationAuthorAliases,
     publicationExclusions: r.publicationExclusions,
     orcid: r.orcid,
   }))

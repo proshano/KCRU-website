@@ -10,6 +10,7 @@ import {
   mergeApprovedReviewSnapshots,
   resolveAutomaticallyConfirmedAttributionReviews,
   upsertPublicationAttributionCandidates,
+  vetPubmedAttributions,
 } from '../lib/publicationAttributionReview.js'
 
 function researcher(overrides = {}) {
@@ -101,6 +102,60 @@ test('a multi-researcher publication keeps its valid attribution', () => {
   })
   assert.deepEqual(filtered['doi:10.1000/candidate'], ['researcher-2'])
   assert.equal(retained.publications.length, 1)
+})
+
+test('a false PubMed search hit is queued before publication and cannot seed coauthor evidence', () => {
+  const matt = researcher({ name: 'Matthew Weir', publicationAuthorName: 'Matthew A Weir' })
+  const other = researcher({ _id: 'researcher-2', name: 'Jane Smith' })
+  const paper = publication({ source: 'pubmed', attributionAuthors: [
+    { given: 'David J', family: 'Weir' },
+    { given: 'Jane', family: 'Smith' },
+  ] })
+  const result = vetPubmedAttributions({
+    publications: [paper],
+    provenance: { 'doi:10.1000/candidate': [matt._id, other._id] },
+    researchers: [matt, other],
+  })
+  assert.deepEqual(result.provenance, { 'doi:10.1000/candidate': [other._id] })
+  assert.equal(result.publications.length, 1)
+  assert.equal(result.candidates.length, 1)
+  assert.equal(result.candidates[0].researcher._id, matt._id)
+  assert.equal(result.candidates[0].evaluation.decision, 'hold')
+})
+
+test('PubMed collaborator evidence preserves genuine papers without a byline match', () => {
+  const result = vetPubmedAttributions({
+    publications: [publication({ attributionAuthors: [{ given: 'Jane', family: 'Smith', role: 'investigator' }] })],
+    provenance: { 'doi:10.1000/candidate': ['researcher-1'] },
+    researchers: [researcher()],
+  })
+  assert.deepEqual(result.provenance, { 'doi:10.1000/candidate': ['researcher-1'] })
+  assert.equal(result.candidates.length, 0)
+})
+
+test('a pending PubMed namesake cannot be automatically approved or restored by retention', () => {
+  const pending = review('pending')
+  const result = vetPubmedAttributions({
+    publications: [publication({ attributionAuthors: [{ given: 'John', family: 'Smith' }] })],
+    provenance: { 'doi:10.1000/candidate': ['researcher-1'] },
+    researchers: [researcher()],
+    reviews: [pending],
+  })
+  assert.deepEqual(result.provenance, {})
+  assert.deepEqual(result.resolutions, [])
+  const filtered = filterRejectedProvenance({
+    provenance: { 'doi:10.1000/candidate': ['researcher-1'] },
+    researchers: [researcher()],
+    reviews: [pending],
+    excludePending: true,
+  })
+  const retained = retainPublications({
+    cachedPublications: [publication()],
+    cachedProvenance: filtered,
+    discoveryDegraded: true,
+    requireAttribution: true,
+  })
+  assert.deepEqual(retained.publications, [])
 })
 
 test('candidate upserts deduplicate and do not overwrite an existing decision', async () => {

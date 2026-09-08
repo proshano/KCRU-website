@@ -2,6 +2,7 @@ const attributionAuthorFields = [
   { name: 'given', type: 'string', title: 'Given name' },
   { name: 'family', type: 'string', title: 'Family name' },
   { name: 'displayName', type: 'string', title: 'Display name' },
+  { name: 'role', type: 'string', title: 'Contributor role' },
   { name: 'orcid', type: 'string', title: 'ORCID' },
   { name: 'affiliations', type: 'array', of: [{ type: 'string' }], title: 'Affiliations' },
 ]

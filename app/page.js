@@ -49,6 +49,7 @@ export default async function HomePage() {
       name: r.name,
       pubmedQuery: r.pubmedQuery,
       publicationAuthorName: r.publicationAuthorName,
+      publicationAuthorAliases: r.publicationAuthorAliases,
       publicationExclusions: r.publicationExclusions,
       orcid: r.orcid,
     }))

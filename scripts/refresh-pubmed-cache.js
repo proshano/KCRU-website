@@ -31,6 +31,7 @@ async function main() {
       slug: r.slug,
       pubmedQuery: r.pubmedQuery,
       publicationAuthorName: r.publicationAuthorName,
+      publicationAuthorAliases: r.publicationAuthorAliases,
       publicationExclusions: r.publicationExclusions,
       orcid: r.orcid,
     }))

@@ -24,6 +24,44 @@ test('allows an omitted middle initial but rejects an explicit conflict', () => 
   assert.equal(classifyResearcherAuthor({ given: 'Matthew A.', family: 'Weir' }, researcher)?.kind, 'full')
   assert.equal(classifyResearcherAuthor({ given: 'M. A.', family: 'Weir' }, researcher)?.kind, 'abbreviated')
   assert.equal(classifyResearcherAuthor({ given: 'Matthew R.', family: 'Weir' }, researcher), null)
+  assert.equal(classifyResearcherAuthor({ given: 'MA', family: 'Weir' }, researcher)?.kind, 'abbreviated')
+  assert.equal(classifyResearcherAuthor({ given: 'MR', family: 'Weir' }, researcher), null)
+  assert.equal(classifyResearcherAuthor({ given: 'DJ', family: 'Weir' }, researcher), null)
+})
+
+test('only explicitly configured publication aliases extend name matching', () => {
+  const researcher = { name: 'Brad Urquhart', publicationAuthorAliases: ['Bradley Urquhart'] }
+  assert.equal(classifyResearcherAuthor({ given: 'Bradley L', family: 'Urquhart' }, researcher)?.kind, 'full')
+  assert.equal(classifyResearcherAuthor({ given: 'Brandon', family: 'Urquhart' }, researcher), null)
+  const susan = { name: 'Susan Huang', publicationAuthorAliases: ['Shih-Han Susan Huang'] }
+  assert.equal(classifyResearcherAuthor({ given: 'Shih-Han', family: 'Susan Huang' }, susan)?.kind, 'full')
+  assert.equal(classifyResearcherAuthor({ given: 'Chiu-Ching', family: 'Huang' }, susan), null)
+})
+
+test('a malformed publisher ORCID does not create a false identity conflict', () => {
+  const result = evaluatePublicationAttribution({
+    researcher: { name: 'Jane Smith', orcid: '0000-0001-2345-6789' },
+    isPubmedConfirmed: true,
+    publication: { attributionAuthors: [{ given: 'Jane', family: 'Smith', orcid: '0000-0001-2345-678' }] },
+  })
+  assert.equal(result.decision, 'confirmed')
+  assert.equal(result.evidence.hasConflictingOrcid, false)
+})
+
+test('PubMed hits and ORCID metadata cannot override a different author name', () => {
+  const researcher = { name: 'Matthew Weir', publicationAuthorName: 'Matthew A Weir', orcid: '0000-0001-6736-603X' }
+  for (const given of ['David J', 'Matthew R', 'Michelle A']) {
+    const result = evaluatePublicationAttribution({
+      researcher,
+      isPubmedConfirmed: true,
+      publication: { attributionAuthors: [{ given, family: 'Weir', orcid: researcher.orcid }] },
+    })
+    assert.equal(result.decision, 'hold', given)
+  }
+})
+
+test('a conflicting ORCID on a PubMed name match requires review', () => {
+  assert.equal(decideAttributionEvidence({ isPubmedConfirmed: true, nameKind: 'full', hasConflictingOrcid: true }).decision, 'hold')
 })
 
 test('confirms PubMed and ORCID evidence without requiring both', () => {
