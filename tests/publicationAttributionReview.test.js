@@ -104,11 +104,11 @@ test('a multi-researcher publication keeps its valid attribution', () => {
   assert.equal(retained.publications.length, 1)
 })
 
-test('a false PubMed search hit is queued before publication and cannot seed coauthor evidence', () => {
+test('an explicit PubMed namesake is discarded before review while other researcher links survive', () => {
   const matt = researcher({ name: 'Matthew Weir', publicationAuthorName: 'Matthew A Weir' })
   const other = researcher({ _id: 'researcher-2', name: 'Jane Smith' })
   const paper = publication({ source: 'pubmed', attributionAuthors: [
-    { given: 'David J', family: 'Weir' },
+    { given: 'William B', family: 'Weir' },
     { given: 'Jane', family: 'Smith' },
   ] })
   const result = vetPubmedAttributions({
@@ -118,8 +118,49 @@ test('a false PubMed search hit is queued before publication and cannot seed coa
   })
   assert.deepEqual(result.provenance, { 'doi:10.1000/candidate': [other._id] })
   assert.equal(result.publications.length, 1)
+  assert.deepEqual(result.candidates, [])
+  assert.deepEqual(result.rejectedAttributions, [{ researcherId: matt._id, publicationKey: 'doi:10.1000/candidate' }])
+  const filtered = filterRejectedProvenance({
+    provenance: { 'doi:10.1000/candidate': [matt._id, other._id] },
+    researchers: [matt, other],
+    rejectedAttributions: result.rejectedAttributions,
+  })
+  assert.deepEqual(filtered, { 'doi:10.1000/candidate': [other._id] })
+})
+
+test('a cached namesake cannot return through retention without a stored review rejection', () => {
+  const matt = researcher({ name: 'Matthew Weir', publicationAuthorName: 'Matthew A Weir' })
+  const paper = publication({ attributionAuthors: [{ given: 'Christopher', family: 'Weir' }] })
+  const provenance = { 'doi:10.1000/candidate': [matt._id] }
+  const vetted = vetPubmedAttributions({ publications: [paper], provenance, researchers: [matt] })
+  const filtered = filterRejectedProvenance({
+    provenance,
+    researchers: [matt],
+    rejectedAttributions: vetted.rejectedAttributions,
+  })
+  const result = retainPublications({
+    cachedPublications: [paper],
+    fetchedPublications: vetted.publications,
+    cachedProvenance: filtered,
+    fetchedProvenance: vetted.provenance,
+    discoveryDegraded: true,
+    requireAttribution: true,
+  })
+  assert.deepEqual(vetted.candidates, [])
+  assert.deepEqual(result.publications, [])
+  assert.deepEqual(result.provenance, {})
+  assert.equal(result.removed[0].reason, 'no-valid-attribution')
+})
+
+test('missing PubMed contributor metadata still creates a review candidate', () => {
+  const result = vetPubmedAttributions({
+    publications: [publication({ authors: [], attributionAuthors: [] })],
+    provenance: { 'doi:10.1000/candidate': ['researcher-1'] },
+    researchers: [researcher()],
+  })
+  assert.deepEqual(result.provenance, {})
+  assert.deepEqual(result.rejectedAttributions, [])
   assert.equal(result.candidates.length, 1)
-  assert.equal(result.candidates[0].researcher._id, matt._id)
   assert.equal(result.candidates[0].evaluation.decision, 'hold')
 })
 

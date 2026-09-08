@@ -49,16 +49,68 @@ test('a malformed publisher ORCID does not create a false identity conflict', ()
   assert.equal(result.evidence.hasConflictingOrcid, false)
 })
 
-test('PubMed hits and ORCID metadata cannot override a different author name', () => {
+test('explicitly different names are discarded even with a PubMed hit or copied ORCID', () => {
   const researcher = { name: 'Matthew Weir', publicationAuthorName: 'Matthew A Weir', orcid: '0000-0001-6736-603X' }
-  for (const given of ['David J', 'Matthew R', 'Michelle A']) {
-    const result = evaluatePublicationAttribution({
-      researcher,
-      isPubmedConfirmed: true,
-      publication: { attributionAuthors: [{ given, family: 'Weir', orcid: researcher.orcid }] },
-    })
-    assert.equal(result.decision, 'hold', given)
+  for (const source of ['pubmed', 'crossref', 'openalex', 'europepmc']) {
+    for (const given of ['William B', 'Christopher', 'David J', 'Matthew R', 'Michelle A', 'W', 'C', 'MR']) {
+      const result = evaluatePublicationAttribution({
+        researcher,
+        isPubmedConfirmed: source === 'pubmed',
+        publication: { source, attributionAuthors: [{ given, family: 'Weir', orcid: researcher.orcid }] },
+      })
+      assert.equal(result.decision, 'rejected', `${source}: ${given}`)
+      assert.equal(result.evidence.hasNameConflict, true)
+    }
   }
+})
+
+test('missing contributor names remain uncertain rather than becoming automatic rejections', () => {
+  const researcher = { name: 'Matthew Weir', publicationAuthorName: 'Matthew A Weir' }
+  for (const attributionAuthors of [
+    [],
+    [{ given: 'Jane', family: 'Smith' }],
+    [{ family: 'Weir' }],
+    [{ given: 'William', family: 'Weir' }, { family: 'Weir', role: 'investigator' }],
+  ]) {
+    const result = evaluatePublicationAttribution({ researcher, publication: { attributionAuthors } })
+    assert.equal(result.decision, 'hold')
+    assert.equal(result.evidence.hasNameConflict, false)
+  }
+})
+
+test('compatible abbreviations and omitted middle initials are never name conflicts', () => {
+  const researcher = { name: 'Matthew Weir', publicationAuthorName: 'Matthew A Weir' }
+  for (const given of ['Matthew', 'Matthew A', 'M', 'M. A.', 'MA']) {
+    const publication = { attributionAuthors: [{ given, family: 'Weir' }] }
+    assert.equal(evaluatePublicationAttribution({ researcher, publication }).decision, 'hold', given)
+    assert.equal(evaluatePublicationAttribution({ researcher, publication, isPubmedConfirmed: true }).decision, 'confirmed', given)
+  }
+})
+
+test('a different Weir does not hide a compatible author or investigator on the same paper', () => {
+  const researcher = { name: 'Matthew Weir', publicationAuthorName: 'Matthew A Weir' }
+  for (const role of [undefined, 'investigator']) {
+    const publication = { attributionAuthors: [
+      { given: 'Christopher', family: 'Weir' },
+      { given: 'Matthew', family: 'Weir', role },
+    ] }
+    const result = evaluatePublicationAttribution({ researcher, publication, isPubmedConfirmed: true })
+    assert.equal(result.decision, 'confirmed')
+    assert.equal(result.evidence.hasNameConflict, false)
+  }
+})
+
+test('verified aliases and individual review decisions take precedence over a name conflict', () => {
+  const publication = { attributionAuthors: [{ given: 'Bradley L', family: 'Urquhart' }] }
+  const researcher = { name: 'Brad Urquhart' }
+  assert.equal(evaluatePublicationAttribution({ researcher, publication }).decision, 'rejected')
+  assert.equal(evaluatePublicationAttribution({
+    researcher: { ...researcher, publicationAuthorAliases: ['Bradley L Urquhart'] },
+    publication,
+    isPubmedConfirmed: true,
+  }).decision, 'confirmed')
+  assert.equal(evaluatePublicationAttribution({ researcher, publication, review: { status: 'approved' } }).decision, 'confirmed')
+  assert.equal(evaluatePublicationAttribution({ researcher, publication, review: { status: 'rejected' } }).decision, 'rejected')
 })
 
 test('a conflicting ORCID on a PubMed name match requires review', () => {
@@ -81,7 +133,7 @@ test('verified PubMed metadata prevents a secondary namesake label from hiding a
   assert.equal(result.evidence.matchedAuthor, 'Matthew Weir')
   assert.deepEqual(publication.authors, ['Weir M'])
   assert.deepEqual(result.evidence.queryPaths, ['openalex:orcid', 'pubmed:researcher-query'])
-  assert.equal(evaluatePublicationAttribution({ researcher, publication: secondary }).decision, 'hold')
+  assert.equal(evaluatePublicationAttribution({ researcher, publication: secondary }).decision, 'rejected')
 })
 
 test('confirms PubMed and ORCID evidence without requiring both', () => {

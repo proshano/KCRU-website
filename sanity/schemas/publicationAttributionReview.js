@@ -84,6 +84,7 @@ const publicationAttributionReview = {
         { name: 'matchedOrcid', type: 'string', title: 'Matched ORCID' },
         { name: 'hasExactOrcid', type: 'boolean', title: 'Exact ORCID' },
         { name: 'hasConflictingOrcid', type: 'boolean', title: 'Conflicting ORCID' },
+        { name: 'hasNameConflict', type: 'boolean', title: 'Conflicting author name' },
         { name: 'nameKind', type: 'string', title: 'Name form' },
         { name: 'matchedAuthor', type: 'string', title: 'Matched author' },
         { name: 'affiliationMatches', type: 'array', of: [{ type: 'string' }], title: 'Affiliation matches' },
