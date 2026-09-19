@@ -12,6 +12,7 @@ import {
   patchPublicationClassificationSettings,
   runClassificationEval,
 } from '@/lib/classificationEval'
+import { CLASSIFICATION_BACKENDS } from '@/lib/classificationSettings'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { sanitizeString } from '@/lib/inputUtils'
 import { describeJevConfig } from '@/lib/jevClassifier'
@@ -107,6 +108,24 @@ export async function POST(request) {
       const production = await patchPublicationClassificationSettings(writeClient, {
         thresholds,
         thresholdsSource: `${sanitizeString(body?.source) || 'classification evaluation'} by ${session.email}`,
+      })
+      return NextResponse.json({ ok: true, production }, { headers: CORS_HEADERS })
+    }
+
+    if (action === 'set-backend') {
+      const backend = sanitizeString(body?.backend).toLowerCase()
+      if (!CLASSIFICATION_BACKENDS.includes(backend)) {
+        return NextResponse.json({ ok: false, error: 'Backend must be "chat" or "jev".' }, { status: 400, headers: CORS_HEADERS })
+      }
+      if (backend === 'jev' && !describeConfig().hasApiKey) {
+        return NextResponse.json(
+          { ok: false, error: 'No Jev credential is configured on the server, so every paper would fall back to the chat model. Set OPENROUTER_API_KEY or TYPESAFE_API_KEY first.' },
+          { status: 400, headers: CORS_HEADERS }
+        )
+      }
+      const production = await patchPublicationClassificationSettings(writeClient, {
+        backend,
+        backendUpdatedBy: session.email,
       })
       return NextResponse.json({ ok: true, production }, { headers: CORS_HEADERS })
     }

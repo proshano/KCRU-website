@@ -392,6 +392,19 @@ const siteSettings = {
           description: 'Takes effect on the next PubMed refresh or reclassification. If Jev fails for a paper, the chat model classifies it instead.'
         },
         {
+          name: 'backendUpdatedAt',
+          title: 'Classifier changed at',
+          type: 'datetime',
+          readOnly: true
+        },
+        {
+          name: 'backendUpdatedBy',
+          title: 'Classifier changed by',
+          type: 'string',
+          readOnly: true,
+          description: 'Filled in when the classifier is switched from /admin/classification-eval.'
+        },
+        {
           name: 'jevThresholdTopics',
           title: 'Jev threshold: Topics',
           type: 'number',

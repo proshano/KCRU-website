@@ -10,6 +10,8 @@ import {
 test('classification settings default to the chat backend with no thresholds set', () => {
   assert.deepEqual(resolvePublicationClassificationSettings(undefined), {
     backend: 'chat',
+    backendUpdatedAt: null,
+    backendUpdatedBy: null,
     thresholds: {},
     thresholdsSource: null,
     thresholdsUpdatedAt: null,
@@ -52,8 +54,18 @@ test('classification settings patch changes only what was supplied', () => {
     thresholdsUpdatedAt: '2026-09-19T12:00:00.000Z',
   })
 
-  const backendOnly = buildPublicationClassificationPatch({ backend: 'jev' }, current, { now })
-  assert.deepEqual(backendOnly, { backend: 'jev', jevThresholdTopics: 0.5, thresholdsSource: 'old' })
+  const backendOnly = buildPublicationClassificationPatch({ backend: 'jev', backendUpdatedBy: 'a@b.c' }, current, { now })
+  assert.deepEqual(backendOnly, {
+    backend: 'jev',
+    backendUpdatedAt: '2026-09-19T12:00:00.000Z',
+    backendUpdatedBy: 'a@b.c',
+    jevThresholdTopics: 0.5,
+    thresholdsSource: 'old',
+  })
+
+  // Re-saving the same backend does not re-stamp it.
+  const sameBackend = buildPublicationClassificationPatch({ backend: 'chat', backendUpdatedBy: 'x@y.z' }, current, { now })
+  assert.deepEqual(sameBackend, current)
 
   const nothing = buildPublicationClassificationPatch({ thresholds: { topics: 'x' } }, current, { now })
   assert.deepEqual(nothing, current)

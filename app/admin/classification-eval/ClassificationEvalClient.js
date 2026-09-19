@@ -381,6 +381,36 @@ export default function ClassificationEvalClient() {
     }
   }
 
+  async function setBackend(backend) {
+    if (!production || production.backend === backend) return
+    const label = backend === 'jev' ? 'the Jev decision model' : 'the chat model'
+    if (!window.confirm(`Switch production classification to ${label}?\n\nThis applies to the next PubMed refresh or reclassification. Existing tags are not changed until a paper is reclassified.`)) return
+    setWorking(true)
+    setMessage({ type: 'idle', text: '' })
+    try {
+      const res = await fetch('/api/admin/classification-eval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set-backend', backend }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.error || 'Switching the classifier failed.')
+      }
+      setPayload((previous) => ({ ...previous, production: data.production }))
+      setMessage({
+        type: 'success',
+        text: backend === 'jev'
+          ? `Production classification now uses Jev at thresholds ${JEV_THRESHOLD_KEYS.map((key) => formatProbability(data.production?.effectiveThresholds?.[key])).join(' / ')}. It applies on the next refresh or reclassification.`
+          : 'Production classification now uses the chat model.',
+      })
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Switching the classifier failed.' })
+    } finally {
+      setWorking(false)
+    }
+  }
+
   const visiblePapers = useMemo(() => {
     if (!run?.papers) return []
     const comparisons = metrics?.comparisons || []
@@ -548,21 +578,34 @@ export default function ClassificationEvalClient() {
           <div>
             <h2 className="text-lg font-semibold">Production classifier</h2>
             <p className="text-sm text-gray-500">
-              What the site uses when it refreshes or reclassifies publications. The classifier itself is
-              switched in Sanity Studio (Site Settings → Publication Classification); thresholds can be
-              saved from the sliders below.
+              What the site uses when it refreshes or reclassifies publications. Switching applies to the
+              next run; existing tags stay until a paper is reclassified. If Jev fails for a paper, the
+              chat model classifies it instead. The same setting is editable in Sanity Studio.
             </p>
           </div>
           {production ? (
-            <span
-              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-                production.backend === 'jev'
-                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                  : 'bg-gray-100 text-gray-700 border-gray-300'
-              }`}
-            >
-              {production.backend === 'jev' ? 'Jev decision model' : 'Chat model'}
-            </span>
+            <div className="flex items-center gap-1 rounded-lg border border-black/10 p-1 bg-white" role="radiogroup" aria-label="Production classifier">
+              {[
+                { key: 'chat', label: 'Chat model' },
+                { key: 'jev', label: 'Jev decision model' },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={production.backend === item.key}
+                  onClick={() => setBackend(item.key)}
+                  disabled={working || production.backend === item.key}
+                  className={`px-3 py-1 rounded text-sm ${
+                    production.backend === item.key
+                      ? 'bg-purple text-white'
+                      : 'text-gray-700 hover:bg-gray-100 disabled:opacity-50'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           ) : null}
         </div>
         {production ? (
@@ -576,10 +619,18 @@ export default function ClassificationEvalClient() {
                 </dd>
               </div>
             ))}
-            <div className="col-span-2 md:col-span-4 text-xs text-gray-500">
-              {production.thresholdsUpdatedAt
-                ? `Thresholds set ${formatDateTime(production.thresholdsUpdatedAt)}${production.thresholdsSource ? ` from ${production.thresholdsSource}` : ''}.`
-                : 'Thresholds have not been set from an evaluation yet; defaults apply.'}
+            <div className="col-span-2 md:col-span-4 text-xs text-gray-500 space-y-0.5">
+              <p>
+                {production.thresholdsUpdatedAt
+                  ? `Thresholds set ${formatDateTime(production.thresholdsUpdatedAt)}${production.thresholdsSource ? ` from ${production.thresholdsSource}` : ''}.`
+                  : 'Thresholds have not been set from an evaluation yet; defaults apply.'}
+              </p>
+              {production.backendUpdatedAt ? (
+                <p>
+                  Classifier set to {production.backend === 'jev' ? 'Jev' : 'the chat model'} {formatDateTime(production.backendUpdatedAt)}
+                  {production.backendUpdatedBy ? ` by ${production.backendUpdatedBy}` : ''}.
+                </p>
+              ) : null}
             </div>
           </dl>
         ) : (
