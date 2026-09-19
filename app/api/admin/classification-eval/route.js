@@ -7,7 +7,9 @@ import {
   MAX_EVAL_ROUTE_COUNT,
   deleteClassificationEvalRun,
   fetchClassificationEvalRun,
+  fetchPublicationClassificationSettings,
   listClassificationEvalRuns,
+  patchPublicationClassificationSettings,
   runClassificationEval,
 } from '@/lib/classificationEval'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
@@ -53,11 +55,14 @@ export async function GET(request) {
   try {
     const url = new URL(request.url)
     const requestedRunId = sanitizeString(url.searchParams.get('run'))
-    const runs = await listClassificationEvalRuns(writeClient)
+    const [runs, production] = await Promise.all([
+      listClassificationEvalRuns(writeClient),
+      fetchPublicationClassificationSettings(writeClient),
+    ])
     const runId = requestedRunId || runs[0]?._id || null
     const run = runId ? await fetchClassificationEvalRun(writeClient, runId) : null
     return NextResponse.json(
-      { ok: true, adminEmail: session.email, config: describeConfig(), runs, run },
+      { ok: true, adminEmail: session.email, config: describeConfig(), production, runs, run },
       { headers: CORS_HEADERS }
     )
   } catch (requestError) {
@@ -92,6 +97,18 @@ export async function POST(request) {
       }
       await deleteClassificationEvalRun(writeClient, runId)
       return NextResponse.json({ ok: true, deleted: runId }, { headers: CORS_HEADERS })
+    }
+
+    if (action === 'apply-thresholds') {
+      const thresholds = body?.thresholds && typeof body.thresholds === 'object' ? body.thresholds : null
+      if (!thresholds) {
+        return NextResponse.json({ ok: false, error: 'Missing thresholds.' }, { status: 400, headers: CORS_HEADERS })
+      }
+      const production = await patchPublicationClassificationSettings(writeClient, {
+        thresholds,
+        thresholdsSource: `${sanitizeString(body?.source) || 'classification evaluation'} by ${session.email}`,
+      })
+      return NextResponse.json({ ok: true, production }, { headers: CORS_HEADERS })
     }
 
     if (action !== 'run') {

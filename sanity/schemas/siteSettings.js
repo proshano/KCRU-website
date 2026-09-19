@@ -370,6 +370,71 @@ const siteSettings = {
       }
     },
     {
+      name: 'publicationClassification',
+      title: 'Publication Classification',
+      type: 'object',
+      description:
+        'Which system assigns topic, study design and methodological focus tags to publications, and the Jev probability thresholds. Tune thresholds at /admin/classification-eval.',
+      options: { collapsible: true, collapsed: false },
+      fields: [
+        {
+          name: 'backend',
+          title: 'Classifier',
+          type: 'string',
+          initialValue: 'chat',
+          options: {
+            layout: 'radio',
+            list: [
+              { title: 'Chat model (uses the LLM Provider/Model (classification) settings above)', value: 'chat' },
+              { title: 'Jev decision model (one yes/no question per tag, with probabilities)', value: 'jev' }
+            ]
+          },
+          description: 'Takes effect on the next PubMed refresh or reclassification. If Jev fails for a paper, the chat model classifies it instead.'
+        },
+        {
+          name: 'jevThresholdTopics',
+          title: 'Jev threshold: Topics',
+          type: 'number',
+          description: '0 to 1. A topic tag is applied when Jev\'s probability reaches this value. Blank means 0.5.',
+          validation: (Rule) => Rule.min(0).max(1)
+        },
+        {
+          name: 'jevThresholdStudyDesign',
+          title: 'Jev threshold: Study design',
+          type: 'number',
+          description: '0 to 1. Blank means 0.5.',
+          validation: (Rule) => Rule.min(0).max(1)
+        },
+        {
+          name: 'jevThresholdMethodologicalFocus',
+          title: 'Jev threshold: Methodological focus',
+          type: 'number',
+          description: '0 to 1. Blank means 0.5.',
+          validation: (Rule) => Rule.min(0).max(1)
+        },
+        {
+          name: 'jevThresholdExclude',
+          title: 'Jev threshold: Exclude (corrections and errata)',
+          type: 'number',
+          description: '0 to 1. Blank means 0.5.',
+          validation: (Rule) => Rule.min(0).max(1)
+        },
+        {
+          name: 'thresholdsSource',
+          title: 'Thresholds set from',
+          type: 'string',
+          readOnly: true,
+          description: 'Filled in when thresholds are applied from an evaluation run.'
+        },
+        {
+          name: 'thresholdsUpdatedAt',
+          title: 'Thresholds updated at',
+          type: 'datetime',
+          readOnly: true
+        }
+      ]
+    },
+    {
       name: 'affiliations',
       title: 'Affiliations (optional)',
       type: 'array',

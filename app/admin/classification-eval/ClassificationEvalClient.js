@@ -236,7 +236,7 @@ function PaperCard({ paper, comparison, thresholds, expanded, onToggle }) {
 }
 
 export default function ClassificationEvalClient() {
-  const [payload, setPayload] = useState({ config: null, runs: [], run: null })
+  const [payload, setPayload] = useState({ config: null, production: null, runs: [], run: null })
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [message, setMessage] = useState({ type: 'idle', text: '' })
@@ -247,6 +247,7 @@ export default function ClassificationEvalClient() {
 
   const run = payload.run
   const config = payload.config
+  const production = payload.production
 
   const metrics = useMemo(
     () => (run?.papers?.length ? computeEvalMetrics(run.papers, thresholds) : null),
@@ -255,6 +256,13 @@ export default function ClassificationEvalClient() {
 
   const runThresholds = useMemo(() => normalizeJevThresholds(run?.thresholds), [run])
   const thresholdsChanged = JEV_THRESHOLD_KEYS.some((key) => thresholds[key] !== runThresholds[key])
+  const productionThresholds = useMemo(
+    () => normalizeJevThresholds(production?.effectiveThresholds),
+    [production]
+  )
+  const matchesProduction = JEV_THRESHOLD_KEYS.every(
+    (key) => Math.abs(thresholds[key] - productionThresholds[key]) < 0.001
+  )
 
   async function load(runId = '') {
     setLoading(true)
@@ -266,7 +274,7 @@ export default function ClassificationEvalClient() {
       if (!res.ok || !data.ok) {
         throw new Error(data?.error || 'Failed to load classification evaluations.')
       }
-      setPayload({ config: data.config, runs: data.runs || [], run: data.run || null })
+      setPayload({ config: data.config, production: data.production || null, runs: data.runs || [], run: data.run || null })
       setThresholds(normalizeJevThresholds(data.run?.thresholds))
       setExpanded({})
     } catch (error) {
@@ -335,6 +343,39 @@ export default function ClassificationEvalClient() {
       await load('')
     } catch (error) {
       setMessage({ type: 'error', text: error.message || 'Delete failed.' })
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  async function applyThresholds() {
+    const summary = JEV_THRESHOLD_KEYS.map((key) => `${THRESHOLD_LABELS[key]} ${formatProbability(thresholds[key])}`).join(', ')
+    if (!window.confirm(`Use these thresholds for production classification?\n\n${summary}\n\nThey apply on the next PubMed refresh or reclassification when the classifier is set to Jev.`)) return
+    setWorking(true)
+    setMessage({ type: 'idle', text: '' })
+    try {
+      const res = await fetch('/api/admin/classification-eval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'apply-thresholds',
+          thresholds,
+          source: run ? `${run.label || 'evaluation'} (${run._id})` : 'classification evaluation',
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.error || 'Saving thresholds failed.')
+      }
+      setPayload((previous) => ({ ...previous, production: data.production }))
+      setMessage({
+        type: 'success',
+        text: data.production?.backend === 'jev'
+          ? 'Production thresholds saved. They apply on the next refresh or reclassification.'
+          : 'Production thresholds saved. The classifier is still set to the chat model; switch it to Jev in Sanity Studio (Site Settings → Publication Classification) when you are ready.',
+      })
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Saving thresholds failed.' })
     } finally {
       setWorking(false)
     }
@@ -502,6 +543,50 @@ export default function ClassificationEvalClient() {
         </div>
       </section>
 
+      <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Production classifier</h2>
+            <p className="text-sm text-gray-500">
+              What the site uses when it refreshes or reclassifies publications. The classifier itself is
+              switched in Sanity Studio (Site Settings → Publication Classification); thresholds can be
+              saved from the sliders below.
+            </p>
+          </div>
+          {production ? (
+            <span
+              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
+                production.backend === 'jev'
+                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                  : 'bg-gray-100 text-gray-700 border-gray-300'
+              }`}
+            >
+              {production.backend === 'jev' ? 'Jev decision model' : 'Chat model'}
+            </span>
+          ) : null}
+        </div>
+        {production ? (
+          <dl className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-sm">
+            {JEV_THRESHOLD_KEYS.map((key) => (
+              <div key={key}>
+                <dt className="text-gray-500">{THRESHOLD_LABELS[key]} threshold</dt>
+                <dd className="text-gray-900 tabular-nums">
+                  {formatProbability(production.effectiveThresholds?.[key])}
+                  {production.thresholds?.[key] === undefined ? <span className="text-xs text-gray-400"> (default)</span> : null}
+                </dd>
+              </div>
+            ))}
+            <div className="col-span-2 md:col-span-4 text-xs text-gray-500">
+              {production.thresholdsUpdatedAt
+                ? `Thresholds set ${formatDateTime(production.thresholdsUpdatedAt)}${production.thresholdsSource ? ` from ${production.thresholdsSource}` : ''}.`
+                : 'Thresholds have not been set from an evaluation yet; defaults apply.'}
+            </div>
+          </dl>
+        ) : (
+          <p className="mt-3 text-sm text-gray-500">{loading ? 'Loading…' : 'Production settings unavailable.'}</p>
+        )}
+      </section>
+
       {metrics ? (
         <>
           <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -543,6 +628,19 @@ export default function ClassificationEvalClient() {
                     onChange={(value) => setThresholds({ ...thresholds, [key]: value })}
                   />
                 ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={applyThresholds}
+                  disabled={working || !production || matchesProduction}
+                  className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-50"
+                >
+                  Use these thresholds in production
+                </button>
+                <span className="text-xs text-gray-500">
+                  {matchesProduction ? 'Production already uses these values.' : 'Writes to Site Settings; takes effect on the next refresh or reclassification.'}
+                </span>
               </div>
             </div>
 

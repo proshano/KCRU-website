@@ -1,3 +1,4 @@
+import { resolvePublicationClassificationSettings } from '../lib/classificationSettings.js'
 import { sanityFetch, queries } from '../lib/sanity.js'
 import { refreshPubmedCache } from '../lib/publications.js'
 
@@ -47,6 +48,7 @@ async function main() {
         provider,
         model: settings.llmModel,
         systemPrompt: settings.llmSystemPrompt,
+        classification: resolvePublicationClassificationSettings(settings),
         // Conservative rate limits to avoid throttling; adjust via env if desired.
         concurrency: Number(process.env.LLM_CONCURRENCY || 1),
         delayMs: Number(process.env.LLM_DELAY_MS || 3000),

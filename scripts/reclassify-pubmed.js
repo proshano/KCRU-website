@@ -56,6 +56,10 @@ async function parseArgs(argv = []) {
       options.model = arg.slice('--model='.length)
       continue
     }
+    if (arg.startsWith('--backend=')) {
+      options.backend = arg.slice('--backend='.length)
+      continue
+    }
     if (arg.startsWith('--api-key=')) {
       options.apiKey = arg.slice('--api-key='.length)
       continue

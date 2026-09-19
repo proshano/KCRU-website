@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { resolvePublicationClassificationSettings } from '@/lib/classificationSettings'
 import { revalidatePath } from 'next/cache'
 import { sanityFetch, queries } from '@/lib/sanity'
 import { refreshPubmedCache } from '@/lib/publications'
@@ -124,6 +125,7 @@ async function runRefresh({ isCron = false } = {}) {
         provider: settings.llmProvider || 'openrouter',
         model: settings.llmModel,
         systemPrompt: settings.llmSystemPrompt,
+        classification: resolvePublicationClassificationSettings(settings),
         concurrency: settings.llmConcurrency || 1,
         delayMs: settings.llmDelayMs || 2000,
       },

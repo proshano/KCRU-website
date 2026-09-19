@@ -7,6 +7,8 @@ process.env.NEXT_PUBLIC_SANITY_DATASET ||= 'test'
 const { computeEvalMetrics, comparePaper } = await import('../lib/classificationEvalMetrics.js')
 const { buildJevQuestions } = await import('../lib/jevClassifier.js')
 const {
+  fetchPublicationClassificationSettings,
+  patchPublicationClassificationSettings,
   resolveBaseline,
   runClassificationEval,
   seededShuffle,
@@ -219,4 +221,77 @@ test('runClassificationEval refuses to run without a credential', async () => {
     if (saved.TYPESAFE_API_KEY !== undefined) process.env.TYPESAFE_API_KEY = saved.TYPESAFE_API_KEY
     if (saved.OPENROUTER_API_KEY !== undefined) process.env.OPENROUTER_API_KEY = saved.OPENROUTER_API_KEY
   }
+})
+
+test('runClassificationEval starts from the production thresholds stored in Sanity', async () => {
+  const { index } = buildJevQuestions()
+  const client = {
+    create: async (doc) => ({ ...doc, _id: 'run-2' }),
+    fetch: async (query) => (query.includes('siteSettings')
+      ? { _id: 'settings', publicationClassification: { backend: 'jev', jevThresholdTopics: 0.8 } }
+      : []),
+  }
+  const fetchImpl = async (url, init) => {
+    const body = JSON.parse(init.body)
+    const answers = {}
+    for (const name of Object.keys(body.questions)) {
+      answers[name] = { type: 'noul', noul: index[name].tag === 'Hemodialysis' ? 0.7 : 0.1 }
+    }
+    return new Response(JSON.stringify({ answers }), { status: 200 })
+  }
+  const cache = {
+    publications: [
+      { pmid: '20', title: 'Dialysis', year: 2026, abstract: 'x'.repeat(100), topics: ['Hemodialysis'], studyDesign: [], methodologicalFocus: [] },
+    ],
+  }
+  const saved = process.env.TYPESAFE_API_KEY
+  process.env.TYPESAFE_API_KEY = 'k'
+  try {
+    const result = await runClassificationEval({ cache, client, fetch: fetchImpl, count: 1, seed: 1 })
+    assert.equal(result.run.thresholds.topics, 0.8)
+    assert.equal(result.run.thresholds.studyDesign, 0.5)
+    // 0.7 is below the production topics threshold of 0.8, so Jev applies no topic.
+    assert.deepEqual(result.run.papers[0].jev.topics, [])
+    const explicit = await runClassificationEval({ cache, client, fetch: fetchImpl, count: 1, seed: 1, thresholds: { topics: 0.6 } })
+    assert.deepEqual(explicit.run.papers[0].jev.topics, ['Hemodialysis'])
+  } finally {
+    if (saved === undefined) delete process.env.TYPESAFE_API_KEY
+    else process.env.TYPESAFE_API_KEY = saved
+  }
+})
+
+test('production classification settings are read with effective thresholds and patched in place', async () => {
+  const stored = { _id: 'settings', publicationClassification: { backend: 'chat', jevThresholdExclude: 0.9 } }
+  const patches = []
+  const client = {
+    fetch: async () => stored,
+    patch: (id) => ({
+      set: (value) => ({
+        commit: async () => {
+          patches.push({ id, value })
+        },
+      }),
+    }),
+  }
+  const read = await fetchPublicationClassificationSettings(client)
+  assert.equal(read.backend, 'chat')
+  assert.deepEqual(read.thresholds, { exclude: 0.9 })
+  assert.equal(read.effectiveThresholds.exclude, 0.9)
+  assert.equal(read.effectiveThresholds.topics, 0.5)
+
+  const written = await patchPublicationClassificationSettings(client, {
+    thresholds: { topics: 0.65, studyDesign: 0.55 },
+    thresholdsSource: 'run-1 by a@b.c',
+  })
+  assert.equal(patches.length, 1)
+  assert.equal(patches[0].id, 'settings')
+  const block = patches[0].value.publicationClassification
+  assert.equal(block.backend, 'chat')
+  assert.equal(block.jevThresholdTopics, 0.65)
+  assert.equal(block.jevThresholdStudyDesign, 0.55)
+  assert.equal(block.jevThresholdExclude, 0.9, 'untouched thresholds survive')
+  assert.equal(block.thresholdsSource, 'run-1 by a@b.c')
+  assert.ok(block.thresholdsUpdatedAt)
+  assert.equal(written.effectiveThresholds.topics, 0.65)
+  assert.equal(written.effectiveThresholds.exclude, 0.9)
 })
