@@ -28,6 +28,14 @@ const MODULES = [
     actionLabel: 'Open publication review',
   },
   {
+    key: 'classificationEval',
+    accessKey: 'approvals',
+    title: 'Classification evaluation',
+    description: 'Compare the Jev decision model against the current publication classifier on a sample of papers.',
+    href: '/admin/classification-eval',
+    actionLabel: 'Open evaluation',
+  },
+  {
     key: 'studies',
     accessKey: 'approvals',
     title: 'Study manager',

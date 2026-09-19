@@ -99,6 +99,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 ## Admin Access
 
 - Admin hub at `/admin` with module-specific entry points at `/admin/approvals` and `/admin/updates`.
+- `/admin/classification-eval` (approvals admins) compares the Jev decision model against the stored publication classification; see Classification Model Evaluation.
 - Research digest diagnostics remain available at `/admin/research-digest`, but routine operation must not depend on staff review.
 - Legacy admin URLs `/trials/approvals` and `/updates/admin` remain supported.
 - Admin sessions are scoped to approvals vs updates based on `siteSettings.studyApprovals.admins` and `siteSettings.studyUpdates.admins`.
@@ -122,7 +123,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 ## Environment & Secrets
 
 - `.env.local` holds secrets (Sanity tokens, API keys). Never commit or echo values.
-- LLM provider keys must remain in server-only environment variables (`OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `TOGETHER_API_KEY`, `GROQ_API_KEY`, or `ANTHROPIC_API_KEY`). Sanity Studio code runs in the browser, so `SANITY_STUDIO_*` variables must never contain shared bearer tokens or server credentials.
+- LLM provider keys must remain in server-only environment variables (`OPENROUTER_API_KEY`, `OPENAI_API_KEY`, `TOGETHER_API_KEY`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, or `TYPESAFE_API_KEY` for the Jev classification evaluation). Sanity Studio code runs in the browser, so `SANITY_STUDIO_*` variables must never contain shared bearer tokens or server credentials.
 - Mutations require `SANITY_API_TOKEN` (used by `writeClient` in `lib/sanity.js`).
 - `NEXT_PUBLIC_SANITY_PROJECT_ID` and `NEXT_PUBLIC_SANITY_DATASET` are required for the app and scripts (no fallbacks).
 - `SANITY_STUDIO_PROJECT_ID` and `SANITY_STUDIO_DATASET` are required for the Studio (including cache tooling).
@@ -138,6 +139,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - `npm run dev`, `npm run lint`, `npm run build`
 - PubMed cache: `npm run refresh:pubmed`, `npm run clear:pubmed`, `npm run upload:pubmed`
 - PubMed classification backfill: `npm run reclassify:pubmed -- --year=2026 --count=5000` (defaults to missing/unclassified items only unless `--all` or `--clear` is supplied)
+- Jev classification evaluation: `npm run eval:jev-classification -- --count=50 --seed=1` (see Classification Model Evaluation)
 - Publication attribution audit/migration: `npm run audit:publication-attribution`, `npm run migrate:publication-attribution` (dry run), and `npm run migrate:publication-attribution -- --apply` (snapshot-locked write)
 - Research digest import: `npm run import:research-digest` triages candidates, selects the strongest qualifying papers, and approves the daily issue automatically.
 
@@ -181,6 +183,17 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - Discovery-source requests retry throttled and transient failures (`lib/secondaryPublications.js`), and every remaining failure is reported through `onSourceError` so the refresh knows which researchers came back incomplete.
 - Publication membership is sticky (`lib/publicationRetention.js`). A cached publication that a refresh does not return is carried forward with its summary, classification and provenance intact, and is only pruned after `PUBLICATION_PRUNE_AFTER_MISSING_RUNS` (default 3) consecutive runs in which discovery for its attributed researchers actually succeeded. Never reintroduce a code path that treats a single run's result set as authoritative — transient upstream failures used to delete published papers from the site.
 - Both packages are listed in `serverExternalPackages` in `next.config.js` to prevent bundling.
+
+## Classification Model Evaluation (Jev)
+
+- Jev (TypeSafe AI's "System One" decision model) is being evaluated as a replacement for the chat-model publication classifier. It is **not wired into the refresh or reclassify paths**; production classification still runs through `classifyPublication` in `lib/summaries.js`.
+- `lib/jevClient.js` speaks TypeSafe's `POST /v1/systemone` wire format (mirrors `@typesafe-ai/sdk` 0.6.0 without adding the dependency). Transport is `typesafe` (`TYPESAFE_API_KEY`, model `jev-latest`) or `openrouter` (`OPENROUTER_API_KEY`, model `typesafe/jev-1.13`, endpoint `/api/alpha/decisions` - Jev is rejected by chat completions and is absent from the public models list). The transport is chosen by which key is present; override with `JEV_TRANSPORT` and `JEV_MODEL`.
+- `lib/jevClassifier.js` asks one yes/no ("noul") question per canonical tag plus one for `exclude` - 46 questions in a single request per paper - and gets a calibrated probability for each. Question criteria are parsed from the taxonomy tables in `lib/classificationPrompt.js`, so editing a tag's table row changes both systems; a test asserts every canonical tag has a row. The questions are the bulk of each request (roughly 8k input tokens per paper regardless of abstract length).
+- The canonical tag lists moved to `lib/classificationTaxonomy.js`, which is browser-safe; `lib/summaries.js` imports `enforceCanonicalCategories` from there. `app/publications/PublicationsBrowser.js` still carries its own copy.
+- Jev scores each tag in isolation, so cross-tag rules the prompt states in prose are enforced in code for the Jev path only (`applyClassificationPrecedence`): general "Chronic Kidney Disease" yields to a specific cause or modality tag (`CKD_SUPERSEDING_TOPICS`), and "Survey Research" implies "Observational Study". Add further prose rules there and quote the prompt sentence they enforce.
+- Thresholds default to 0.5 per axis (`lib/jevDecisions.js`; env `JEV_THRESHOLD_TOPICS`, `JEV_THRESHOLD_STUDY_DESIGN`, `JEV_THRESHOLD_METHODOLOGICAL_FOCUS`, `JEV_THRESHOLD_EXCLUDE`). Every evaluation stores the per-tag probabilities, so the admin page re-cuts them at new thresholds in the browser without another model call.
+- Run an evaluation with `npm run eval:jev-classification -- --count=50 --seed=1` (also `--year=`, `--pmids=`, `--label=`, `--dry-run`, `--no-persist`, `--out=file.json`) or from `/admin/classification-eval`, whose route is capped at 100 papers because it runs inside one request. Runs are stored as `classificationEvalRun` documents (`lib/classificationEval.js`). The sample is a seeded shuffle of cached publications that have an abstract of at least 50 characters and a stored classification (a `pubmedClassification` document is preferred because it records the model; cache tags are used otherwise), so the same seed reproduces the same papers. The `exclude` comparison applies the publication-type correction rule to Jev's answer, as the reclassification path does for the chat model.
+- The stored classification is the comparison reference, not ground truth: a disagreement means one of the two systems is wrong. Decide from the per-paper view before changing thresholds, precedence rules, or prompt criteria.
 
 ## Cron Jobs
 

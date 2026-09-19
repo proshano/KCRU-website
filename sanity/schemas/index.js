@@ -10,6 +10,7 @@ import alumnus from './alumnus'
 import site from './site'
 import pubmedCache from './pubmedCache'
 import pubmedClassification from './pubmedClassification'
+import classificationEvalRun from './classificationEvalRun'
 import publicationAttributionReview from './publicationAttributionReview'
 import pageContent from './pageContent'
 import contactRouting from './contactRouting'
@@ -60,5 +61,6 @@ export const schemaTypes = [
   studyCoordinatorSession,
   studyDraft,
   adminSession,
-  adminCredential
+  adminCredential,
+  classificationEvalRun
 ]
