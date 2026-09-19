@@ -107,8 +107,14 @@ test('transport resolution prefers the TypeSafe key, then OpenRouter, and honour
     assert.equal(config.hasApiKey, true)
   })
   withEnv({ ...CLEAN_ENV }, () => {
-    assert.equal(describeJevConfig().hasApiKey, false)
+    const config = describeJevConfig()
+    assert.equal(config.transport, 'openrouter')
+    assert.equal(config.hasApiKey, false)
+    assert.equal(config.apiKeyEnvVar, 'OPENROUTER_API_KEY')
     assert.throws(() => resolveJevTransport('bogus'), /Unknown Jev transport/)
+  })
+  withEnv({ ...CLEAN_ENV, JEV_TRANSPORT: 'typesafe' }, () => {
+    assert.equal(describeJevConfig().transport, 'typesafe')
   })
 })
 
@@ -161,7 +167,7 @@ test('callJevSystemOne fails clearly without a credential and does not retry cli
   await withEnv({ ...CLEAN_ENV }, async () => {
     await assert.rejects(
       callJevSystemOne({ state: 'x', questions: { q: { type: 'noul' } } }, { fetch: async () => new Response('{}') }),
-      /Missing TYPESAFE_API_KEY/
+      /Missing OPENROUTER_API_KEY/
     )
   })
   let attempts = 0

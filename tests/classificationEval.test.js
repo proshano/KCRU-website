@@ -213,7 +213,7 @@ test('runClassificationEval refuses to run without a credential', async () => {
   try {
     await assert.rejects(
       runClassificationEval({ cache: { publications: [] }, client: { fetch: async () => [] } }),
-      /Missing TYPESAFE_API_KEY/
+      /Missing OPENROUTER_API_KEY/
     )
   } finally {
     if (saved.TYPESAFE_API_KEY !== undefined) process.env.TYPESAFE_API_KEY = saved.TYPESAFE_API_KEY
