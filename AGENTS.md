@@ -25,7 +25,6 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - `scripts/` maintenance/migration scripts
 - `runtime/` generated caches and lock/cancel files (do not edit by hand)
 - `dist/` build output (do not edit)
-- `core` tracked binary artifact (avoid touching unless explicitly required)
 
 ## Conventions
 

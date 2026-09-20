@@ -37,3 +37,6 @@ output/playwright/
 
 # Local OMC agent memory/state
 .omc/
+
+# accidental core dumps
+/core
