@@ -5,6 +5,7 @@ import {
   extractArticleBodyText,
   fetchAbstractFromDoi,
   fetchPublicationTextFromDoi,
+  transcribePublisherFirstPage,
 } from '../lib/doiAbstract.js'
 
 test('continues through abstract sources after empty and unusably short responses', async () => {
@@ -76,4 +77,66 @@ test('extracts substantive article text without navigation or sidebars', () => {
 
   assert.match(bodyText, /study methods/)
   assert.doesNotMatch(bodyText, /Journal navigation|Related articles/)
+})
+
+test('transcribes the publisher first-page image only when the page has no text and a transcriber is available', async () => {
+  const html = `<html><head><link rel="canonical" href="https://journals.example.com/doi/10.1177/x"></head>
+    <body><section id="abstract"><div class="first-page"><img src="/first-page.jpg" alt="First page"></div></section></body></html>`
+  const pageText = 'This edition of the journal includes a position statement on tracking loss from therapy. '.repeat(8)
+  const calls = []
+
+  const result = await transcribePublisherFirstPage({
+    renderedHtml: null,
+    plainHtml: html,
+    pageUrl: 'https://doi.org/10.1177/x',
+    title: 'An impressive start',
+    fetchImage: async (url) => {
+      calls.push(['fetch', url])
+      return { bytes: Buffer.from([1, 2, 3]), mimeType: 'image/jpeg' }
+    },
+    transcribeImage: async ({ image, mimeType, title }) => {
+      calls.push(['transcribe', mimeType, title, image.length])
+      return pageText
+    },
+  })
+
+  assert.equal(result?.contentType, 'article_body')
+  assert.equal(result?.source, 'publisher first page image')
+  assert.equal(result?.text, pageText.trim())
+  assert.deepEqual(calls, [
+    ['fetch', 'https://journals.example.com/first-page.jpg'],
+    ['transcribe', 'image/jpeg', 'An impressive start', 3],
+  ])
+})
+
+test('fetches no first-page image without a transcriber and rejects a transcript too short to be a page', async () => {
+  const html = `<html><body><div class="first-page"><img src="https://journals.example.com/first-page.jpg"></div></body></html>`
+  const fetched = []
+
+  const withoutTranscriber = await transcribePublisherFirstPage({
+    plainHtml: html,
+    pageUrl: 'https://doi.org/10.1177/x',
+    fetchImage: async (url) => {
+      fetched.push(url)
+      return { bytes: Buffer.from([1]), mimeType: 'image/jpeg' }
+    },
+  })
+  assert.equal(withoutTranscriber, null)
+  assert.deepEqual(fetched, [])
+
+  const tooShort = await transcribePublisherFirstPage({
+    plainHtml: html,
+    pageUrl: 'https://doi.org/10.1177/x',
+    fetchImage: async () => ({ bytes: Buffer.from([1]), mimeType: 'image/jpeg' }),
+    transcribeImage: async () => 'Too short to be a page of an article, but longer than fifty characters.',
+  })
+  assert.equal(tooShort, null)
+
+  const noImage = await transcribePublisherFirstPage({
+    plainHtml: '<html><body><p>No abstract available.</p></body></html>',
+    pageUrl: 'https://doi.org/10.1177/x',
+    fetchImage: async () => { throw new Error('should not fetch') },
+    transcribeImage: async () => { throw new Error('should not transcribe') },
+  })
+  assert.equal(noImage, null)
 })

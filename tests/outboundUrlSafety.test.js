@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   isBlockedNetworkAddress,
+  safeFetchBytes,
   safeFetchText,
   validatePublicOutboundUrl,
 } from '../lib/outboundUrlSafety.js'
@@ -79,4 +80,34 @@ test('returns bounded content from a public HTTPS endpoint', async () => {
     allowedContentTypes: ['application/rss+xml'],
   })
   assert.equal(result.text, '<rss />')
+})
+
+test('returns bounded bytes from a public HTTPS endpoint', async () => {
+  const payload = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2])
+  const imageResponse = async () => new Response(payload, {
+    status: 200,
+    headers: { 'content-type': 'image/png' },
+  })
+
+  const result = await safeFetchBytes('https://example.com/page.png', {
+    fetchImpl: imageResponse,
+    lookup: publicLookup,
+    allowedContentTypes: ['image/'],
+  })
+  assert.ok(Buffer.isBuffer(result.bytes))
+  assert.ok(result.bytes.equals(payload))
+  assert.equal(result.finalUrl, 'https://example.com/page.png')
+
+  await assert.rejects(
+    safeFetchBytes('https://example.com/page.png', { fetchImpl: imageResponse, lookup: publicLookup, maxBytes: 3 }),
+    /byte limit/i
+  )
+  await assert.rejects(
+    safeFetchBytes('https://example.com/page.png', {
+      fetchImpl: async () => new Response('nope', { status: 200, headers: { 'content-type': 'text/html' } }),
+      lookup: publicLookup,
+      allowedContentTypes: ['image/'],
+    }),
+    /content type/i
+  )
 })

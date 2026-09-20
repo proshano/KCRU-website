@@ -145,6 +145,7 @@ export async function POST(request) {
     // Generate new summary using settings
     const result = await generateLaySummary(pub.title, pub.abstract, {
       sourceTextType: pub.abstractContentType,
+      sourceTextSource: pub.abstractSource,
       provider,
       model,
       meta: { pmid: pub.pmid },
