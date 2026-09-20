@@ -40,3 +40,6 @@ output/playwright/
 
 # accidental core dumps
 /core
+
+# npm cache (accidentally committed; npm uses ~/.npm by default)
+/.npm-cache/
