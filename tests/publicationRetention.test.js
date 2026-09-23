@@ -5,6 +5,23 @@ import { isDiscoveryCollapsed, retainPublications } from '../lib/publicationRete
 
 const NOW = new Date('2026-08-02T09:00:00Z')
 
+test('supplements cannot be restored by retention or approved discovery during an outage', () => {
+  const supplement = { doi: '10.6084/m9.figshare.33961115', title: 'Additional file 3 of a systematic review' }
+  const article = { doi: '10.1000/article', title: 'A systematic review', laySummary: 'Preserved summary.' }
+  const result = retainPublications({
+    cachedPublications: [supplement, article],
+    fetchedPublications: [supplement],
+    cachedProvenance: { 'doi:10.1000/article': ['researcher-1'] },
+    fetchedProvenance: { 'doi:10.6084/m9.figshare.33961115': ['researcher-1'] },
+    discoveryDegraded: true,
+    now: NOW,
+  })
+  assert.deepEqual(result.publications.map(pub => pub.doi), ['10.1000/article'])
+  assert.equal(result.publications[0].laySummary, article.laySummary)
+  assert.equal(result.removed[0].reason, 'not-retainable')
+  assert.deepEqual(result.provenance, { 'doi:10.1000/article': ['researcher-1'] })
+})
+
 function publication(overrides = {}) {
   return {
     doi: '10.1000/kept',

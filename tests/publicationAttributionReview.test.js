@@ -64,6 +64,27 @@ test('approved candidates publish from their stored snapshot on the next refresh
   assert.deepEqual(merged.provenance['doi:10.1000/candidate'], ['researcher-1'])
 })
 
+test('legacy DOI formatting cannot bypass a manual rejection or split an approved snapshot', () => {
+  const legacy = review('rejected')
+  legacy.publicationKey = 'doi:pii: 80. 10.1000/candidate'
+  legacy.snapshot.doi = 'pii: 80. 10.1000/candidate'
+  assert.deepEqual(filterRejectedProvenance({
+    provenance: { 'doi:10.1000/candidate': ['researcher-1'] },
+    researchers: [researcher()],
+    reviews: [legacy],
+  }), {})
+
+  legacy.status = 'approved'
+  const merged = mergeApprovedReviewSnapshots({
+    publications: [publication()],
+    provenance: {},
+    researchers: [researcher()],
+    reviews: [legacy],
+  })
+  assert.equal(merged.publications.length, 1)
+  assert.deepEqual(merged.provenance, { 'doi:10.1000/candidate': ['researcher-1'] })
+})
+
 test('rejected provenance cannot return through retention', () => {
   const rejected = review('rejected')
   const filtered = filterRejectedProvenance({
@@ -219,6 +240,7 @@ test('candidate upserts deduplicate and do not overwrite an existing decision', 
     researcher: researcher(),
     publication: publication(),
     evaluation: { reason: 'Needs review.', evidence: {} },
+    review: { _id: 'legacy-review-id', status: 'approved' },
   }
   const result = await upsertPublicationAttributionCandidates({
     writeClient,
@@ -228,8 +250,11 @@ test('candidate upserts deduplicate and do not overwrite an existing decision', 
   assert.equal(result.upserted, 1)
   assert.equal(operations.filter((operation) => operation.type === 'create').length, 1)
   const refreshPatch = operations.find((operation) => operation.type === 'patch').patchData
+  assert.equal(operations.find((operation) => operation.type === 'patch').id, 'legacy-review-id')
+  assert.equal(operations.find((operation) => operation.type === 'create').document._id, 'legacy-review-id')
   assert.equal(Object.hasOwn(refreshPatch, 'status'), false)
   assert.equal(Object.hasOwn(refreshPatch, 'reviewedAt'), false)
+  assert.equal(Object.hasOwn(refreshPatch, 'lastNotifiedAt'), false)
 })
 
 test('a pending review that gains decisive evidence is resolved before publication', async () => {

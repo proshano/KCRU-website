@@ -5,9 +5,36 @@ import {
   isPublicationCorrectionNotice,
   isPublicationCorrespondence,
   isPublicationExcluded,
+  isPublicationSupplementaryMaterial,
   isPublicationExcludedByRule,
   normalizePublicationTypes,
 } from '../lib/publicationExclusions.js'
+
+test('excludes supplementary files even when a repository labels them as journal articles', () => {
+  for (const title of [
+    'Additional file 1 of Definition, analysis, reporting, and interpretation of perioperative bleeding',
+    'Additional file 3 of Definition, analysis, reporting, and interpretation of perioperative bleeding',
+    'Supplementary material for a systematic review',
+    'Supporting information: a clinical trial',
+    'Supplemental Table S1',
+    'Electronic supplementary material',
+  ]) {
+    const publication = { title, publicationTypes: ['Journal Article'], exclude: false }
+    assert.equal(isPublicationSupplementaryMaterial(publication), true, title)
+    assert.equal(isPublicationExcluded(publication), true, title)
+  }
+})
+
+test('keeps substantive articles about supplements and supporting data', () => {
+  for (const title of [
+    'Definition, analysis, reporting, and interpretation of perioperative bleeding in randomized controlled trials: a methodological systematic review.',
+    'Supplementary data analysis in clinical trials',
+    'Supplemental oxygen during surgery',
+    'Supporting data sharing in clinical research',
+  ]) {
+    assert.equal(isPublicationSupplementaryMaterial({ title }), false, title)
+  }
+})
 
 test('normalizes PubMed publication type arrays', () => {
   assert.deepEqual(

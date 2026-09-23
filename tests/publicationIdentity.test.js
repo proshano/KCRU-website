@@ -5,6 +5,7 @@ import {
   getPublicationKey,
   mergePublications,
   normalizeDoi,
+  normalizePublicationProvenance,
   withPublicationKey,
 } from '../lib/publicationIdentity.js'
 
@@ -32,6 +33,33 @@ test('the primary source is always represented in the sources list', () => {
 test('normalizes DOI variants into one canonical publication key', () => {
   assert.equal(normalizeDoi(' HTTPS://doi.org/10.1000/Example '), '10.1000/example')
   assert.equal(getPublicationKey({ doi: 'doi:10.1000/EXAMPLE' }), 'doi:10.1000/example')
+})
+
+test('recovers the DOI from mixed PubMed PII text and rejects a PII alone', () => {
+  assert.equal(normalizeDoi('pii: 80. 10.1186/s13741-026-00715-z'), '10.1186/s13741-026-00715-z')
+  assert.equal(normalizeDoi('pii: S0272-6386(26)01084-X. doi: 10.1053/j.ajkd.2026.05.023'), '10.1053/j.ajkd.2026.05.023')
+  assert.equal(normalizeDoi('pii: S0272-6386(26)01084-X'), '')
+  assert.equal(getPublicationKey({ doi: 'pii: 80', pmid: '42387607' }), 'pmid:42387607')
+  assert.equal(normalizeDoi('10.1000/example(suffix)'), '10.1000/example(suffix)')
+})
+
+test('merges a malformed cached DOI with the real article and keeps all researcher links', () => {
+  const doi = '10.1186/s13741-026-00715-z'
+  const publications = [
+    { source: 'pubmed', pmid: '42387607', doi, publicationKey: `doi:${doi}`, laySummary: 'Original summary.' },
+    { source: 'pubmed', pmid: '42387607', doi: `pii: 80. ${doi}`, publicationKey: `doi:pii: 80. ${doi}`, laySummary: 'Duplicate summary.' },
+  ]
+  const merged = mergePublications(publications)
+  const provenance = normalizePublicationProvenance(publications, {
+    [`doi:${doi}`]: ['researcher-1'],
+    [`doi:pii: 80. ${doi}`]: ['researcher-1', 'researcher-2'],
+    '42387607': ['researcher-3'],
+  })
+  assert.equal(merged.length, 1)
+  assert.equal(merged[0].doi, doi)
+  assert.equal(merged[0].laySummary, 'Original summary.')
+  assert.deepEqual(Object.keys(provenance), [`doi:${doi}`])
+  assert.deepEqual(new Set(provenance[`doi:${doi}`]), new Set(['researcher-1', 'researcher-2', 'researcher-3']))
 })
 
 test('merges a DOI-only discovery into its later PubMed record', () => {

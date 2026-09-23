@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { fetchPubmedArticleDetails } from '../lib/pubmed.js'
+import { fetchPublicationDetails, fetchPubmedArticleDetails } from '../lib/pubmed.js'
+
+test('PubMed prefers typed DOI identifiers and never treats a PII as a DOI', async (t) => {
+  const records = [
+    { uid: '1', articleids: [{ idtype: 'pii', value: '80' }, { idtype: 'doi', value: '10.1186/structured' }], elocationid: 'pii: 80. 10.1186/fallback' },
+    { uid: '2', elocationid: 'pii: 80. 10.1186/fallback' },
+    { uid: '3', elocationid: 'pii: S0272-6386(26)01084-X' },
+  ]
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({
+    result: Object.fromEntries(records.map(record => [record.uid, record])),
+  }), { status: 200 }))
+  const publications = await fetchPublicationDetails(['1', '2', '3'])
+  assert.deepEqual(publications.map(publication => publication.doi), ['10.1186/structured', '10.1186/fallback', ''])
+})
 
 test('PubMed efetch preserves structured author, ORCID, and affiliation evidence', async () => {
   const originalFetch = globalThis.fetch

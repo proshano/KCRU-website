@@ -4,10 +4,29 @@ import test from 'node:test'
 import {
   fetchCrossrefPublications,
   fetchOpenAlexPublications,
+  fetchEuropePmcPublications,
   getSecondaryPublicationsForResearcher,
   matchesResearcherAuthorList,
   reconstructOpenAlexAbstract,
 } from '../lib/secondaryPublications.js'
+
+test('discovery sources discard supplementary files before attribution and summary generation', async () => {
+  const title = 'Additional file 3 of Definition, analysis, reporting, and interpretation of perioperative bleeding'
+  const researcher = { name: 'Jane Smith', orcid: '0000-0001-2345-6789' }
+  for (const doi of ['10.6084/m9.figshare.33961115', '10.6084/m9.figshare.33961115.v1']) {
+    const options = {
+      sinceYear: 2025,
+      fetchFn: async () => new Response(JSON.stringify({
+        message: { items: [{ DOI: doi, title: [title], type: 'journal-article', author: [{ given: 'Jane', family: 'Smith' }], published: { 'date-parts': [[2026, 7, 1]] } }] },
+        results: [{ doi, display_name: title, type: 'article', publication_date: '2026-07-01', authorships: [{ author: { display_name: 'Jane Smith' } }] }],
+        resultList: { result: [{ doi, title, source: 'MED', firstPublicationDate: '2026-07-01', authorList: { author: [{ fullName: 'Jane Smith' }] } }] },
+      }), { status: 200 }),
+    }
+    assert.deepEqual(await fetchCrossrefPublications(researcher, options), [])
+    assert.deepEqual(await fetchOpenAlexPublications(researcher, options), [])
+    assert.deepEqual(await fetchEuropePmcPublications(researcher, options), [])
+  }
+})
 
 test('Crossref discovery keeps an ORCID-matched DOI even when its abstract is absent', async () => {
   const requestedUrls = []
