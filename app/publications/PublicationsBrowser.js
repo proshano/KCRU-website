@@ -552,7 +552,7 @@ function Avatar({ photo, name }) {
     return (
       <Image
         src={src}
-        alt={name}
+        alt=""
         width={24}
         height={24}
         className="h-6 w-6 rounded-full object-cover"
@@ -560,7 +560,7 @@ function Avatar({ photo, name }) {
     )
   }
   return (
-    <span className="h-6 w-6 rounded-full bg-[#E8E5E0] text-xs flex items-center justify-center text-[#888] font-semibold">
+    <span aria-hidden="true" className="h-6 w-6 rounded-full bg-[#E8E5E0] text-xs flex items-center justify-center text-[#888] font-semibold">
       {name?.slice(0, 1)?.toUpperCase() || '?'}
     </span>
   )
