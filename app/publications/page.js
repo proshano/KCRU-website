@@ -29,7 +29,10 @@ export async function generateMetadata() {
     title,
     description,
     alternates: {
-      canonical
+      canonical,
+      types: {
+        'application/rss+xml': [{ url: '/publications/feed.xml', title: `${siteTitle} publications` }]
+      }
     },
     openGraph: buildOpenGraph({
       settings,

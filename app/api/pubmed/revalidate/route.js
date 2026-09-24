@@ -11,6 +11,8 @@ const REVALIDATE_TARGETS = [
   { path: '/', type: 'page' },
   { path: '/publications', type: 'page' },
   { path: '/publications.md', type: 'page' },
+  // Route handler: only the bare-path implicit tag matches; a 'page' type would target '/publications/feed.xml/page', which never exists.
+  { path: '/publications/feed.xml' },
   { path: '/team', type: 'layout' },
 ]
 

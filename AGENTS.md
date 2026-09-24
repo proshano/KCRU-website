@@ -95,6 +95,14 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - `siteSettings.publicationNewsletter` includes `scheduleOccurrence` and `scheduleDayOfWeek` for staff-managed timing.
 - The research digest workflow runs weekdays from `.github/workflows/research-digest.yml`: import and automatic selection at 10:00 UTC, then send at 13:00 UTC. Workflow concurrency prevents the send run from overtaking a delayed import.
 
+## Publications RSS Feed
+
+- `/publications/feed.xml` (`app/publications/feed.xml/route.js`) is an RSS 2.0 feed built from the public PubMed cache (`lib/publicationFeed.js`), listed for autodiscovery from `/publications`.
+- It includes non-excluded publications that have a lay summary and were published within the last `PUBLICATION_FEED_WINDOW_DAYS` (60) days, capped at `PUBLICATION_FEED_MAX_ITEMS` (50), newest first.
+- Staff connect this feed to Zapier ("RSS → LinkedIn company update") and possibly LinkedIn's native Page RSS import, where each new item becomes one social post. GUID and link come from the cleaned DOI (falling back to PMID) via `getFeedItemIdentity()`; DOI wins over PMID because a record can start DOI-only and later merge with a PubMed record that adds a PMID. Never change that identity scheme, or a paper's GUID/link will change and it will be reposted.
+- The `.xml` extension keeps the route outside the maintenance proxy's redirect (`proxy.js`'s matcher already excludes `.xml` paths).
+- `/api/pubmed/revalidate` revalidates the feed alongside `/publications` after each PubMed refresh so new papers reach the feed promptly.
+
 ## Admin Access
 
 - Admin hub at `/admin` with module-specific entry points at `/admin/approvals` and `/admin/updates`.
