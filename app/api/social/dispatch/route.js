@@ -30,9 +30,10 @@ async function readOptionalJson(request) {
   }
 }
 
-// Daily step after the PubMed refresh: turn new feed papers into pending X
-// posts and email approvers. Nothing is sent to Buffer here; that happens only
-// when an admin approves a post at /admin/social.
+// Daily step after the PubMed refresh: offer each new feed paper as an
+// `available` record (no post text) and email approvers once about the new
+// ones. Nothing is drafted or sent to Buffer here; an approver creates, edits
+// and queues posts at /admin/social.
 export async function POST(request) {
   if (!CRON_SECRET) {
     return NextResponse.json({ ok: false, error: 'CRON_SECRET not configured' }, { status: 500 })
@@ -57,21 +58,16 @@ export async function POST(request) {
         ok: true,
         skipped: true,
         dryRun,
-        reason: 'Posting to X is switched off in Site Settings (Social Media Posting).',
+        reason: 'Offering new publications for X posts is switched off in Site Settings (Social Media Posting).',
       })
     }
 
     const { records: expectedRecords, ...sync } = await syncSocialPosts({
       client: writeClient,
       writeClient,
-      settings,
       seed,
       dryRun,
     })
-    if (sync.mode === 'abort') {
-      console.error('[social-posting] sync aborted', sync.reason)
-      return NextResponse.json({ ok: false, error: sync.reason, dryRun, sync }, { status: 500 })
-    }
 
     const store = createSanitySocialPostStore(writeClient)
     const records = dryRun ? expectedRecords : await fetchSocialPostRecords(writeClient, SOCIAL_NETWORK_X)

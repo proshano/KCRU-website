@@ -8,7 +8,7 @@ import SocialPostsClient from './SocialPostsClient'
 
 export const metadata = {
   title: 'Social Media Posts | KCRU',
-  description: 'Approve, edit or skip X posts about new publications.',
+  description: 'Pick new publications to post on X, draft and edit posts, and queue or undo them in Buffer.',
 }
 
 export default async function SocialPostsPage() {

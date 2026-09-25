@@ -131,10 +131,11 @@ jobs:
             -H "Authorization: Bearer $CRON_SECRET"
           echo ""
 
-      # Turns new papers in the publications feed into pending X posts and emails
-      # approvers. The Sanity switch (Site Settings > Social Media Posting) gates
-      # it, and Buffer is called only when an admin approves a post at /admin/social.
-      - name: Queue social media posts for approval
+      # Offers new papers in the publications feed for X posts and emails approvers
+      # once about them. The Sanity switch (Site Settings > Social Media Posting)
+      # gates it. Nothing is drafted or sent to Buffer here; approvers create and
+      # queue posts at /admin/social.
+      - name: Offer new publications for X posts
         if: ${{ !cancelled() && steps.refresh-cache.outcome == 'success' }}
         env:
           SITE_URL: ${{ secrets.SITE_URL }}
@@ -149,8 +150,8 @@ jobs:
             exit 1
           fi
           SITE_URL="${SITE_URL%/}"
-          # --fail-with-body prints the route's reason (for example the new-post
-          # anomaly guard) in the log while still failing the step.
+          # --fail-with-body prints the route's error in the log while still
+          # failing the step.
           curl --fail-with-body -sS -X POST "$SITE_URL/api/social/dispatch" \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \

@@ -31,7 +31,7 @@ const MODULES = [
     key: 'social',
     accessKey: 'approvals',
     title: 'Social media posts',
-    description: 'Approve, edit or skip posts before they go to the X queue in Buffer.',
+    description: 'Pick new publications to post on X, draft and edit posts, and queue or undo them in Buffer.',
     href: '/admin/social',
     actionLabel: 'Open social posts',
   },

@@ -19,7 +19,8 @@
     "clear:pubmed": "node --import ./scripts/_preload-env.js scripts/clear-pubmed-cache.js",
     "upload:pubmed": "node --import ./scripts/_preload-env.js scripts/upload-cache-to-sanity.js",
     "audit:publication-attribution": "node --import ./scripts/_preload-env.js scripts/audit-publication-attribution.js",
-    "migrate:publication-attribution": "node --import ./scripts/_preload-env.js scripts/migrate-publication-attribution-reviews.js"
+    "migrate:publication-attribution": "node --import ./scripts/_preload-env.js scripts/migrate-publication-attribution-reviews.js",
+    "migrate:social-posts": "node --import ./scripts/_preload-env.js scripts/migrate-social-posts-to-available.js"
   },
   "keywords": [],
   "author": "",

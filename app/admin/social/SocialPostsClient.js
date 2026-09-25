@@ -4,13 +4,38 @@ import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
 import AuthButtons from '@/app/components/AuthButtons'
-import { X_MAX_WEIGHTED_LENGTH, formatSocialPostDate, xWeightedLength } from '@/lib/socialPosting'
+import {
+  BUFFER_UNKNOWN_MESSAGE,
+  X_MAX_WEIGHTED_LENGTH,
+  formatSocialPostDate,
+  xWeightedLength,
+} from '@/lib/socialPosting'
+
+const EMPTY_DATA = {
+  enabled: true,
+  available: [],
+  drafts: [],
+  queued: [],
+  needsChecking: [],
+  published: [],
+  dismissed: [],
+}
+
+const PRIMARY_BUTTON = 'rounded bg-purple px-4 py-2 text-sm font-semibold text-white disabled:opacity-50'
+const SECONDARY_BUTTON = 'rounded border border-black/20 bg-white px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-50'
+const DANGER_BUTTON = 'rounded border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50'
 
 function formatDateTime(value) {
   if (!value) return 'Not recorded'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
   return date.toLocaleString()
+}
+
+function describeGeneratedBy(generatedBy) {
+  if (generatedBy === 'template') return 'Built from the standard template because the AI draft was not available.'
+  if (String(generatedBy || '').startsWith('llm:')) return `AI draft (${generatedBy.slice(4)}). Check it against the paper before queueing.`
+  return 'Suggested text from an earlier version of this page.'
 }
 
 function PaperDetails({ post }) {
@@ -22,142 +47,249 @@ function PaperDetails({ post }) {
         ) : post.title}
       </h3>
       <p className="text-sm text-gray-700">
-        <span className="font-semibold">Team members: </span>
-        {post.teamMembers?.length ? post.teamMembers.join(', ') : 'Not recorded'}
+        <span className="font-semibold">Published: </span>
+        {[post.journal, formatSocialPostDate(post.publishedAt)].filter(Boolean).join(' · ')}
       </p>
       <p className="text-sm text-gray-700">
-        <span className="font-semibold">Published: </span>
-        {[formatSocialPostDate(post.publishedAt), post.journal].filter(Boolean).join(' · ')}
+        <span className="font-semibold">Team members: </span>
+        {post.teamMembers?.length ? post.teamMembers.join(', ') : 'Not recorded'}
       </p>
     </div>
   )
 }
 
-function PendingCard({ post, busy, enabled, onAction }) {
-  const [text, setText] = useState(post.text || post.proposedText || '')
+function LaySummary({ text }) {
+  const [expanded, setExpanded] = useState(false)
+  if (!text) return <p className="text-sm italic text-gray-500">No lay summary recorded.</p>
+  return (
+    <div className="space-y-1">
+      <p className={`text-sm text-gray-700 ${expanded ? '' : 'line-clamp-3'}`}>
+        <span className="font-semibold">Lay summary: </span>{text}
+      </p>
+      <button
+        type="button"
+        className="text-xs font-semibold text-purple hover:underline"
+        onClick={() => setExpanded((value) => !value)}
+      >
+        {expanded ? 'Show less' : 'Show full summary'}
+      </button>
+    </div>
+  )
+}
+
+function ErrorNote({ post, label = 'Last attempt failed' }) {
+  if (!post.lastError) return null
+  return (
+    <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+      {label}{post.lastErrorAt ? ` (${formatDateTime(post.lastErrorAt)})` : ''}: {post.lastError}
+    </p>
+  )
+}
+
+function Card({ tone = 'default', children }) {
+  const tones = {
+    default: 'border-black/10 bg-white',
+    warning: 'border-amber-300 bg-amber-50',
+  }
+  return <article className={`space-y-4 rounded-xl border p-5 shadow-sm ${tones[tone]}`}>{children}</article>
+}
+
+function AvailableCard({ post, busyAction, enabled, onAction }) {
+  const busy = Boolean(busyAction)
+  return (
+    <Card>
+      <PaperDetails post={post} />
+      <LaySummary text={post.laySummary} />
+      <div className="flex flex-wrap gap-3">
+        <button
+          type="button"
+          className={PRIMARY_BUTTON}
+          disabled={busy || !enabled}
+          onClick={() => onAction(post._id, 'draft')}
+        >
+          {busyAction === 'draft' ? 'Writing draft… (about 10 seconds)' : 'Create post'}
+        </button>
+        <button type="button" className={SECONDARY_BUTTON} disabled={busy} onClick={() => onAction(post._id, 'dismiss')}>
+          Not posting
+        </button>
+      </div>
+    </Card>
+  )
+}
+
+function DraftCard({ post, busyAction, enabled, edit, onEdit, onAction }) {
+  const busy = Boolean(busyAction)
+  const text = edit ?? post.text ?? ''
   const length = xWeightedLength(text)
   const tooLong = length > X_MAX_WEIGHTED_LENGTH
   const empty = !text.trim()
+  const unsaved = edit !== undefined && edit !== (post.text ?? '')
+  const edited = unsaved || (post.text ?? '') !== (post.proposedText ?? '')
+
+  function regenerate() {
+    if (edited && !window.confirm('Replace your edited text with a new AI draft? Your changes will be lost.')) return
+    onAction(post._id, 'regenerate')
+  }
 
   return (
-    <article className="rounded-xl border border-black/10 bg-white p-5 shadow-sm space-y-4">
+    <Card>
       <PaperDetails post={post} />
+      <LaySummary text={post.laySummary} />
 
       <div className="space-y-1">
         <label className="text-sm font-semibold text-gray-900" htmlFor={`text-${post._id}`}>Post text</label>
         <textarea
           id={`text-${post._id}`}
           className="w-full rounded-lg border border-black/20 p-3 text-sm"
-          rows={4}
+          rows={5}
           value={text}
           disabled={busy}
-          onChange={(event) => setText(event.target.value)}
+          onChange={(event) => onEdit(post._id, event.target.value)}
         />
         <p className={`text-xs ${tooLong ? 'font-semibold text-red-700' : 'text-gray-500'}`}>
           {length} / {X_MAX_WEIGHTED_LENGTH} characters as X counts them (each link counts as 23)
           {tooLong ? ' — too long for X' : ''}
+          {unsaved ? ' · unsaved changes' : ''}
+        </p>
+        <p className="text-xs text-gray-500">
+          {describeGeneratedBy(post.generatedBy)}
+          {post.draftedBy ? ` Drafted by ${post.draftedBy} on ${formatDateTime(post.draftedAt)}.` : ''}
         </p>
       </div>
 
-      {post.lastError && (
-        <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          Last attempt failed ({formatDateTime(post.lastErrorAt)}): {post.lastError}
-        </p>
-      )}
+      <ErrorNote post={post} />
 
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
-          className="rounded bg-purple px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          className={PRIMARY_BUTTON}
           disabled={busy || !enabled || tooLong || empty}
-          onClick={() => onAction(post._id, 'approve', text)}
+          onClick={() => onAction(post._id, 'queue', text)}
         >
-          Approve
+          {busyAction === 'queue' ? 'Queueing…' : 'Queue in Buffer'}
         </button>
         <button
           type="button"
-          className="rounded border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
-          disabled={busy}
-          onClick={() => onAction(post._id, 'skip')}
+          className={SECONDARY_BUTTON}
+          disabled={busy || !unsaved || tooLong || empty}
+          onClick={() => onAction(post._id, 'save', text)}
         >
-          Skip
+          {busyAction === 'save' ? 'Saving…' : 'Save draft'}
         </button>
-        <button
-          type="button"
-          className="rounded border border-black/20 bg-white px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-50"
-          disabled={busy || text === post.proposedText}
-          onClick={() => setText(post.proposedText || '')}
-        >
-          Reset text
+        <button type="button" className={SECONDARY_BUTTON} disabled={busy || !enabled} onClick={regenerate}>
+          {busyAction === 'regenerate' ? 'Writing new draft…' : 'Regenerate'}
+        </button>
+        <button type="button" className={DANGER_BUTTON} disabled={busy} onClick={() => onAction(post._id, 'discard')}>
+          Discard draft
+        </button>
+        <button type="button" className={SECONDARY_BUTTON} disabled={busy} onClick={() => onAction(post._id, 'dismiss')}>
+          Not posting
         </button>
       </div>
-    </article>
+    </Card>
   )
 }
 
-function InProgressCard({ post }) {
+function QueuedCard({ post, busyAction, onAction }) {
+  function undo() {
+    if (!window.confirm('Remove this post from the Buffer queue? It goes back to your drafts so you can edit or requeue it.')) return
+    onAction(post._id, 'undo')
+  }
   return (
-    <article className="rounded-xl border border-amber-300 bg-amber-50 p-5 shadow-sm space-y-3">
+    <Card>
+      <PaperDetails post={post} />
+      <p className="whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-sm text-gray-800">{post.text}</p>
+      <p className="text-sm text-gray-600">
+        Scheduled for <span className="font-semibold">{post.dueAt ? formatDateTime(post.dueAt) : 'the next Buffer posting slot'}</span>.
+        {' '}Queued by {post.queuedBy || post.approvedBy || 'unknown'} on {formatDateTime(post.queuedAt)}.
+      </p>
+      <ErrorNote post={post} label="Buffer reported" />
+      <div className="flex flex-wrap gap-3">
+        <button type="button" className={DANGER_BUTTON} disabled={Boolean(busyAction)} onClick={undo}>
+          {busyAction === 'undo' ? 'Undoing…' : 'Undo'}
+        </button>
+      </div>
+    </Card>
+  )
+}
+
+function NeedsCheckingCard({ post }) {
+  const removing = post.status === 'removing'
+  return (
+    <Card tone="warning">
       <PaperDetails post={post} />
       <p className="whitespace-pre-wrap rounded-lg bg-white p-3 text-sm text-gray-800">{post.text}</p>
-      <p className="text-sm font-semibold text-amber-900">
-        Buffer result unknown — check the Buffer queue before doing anything else.
-      </p>
+      <p className="text-sm font-semibold text-amber-900">{BUFFER_UNKNOWN_MESSAGE}.</p>
       <p className="text-sm text-amber-900">
-        Approved by {post.approvedBy || 'unknown'} on {formatDateTime(post.approvedAt)}. This post is never retried automatically.
-        {post.lastError ? ` Last error: ${post.lastError}` : ''}
+        {removing
+          ? 'The website asked Buffer to remove this post but did not get a clear answer. If it is still in the Buffer queue and you do not want it published, delete it there.'
+          : `The website asked Buffer to queue this post${post.queuedBy ? ` for ${post.queuedBy}` : ''} but did not get a clear answer. If it is in the Buffer queue, it will be published at its slot unless you delete it there.`}
+        {' '}This is never retried automatically. To clear this record, delete it in Sanity Studio (Social Media Post); if the paper is still in the publications feed, it comes back under new publications after the next daily sync.
       </p>
-    </article>
+      <ErrorNote post={post} label="Last error" />
+    </Card>
   )
 }
 
-function RecentCard({ post, busy, onAction }) {
+function PublishedCard({ post }) {
   return (
-    <article className="rounded-xl border border-black/10 bg-white p-5 shadow-sm space-y-3">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <PaperDetails post={post} />
-        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold uppercase text-gray-700">
-          {post.status}
-        </span>
-      </div>
+    <Card>
+      <PaperDetails post={post} />
       <p className="whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-sm text-gray-800">{post.text}</p>
-      {post.status === 'queued' ? (
+      <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600">
+        <span>Published on X {post.sentAt ? `on ${formatDateTime(post.sentAt)}` : ''}.</span>
+        {post.externalLink && (
+          <a className="font-semibold text-purple hover:underline" href={post.externalLink} target="_blank" rel="noreferrer">
+            View on X
+          </a>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+function DismissedCard({ post, busyAction, onAction }) {
+  return (
+    <Card>
+      <PaperDetails post={post} />
+      <div className="flex flex-wrap items-center gap-3">
         <p className="text-sm text-gray-600">
-          Queued by {post.approvedBy || 'unknown'} on {formatDateTime(post.queuedAt)}.
-          {' '}Buffer scheduled it for {post.dueAt ? formatDateTime(post.dueAt) : 'the next posting slot'}.
+          Marked as not posting by {post.dismissedBy || 'unknown'} on {formatDateTime(post.dismissedAt)}.
         </p>
-      ) : (
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-gray-600">
-            Skipped by {post.skippedBy || 'unknown'} on {formatDateTime(post.skippedAt)}.
-          </p>
-          <button
-            type="button"
-            className="rounded border border-black/20 bg-white px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-50"
-            disabled={busy}
-            onClick={() => onAction(post._id, 'restore')}
-          >
-            Restore
-          </button>
-        </div>
-      )}
-    </article>
+        <button type="button" className={SECONDARY_BUTTON} disabled={Boolean(busyAction)} onClick={() => onAction(post._id, 'restore')}>
+          {busyAction === 'restore' ? 'Restoring…' : 'Restore'}
+        </button>
+      </div>
+    </Card>
+  )
+}
+
+function Section({ title, count, description, empty, children }) {
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-semibold">{title} ({count})</h2>
+        {description && <p className="text-sm text-gray-500">{description}</p>}
+      </div>
+      {count === 0 ? <p className="rounded-xl border border-black/10 bg-white p-5 text-gray-600">{empty}</p> : children}
+    </section>
   )
 }
 
 export default function SocialPostsClient() {
-  const [data, setData] = useState({ enabled: true, pending: [], inProgress: [], recent: [] })
+  const [data, setData] = useState(EMPTY_DATA)
   const [loading, setLoading] = useState(true)
-  const [busyId, setBusyId] = useState('')
+  const [busy, setBusy] = useState({ id: '', action: '' })
   const [message, setMessage] = useState('')
+  // Unsaved draft edits by post id, kept across reloads until saved or replaced.
+  const [edits, setEdits] = useState({})
 
   const load = useCallback(async () => {
-    setLoading(true)
     try {
       const response = await fetch('/api/social/posts', { cache: 'no-store' })
       const payload = await response.json()
       if (!response.ok || !payload.ok) throw new Error(payload.error || 'Failed to load social media posts.')
-      setData(payload)
+      setData({ ...EMPTY_DATA, ...payload })
     } catch (error) {
       setMessage(error.message)
     } finally {
@@ -167,24 +299,37 @@ export default function SocialPostsClient() {
 
   useEffect(() => { load() }, [load])
 
+  function editDraft(id, text) {
+    setEdits((current) => ({ ...current, [id]: text }))
+  }
+
   async function act(id, action, text) {
-    setBusyId(id)
+    setBusy({ id, action })
     setMessage('')
     try {
       const response = await fetch('/api/social/posts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, action, ...(action === 'approve' ? { text } : {}) }),
+        body: JSON.stringify({ id, action, ...(text !== undefined ? { text } : {}) }),
       })
       const payload = await response.json()
       setMessage(payload.message || payload.error || (response.ok ? 'Saved.' : 'The request failed.'))
+      if (payload.ok) {
+        setEdits((current) => {
+          const next = { ...current }
+          delete next[id]
+          return next
+        })
+      }
       await load()
     } catch (error) {
       setMessage(error.message)
     } finally {
-      setBusyId('')
+      setBusy({ id: '', action: '' })
     }
   }
+
+  const busyActionFor = (id) => (busy.id === id ? busy.action : '')
 
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-6 py-10 md:px-12">
@@ -197,54 +342,89 @@ export default function SocialPostsClient() {
           <AuthButtons signInCallbackUrl="/admin/social" signOutCallbackUrl="/login" />
         </div>
         <p className="max-w-3xl text-gray-600">
-          New team publications appear here as suggested X posts. Approved posts go to the Buffer queue and are published at the X posting times set in Buffer. Skipped posts are never sent.
+          New team publications appear here. Nothing is posted unless you create a post and queue it in Buffer.
+          Queued posts go out at your Buffer posting times for X, and you can undo them until Buffer publishes them.
         </p>
         <Link className="text-sm font-semibold text-purple hover:underline" href="/admin">Back to Admin Hub</Link>
       </header>
 
       {!loading && !data.enabled && (
         <p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-          Posting to X is switched off in Site Settings (Social Media Posting). Approving is disabled until it is switched back on.
+          Offering new publications for X posts is switched off in Site Settings (Social Media Posting). New papers are not added, and posts cannot be drafted or queued until it is switched back on. Queued posts can still be undone.
         </p>
+      )}
+      {data.bufferStatusWarning && (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{data.bufferStatusWarning}</p>
       )}
       {message && <p className="rounded-lg border border-black/10 bg-white p-4 text-sm">{message}</p>}
       {loading ? <div className="h-32 animate-pulse rounded-xl bg-white shadow-sm" /> : (
         <>
-          <section className="space-y-4">
-            <h2 className="text-2xl font-semibold">Waiting for approval ({data.pending.length})</h2>
-            {data.pending.length === 0 ? (
-              <p className="rounded-xl border border-black/10 bg-white p-5 text-gray-600">No posts are waiting for approval.</p>
-            ) : data.pending.map((post) => (
-              <PendingCard
-                key={`${post._id}-${post._rev}`}
+          <Section
+            title="New publications"
+            count={data.available.length}
+            description="Create a post for the papers you want to share. Papers you leave here are never posted."
+            empty="No new publications are waiting."
+          >
+            {data.available.map((post) => (
+              <AvailableCard
+                key={post._id}
                 post={post}
-                busy={busyId === post._id}
+                busyAction={busyActionFor(post._id)}
                 enabled={data.enabled}
                 onAction={act}
               />
             ))}
-          </section>
+          </Section>
 
-          {data.inProgress.length > 0 && (
-            <section className="space-y-4">
-              <div>
-                <h2 className="text-2xl font-semibold">In progress / needs checking ({data.inProgress.length})</h2>
-                <p className="text-sm text-gray-500">
-                  Buffer may or may not have received these posts. Look for each one in the Buffer queue for the X channel. If it is there, nothing else is needed. If it is not, delete this record in Sanity Studio (Social Media Post) and the paper returns as a pending post after the next daily sync.
-                </p>
-              </div>
-              {data.inProgress.map((post) => <InProgressCard key={post._id} post={post} />)}
-            </section>
+          <Section
+            title="Drafts"
+            count={data.drafts.length}
+            description="Edit the text, then queue it in Buffer. Drafts are never posted until you queue them."
+            empty="No drafts."
+          >
+            {data.drafts.map((post) => (
+              <DraftCard
+                key={post._id}
+                post={post}
+                busyAction={busyActionFor(post._id)}
+                enabled={data.enabled}
+                edit={edits[post._id]}
+                onEdit={editDraft}
+                onAction={act}
+              />
+            ))}
+          </Section>
+
+          <Section
+            title="Queued in Buffer"
+            count={data.queued.length}
+            description="These go out at the scheduled time. Undo moves a post back to your drafts."
+            empty="Nothing is queued."
+          >
+            {data.queued.map((post) => (
+              <QueuedCard key={post._id} post={post} busyAction={busyActionFor(post._id)} onAction={act} />
+            ))}
+          </Section>
+
+          {data.needsChecking.length > 0 && (
+            <Section
+              title="Needs checking"
+              count={data.needsChecking.length}
+              description="Buffer did not give a clear answer for these posts. Look for each one in the Buffer queue for the X channel."
+            >
+              {data.needsChecking.map((post) => <NeedsCheckingCard key={post._id} post={post} />)}
+            </Section>
           )}
 
-          <section className="space-y-4">
-            <h2 className="text-2xl font-semibold">Recent ({data.recent.length})</h2>
-            {data.recent.length === 0 ? (
-              <p className="rounded-xl border border-black/10 bg-white p-5 text-gray-600">No posts have been queued or skipped yet.</p>
-            ) : data.recent.map((post) => (
-              <RecentCard key={post._id} post={post} busy={busyId === post._id} onAction={act} />
+          <Section title="Posted" count={data.published.length} empty="Nothing has been published on X yet.">
+            {data.published.map((post) => <PublishedCard key={post._id} post={post} />)}
+          </Section>
+
+          <Section title="Not posting" count={data.dismissed.length} empty="No papers are marked as not posting.">
+            {data.dismissed.map((post) => (
+              <DismissedCard key={post._id} post={post} busyAction={busyActionFor(post._id)} onAction={act} />
             ))}
-          </section>
+          </Section>
         </>
       )}
     </main>

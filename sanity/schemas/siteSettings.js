@@ -762,27 +762,27 @@ const siteSettings = {
       name: 'socialPosting',
       title: 'Social Media Posting',
       type: 'object',
-      description: 'Suggest X posts for new publications. Approvers review every post at /admin/social before it goes to Buffer.',
+      description: 'Offer new publications for X posts. Approvers choose which papers to post about, draft and edit the posts, and queue them in Buffer at /admin/social.',
       fields: [
         {
           name: 'postToX',
-          title: 'Post new publications to X',
+          title: 'Offer new publications for X posts',
           type: 'boolean',
-          description: 'When on, each new paper in the publications feed becomes a pending X post, and approvers get a daily email. Nothing is sent to Buffer until an approver approves it at /admin/social. Off or unset stops all posting. Papers already in the feed when this is switched on also come to approvers as pending posts.',
+          description: 'When on, new papers from the publications feed appear at /admin/social and approvers get an email about them. Nothing is posted unless an approver creates a post and queues it in Buffer. Off or unset stops new papers and drafting; queued posts can still be undone.',
           initialValue: false,
         },
         {
           name: 'xIntro',
           title: 'X post opening',
           type: 'string',
-          description: "Text placed before the paper title. Leave blank for 'New publication:'.",
+          description: "Opening of the template draft, used when the AI draft is not available: this text, then the paper title and link. Leave blank for 'New publication:'.",
         },
         {
           name: 'approverEmails',
           title: 'Approval email recipients',
           type: 'array',
           of: [{ type: 'string' }],
-          description: 'Who receives the daily approval email. Leave empty to use the Study Approvals admins.',
+          description: 'Who receives the email about new publications that could be posted. Leave empty to use the Study Approvals admins.',
           validation: Rule =>
             Rule.custom((items = []) => {
               const invalid = (items || []).find((item) => item && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(item))
