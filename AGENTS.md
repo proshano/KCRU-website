@@ -103,9 +103,23 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - The `.xml` extension keeps the route outside the maintenance proxy's redirect (`proxy.js`'s matcher already excludes `.xml` paths).
 - `/api/pubmed/revalidate` revalidates the feed alongside `/publications` after each PubMed refresh so new papers reach the feed promptly.
 
+## Social Posting (Buffer → X, admin-approved)
+
+- Flow: after the PubMed refresh, the final step of `.github/workflows/pubmed-refresh.yml` calls `POST /api/social/dispatch` (CRON auth). It turns each new feed paper into a `pending` `socialPost` record with suggested X text, then emails approvers one message listing all pending posts, with new ones marked (at most once per 20 hours). Nothing goes to Buffer at this stage.
+- Items come only from `selectFeedPublications(readCache()?.publications || [])` with `identity.guid`/`identity.link`, so X and the RSS feed always agree. Never derive GUIDs another way.
+- Approvers work only at `/admin/social` (approvals admins; API `app/api/social/posts/route.js`): edit the text with a live X character count, Approve, Skip, or Restore a skipped post. The email deliberately has no decision links, because Outlook Safe Links opens links automatically.
+- Approve queues the post in Buffer (`createPost` with `mode: addToQueue`), which publishes it at the X channel's next posting slot.
+- Settings: `siteSettings.socialPosting.postToX` (fail closed: off or unset makes dispatch return `skipped` and blocks approvals), `.xIntro` (text before the title, default `New publication:`), and `.approverEmails` (falls back to `studyApprovals.admins`).
+- `BUFFER_API_KEY` is a Vercel server env var. The free Buffer plan gives one key, 3,000 requests per 30 days and 10 queued posts per channel. Set the optional `BUFFER_X_CHANNEL_ID` only when more than one X channel is connected.
+- Statuses are `seeded`, `pending`, `sending`, `queued` and `skipped`. Each paper posts at most once: approval moves `pending` → `sending` with `ifRevisionId`, then calls Buffer. Success gives `queued`, and a definite Buffer rejection returns the post to `pending` with `lastError`. An ambiguous result (network error, timeout, 5xx, unreadable response) stays `sending`, shows as "Buffer result unknown" in the portal, and is never retried automatically. Staff check the Buffer queue first. If the post is there, the record can stay as it is. If it is not, delete the record in Studio (its fields are read-only). A paper still in the feed then comes back as `pending` on the next sync.
+- The first run with no `socialPost` records marks every current feed item `seeded`, so switching posting on never floods X. A sync that finds more than `MAX_NEW_POSTS_PER_SYNC` (10) new items creates nothing and returns HTTP 500 so the workflow fails visibly. If those papers are expected, recover by posting `{ "seed": true }` to the dispatch route, which marks the current unrecorded items `seeded`.
+- Pure logic lives in `lib/socialPosting.js`, which must stay browser-safe because the portal imports it. `lib/socialPostingServer.js` holds the `node:crypto` helpers (document ids, email idempotency, notification dispatch), and `lib/socialPostingStore.js` handles Sanity reads, writes and sync.
+- Sanity Studio must be redeployed for the `socialPost` type and the Social Media Posting settings to appear there.
+
 ## Admin Access
 
 - Admin hub at `/admin` with module-specific entry points at `/admin/approvals` and `/admin/updates`.
+- `/admin/social` (approvals admins) approves, edits or skips X posts before they go to Buffer; see Social Posting.
 - `/admin/classification-eval` (approvals admins) compares the Jev decision model against the stored publication classification; see Classification Model Evaluation.
 - Research digest diagnostics remain available at `/admin/research-digest`, but routine operation must not depend on staff review.
 - Legacy admin URLs `/trials/approvals` and `/updates/admin` remain supported.
@@ -140,7 +154,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - Schemas live in `sanity/schemas/` and are registered in `sanity/schemas/index.js`.
 - Singletons include `siteSettings`, `capabilities`, `referralInfo`, `pubmedCache`, `pageContent`.
 - `siteSettings.publicationClassification` holds the publication classifier switch and Jev thresholds; `classificationEvalRun` documents hold evaluation runs (see Classification Model Evaluation).
-- Collections include `researcher`, `newsPost`, `trialSummary`, `therapeuticArea`, `traineeOpportunity`, `researchDigestIssue`, `researchDigestPaper`, `researchOpportunity`, `alumnus`, `site`, and study/update records.
+- Collections include `researcher`, `newsPost`, `trialSummary`, `therapeuticArea`, `traineeOpportunity`, `researchDigestIssue`, `researchDigestPaper`, `researchOpportunity`, `socialPost`, `alumnus`, `site`, and study/update records.
 
 ## Common Commands
 

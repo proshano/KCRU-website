@@ -759,6 +759,39 @@ const siteSettings = {
       ],
     },
     {
+      name: 'socialPosting',
+      title: 'Social Media Posting',
+      type: 'object',
+      description: 'Suggest X posts for new publications. Approvers review every post at /admin/social before it goes to Buffer.',
+      fields: [
+        {
+          name: 'postToX',
+          title: 'Post new publications to X',
+          type: 'boolean',
+          description: 'When on, each new paper in the publications feed becomes a pending X post, and approvers get a daily email. Nothing is sent to Buffer until an approver approves it at /admin/social. Off or unset stops all posting. The first run after switching on marks papers already in the feed as handled.',
+          initialValue: false,
+        },
+        {
+          name: 'xIntro',
+          title: 'X post opening',
+          type: 'string',
+          description: "Text placed before the paper title. Leave blank for 'New publication:'.",
+        },
+        {
+          name: 'approverEmails',
+          title: 'Approval email recipients',
+          type: 'array',
+          of: [{ type: 'string' }],
+          description: 'Who receives the daily approval email. Leave empty to use the Study Approvals admins.',
+          validation: Rule =>
+            Rule.custom((items = []) => {
+              const invalid = (items || []).find((item) => item && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(item))
+              return invalid ? 'Provide valid email addresses.' : true
+            })
+        },
+      ],
+    },
+    {
       name: 'publicationNewsletter',
       title: 'Publication Newsletter',
       type: 'object',

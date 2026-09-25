@@ -28,6 +28,14 @@ const MODULES = [
     actionLabel: 'Open publication review',
   },
   {
+    key: 'social',
+    accessKey: 'approvals',
+    title: 'Social media posts',
+    description: 'Approve, edit or skip posts before they go to the X queue in Buffer.',
+    href: '/admin/social',
+    actionLabel: 'Open social posts',
+  },
+  {
     key: 'classificationEval',
     accessKey: 'approvals',
     title: 'Classification evaluation',

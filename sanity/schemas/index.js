@@ -20,6 +20,7 @@ import updateSubscriber from './updateSubscriber'
 import researchDigestIssue from './researchDigestIssue'
 import researchDigestPaper from './researchDigestPaper'
 import researchOpportunity from './researchOpportunity'
+import socialPost from './socialPost'
 import studyReferral from './studyReferral'
 import studySubmission from './studySubmission'
 import studyApprovalSession from './studyApprovalSession'
@@ -54,6 +55,7 @@ export const schemaTypes = [
   researchDigestIssue,
   researchDigestPaper,
   researchOpportunity,
+  socialPost,
   studyReferral,
   studySubmission,
   studyApprovalSession,
