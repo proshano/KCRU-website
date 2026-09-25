@@ -7,10 +7,10 @@ const AUTH_TOKEN = process.env.PUBMED_REFRESH_TOKEN
 const CRON_SECRET = process.env.CRON_SECRET || ''
 const CORS_HEADERS = buildCorsHeaders('POST, OPTIONS')
 
+// Markdown endpoints (*.md, rewritten by proxy.js to app/markdown/[...path]/route.js) render on every request, so they need no entry here.
 const REVALIDATE_TARGETS = [
   { path: '/', type: 'page' },
   { path: '/publications', type: 'page' },
-  { path: '/publications.md', type: 'page' },
   // Route handler: only the bare-path implicit tag matches; a 'page' type would target '/publications/feed.xml/page', which never exists.
   { path: '/publications/feed.xml' },
   { path: '/team', type: 'layout' },
