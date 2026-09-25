@@ -98,6 +98,8 @@ test('reasoning follows a model family forward across versions', () => {
   for (const model of [
     'openai/gpt-5.6-luna',
     'openai/gpt-5.6-luna-pro',
+    'openai/gpt-6-luna',
+    'openai/gpt-6-luna-pro',
     'openai/gpt-5',
     'openai/gpt-6',
     'google/gemini-3.6-flash',
