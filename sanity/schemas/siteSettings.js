@@ -768,7 +768,7 @@ const siteSettings = {
           name: 'postToX',
           title: 'Post new publications to X',
           type: 'boolean',
-          description: 'When on, each new paper in the publications feed becomes a pending X post, and approvers get a daily email. Nothing is sent to Buffer until an approver approves it at /admin/social. Off or unset stops all posting. The first run after switching on marks papers already in the feed as handled.',
+          description: 'When on, each new paper in the publications feed becomes a pending X post, and approvers get a daily email. Nothing is sent to Buffer until an approver approves it at /admin/social. Off or unset stops all posting. Papers already in the feed when this is switched on also come to approvers as pending posts.',
           initialValue: false,
         },
         {

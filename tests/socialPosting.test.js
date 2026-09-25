@@ -213,11 +213,16 @@ test('buildSocialPostRecord uses the feed identity and builds the suggested text
   assert.equal(record.createdAt, NOW.toISOString())
 })
 
-test('planSocialPostSync seeds every feed item on the first run', () => {
+test('planSocialPostSync creates every feed item on the first sync, oldest first, even above maxNew', () => {
   const items = [feedItem('doi:b', '2026-09-20'), feedItem('doi:a', '2026-09-10')]
   const plan = planSocialPostSync({ items, records: [] })
-  assert.equal(plan.mode, 'seed')
-  assert.deepEqual(plan.toSeed.map((item) => item.identity.guid), ['doi:a', 'doi:b'])
+  assert.equal(plan.mode, 'create')
+  assert.deepEqual(plan.toCreate.map((item) => item.identity.guid), ['doi:a', 'doi:b'])
+
+  const many = Array.from({ length: MAX_NEW_POSTS_PER_SYNC + 5 }, (_, index) => feedItem(`doi:${index}`, '2026-09-20'))
+  const bigPlan = planSocialPostSync({ items: many, records: [] })
+  assert.equal(bigPlan.mode, 'create')
+  assert.equal(bigPlan.toCreate.length, many.length)
 })
 
 test('planSocialPostSync creates only unrecorded items, oldest first, never recreating any status', () => {
