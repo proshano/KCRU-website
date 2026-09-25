@@ -3,8 +3,9 @@ import test from 'node:test'
 
 import {
   BUFFER_UNKNOWN_MESSAGE,
-  DEFAULT_X_INTRO,
+  DEFAULT_TEAM_LABEL,
   NOT_IN_BUFFER_MESSAGE,
+  SOCIAL_POST_PROMPT_MAX_LENGTH,
   X_MAX_WEIGHTED_LENGTH,
   buildSocialPostNotificationEmail,
   buildXPostText,
@@ -13,16 +14,19 @@ import {
   discardSocialPostDraft,
   dismissSocialPost,
   draftSocialPost,
+  formatNameList,
   groupSocialPostsForPortal,
   normalizeSocialPostStatus,
   planSocialPostSync,
   queueSocialPost,
   refreshQueuedSocialPosts,
+  resolveSocialPostSystemPrompt,
   resolveXChannel,
   restoreSocialPost,
   saveSocialPostDraft,
   selectSocialPostsToNotify,
   undoSocialPost,
+  validateSocialPostPrompt,
   validateXPostText,
   xWeightedLength,
 } from '../lib/socialPosting.js'
@@ -32,7 +36,12 @@ import {
   dispatchSocialPostNotifications,
   socialPostDocumentId,
 } from '../lib/socialPostingServer.js'
-import { syncSocialPosts } from '../lib/socialPostingStore.js'
+import {
+  fetchSocialPostPrompt,
+  resetSocialPostPrompt,
+  saveSocialPostPrompt,
+  syncSocialPosts,
+} from '../lib/socialPostingStore.js'
 import { planSocialPostMigration } from '../scripts/migrate-social-posts-to-available.js'
 
 const NOW = new Date('2026-09-25T12:00:00Z')
@@ -199,28 +208,61 @@ test('xWeightedLength counts ASCII once, CJK and emoji twice, and a URL as 23', 
   assert.equal(xWeightedLength(`Read ${LINK} now https://example.org/a-very-long-path/that/keeps/going`), 5 + 23 + 5 + 23)
 })
 
-test('buildXPostText keeps a short post unchanged', () => {
-  const text = buildXPostText({ intro: 'New from KCRU:', title: '  A  kidney\npaper ', link: LINK })
-  assert.equal(text, `New from KCRU: A kidney paper ${LINK}`)
+test('formatNameList dedupes and formats 0, 1, 2 and 3+ names', () => {
+  assert.equal(formatNameList([]), '')
+  assert.equal(formatNameList(['  Jane Smith  ', '']), 'Jane Smith')
+  assert.equal(formatNameList(['Jane Smith', 'Jane Smith']), 'Jane Smith')
+  assert.equal(formatNameList(['Jane Smith', 'Raj Patel']), 'Jane Smith and Raj Patel')
+  assert.equal(formatNameList(['Jane Smith', 'Raj Patel', 'Amit Garg']), 'Jane Smith, Raj Patel and Amit Garg')
 })
 
-test('buildXPostText falls back to the default intro when it is blank', () => {
-  assert.equal(buildXPostText({ intro: '   ', title: 'A paper', link: LINK }), `${DEFAULT_X_INTRO} A paper ${LINK}`)
-  assert.equal(buildXPostText({ title: 'A paper', link: LINK }), `${DEFAULT_X_INTRO} A paper ${LINK}`)
+test('buildXPostText names every investigator using the team label', () => {
+  const text = buildXPostText({ title: '  A  kidney\npaper ', link: LINK, teamMembers: ['Amit Garg', 'Arsh Jain'] })
+  assert.equal(text, `New from ${DEFAULT_TEAM_LABEL} investigators Amit Garg and Arsh Jain: A kidney paper ${LINK}`)
+})
+
+test('buildXPostText falls back to the default team label and drops the byline when no names are listed', () => {
+  assert.equal(
+    buildXPostText({ title: 'A paper', link: LINK, teamLabel: '   ' }),
+    `New from ${DEFAULT_TEAM_LABEL} investigators: A paper ${LINK}`
+  )
+  assert.equal(
+    buildXPostText({ title: 'A paper', link: LINK, teamMembers: [], teamLabel: 'KCRU' }),
+    `New from KCRU investigators: A paper ${LINK}`
+  )
 })
 
 test('buildXPostText truncates a long title at a word boundary to fit X', () => {
   const title = Array.from({ length: 60 }, (_, index) => `word${index}`).join(' ').slice(0, 300)
   assert.equal(title.length, 300)
-  const text = buildXPostText({ title, link: LINK })
+  const text = buildXPostText({ title, link: LINK, teamMembers: ['Amit Garg'] })
   assert.ok(xWeightedLength(text) <= X_MAX_WEIGHTED_LENGTH)
-  assert.ok(text.startsWith(`${DEFAULT_X_INTRO} word0 word1`))
+  assert.ok(text.startsWith(`New from ${DEFAULT_TEAM_LABEL} investigators Amit Garg: word0 word1`))
   assert.ok(text.endsWith(`… ${LINK}`))
   assert.match(text, /word\d+… https/)
 
   const withoutLink = buildXPostText({ title })
   assert.ok(xWeightedLength(withoutLink) <= X_MAX_WEIGHTED_LENGTH)
   assert.ok(withoutLink.endsWith('…'))
+})
+
+test('buildXPostText shortens a long byline to first three plus "and colleagues" to leave room for the title', () => {
+  const teamMembers = [
+    'Alexandra Montgomery-Whitfield',
+    'Bartholomew Fitzgerald-Huntington',
+    'Constance Featherstonehaugh-Radcliffe',
+    'Demetrius Kowalczyk-Abernathy',
+    'Evangeline Radcliffe-Sinclair',
+    'Frederick Abernathy-Wentworth',
+    'Gwendolyn Chesterfield',
+  ]
+  const title = 'A moderately long study title about kidney outcomes after transplantation surgery in adults'
+  const text = buildXPostText({ title, link: LINK, teamMembers })
+  assert.ok(xWeightedLength(text) <= X_MAX_WEIGHTED_LENGTH)
+  assert.ok(text.includes(
+    `${teamMembers[0]}, ${teamMembers[1]}, ${teamMembers[2]} and colleagues`
+  ))
+  assert.ok(text.includes(title))
 })
 
 test('validateXPostText rejects empty and over-limit text', () => {
@@ -232,6 +274,183 @@ test('validateXPostText rejects empty and over-limit text', () => {
   assert.match(tooLong.error, /281/)
   assert.equal(validateXPostText('界'.repeat(141)).ok, false)
   assert.equal(validateXPostText('界'.repeat(140)).ok, true)
+})
+
+// --- Drafting prompt (pure helpers) -----------------------------------------
+
+test('validateSocialPostPrompt rejects empty, whitespace-only and over-limit text', () => {
+  assert.deepEqual(validateSocialPostPrompt('Name every investigator.'), { ok: true, error: null })
+  assert.equal(validateSocialPostPrompt('').ok, false)
+  assert.equal(validateSocialPostPrompt('   ').ok, false)
+  assert.equal(validateSocialPostPrompt(undefined).ok, false)
+  const tooLong = validateSocialPostPrompt('a'.repeat(SOCIAL_POST_PROMPT_MAX_LENGTH + 1))
+  assert.equal(tooLong.ok, false)
+  assert.match(tooLong.error, new RegExp(String(SOCIAL_POST_PROMPT_MAX_LENGTH)))
+  assert.equal(validateSocialPostPrompt('a'.repeat(SOCIAL_POST_PROMPT_MAX_LENGTH)).ok, true)
+})
+
+test('resolveSocialPostSystemPrompt prefers a trimmed custom prompt over the default', () => {
+  assert.equal(resolveSocialPostSystemPrompt('  Custom rules.  ', 'Default rules.'), 'Custom rules.')
+  assert.equal(resolveSocialPostSystemPrompt('', 'Default rules.'), 'Default rules.')
+  assert.equal(resolveSocialPostSystemPrompt('   ', 'Default rules.'), 'Default rules.')
+  assert.equal(resolveSocialPostSystemPrompt(null, 'Default rules.'), 'Default rules.')
+  assert.equal(resolveSocialPostSystemPrompt(undefined, 'Default rules.'), 'Default rules.')
+})
+
+// --- Drafting prompt (store) -------------------------------------------------
+
+function fakePromptWriteClient(initialDoc = null) {
+  const calls = []
+  let doc = initialDoc ? { ...initialDoc } : null
+  let revCounter = 0
+  const nextRev = () => `prompt-rev-${++revCounter}`
+  return {
+    calls,
+    get current() { return doc },
+    async getDocument(id) {
+      calls.push({ name: 'getDocument', args: [id] })
+      return doc ? { ...doc } : null
+    },
+    async createIfNotExists(newDoc) {
+      calls.push({ name: 'createIfNotExists', args: [newDoc] })
+      if (!doc) doc = { ...newDoc, _rev: nextRev() }
+      return doc
+    },
+    patch(id) {
+      let ifRev
+      const patch = {
+        ifRevisionId(rev) {
+          ifRev = rev
+          return patch
+        },
+        set(fields) {
+          patch._set = fields
+          return patch
+        },
+        unset(fields) {
+          patch._unset = fields
+          return patch
+        },
+        async commit() {
+          calls.push({ name: 'commit', args: [id, ifRev, patch._set, patch._unset] })
+          if (!doc || doc._id !== id) {
+            const error = new Error('Document not found')
+            error.statusCode = 404
+            throw error
+          }
+          if (ifRev && doc._rev !== ifRev) {
+            const error = new Error('The document has been changed since you started editing (revision mismatch)')
+            error.statusCode = 409
+            throw error
+          }
+          for (const key of patch._unset || []) delete doc[key]
+          doc = { ...doc, ...(patch._set || {}), _rev: nextRev() }
+          return doc
+        },
+      }
+      return patch
+    },
+  }
+}
+
+function fakePromptClient(doc) {
+  return { fetch: async () => doc }
+}
+
+test('fetchSocialPostPrompt reads the published doc and reports no custom prompt when unset', async () => {
+  const withCustom = await fetchSocialPostPrompt(fakePromptClient({
+    systemPrompt: '  Name every investigator.  ',
+    updatedBy: 'admin@example.test',
+    updatedAt: '2026-09-20T00:00:00.000Z',
+    _rev: 'rev-1',
+  }))
+  assert.deepEqual(withCustom, {
+    custom: 'Name every investigator.',
+    updatedBy: 'admin@example.test',
+    updatedAt: '2026-09-20T00:00:00.000Z',
+    rev: 'rev-1',
+  })
+
+  assert.deepEqual(await fetchSocialPostPrompt(fakePromptClient(null)), {
+    custom: null,
+    updatedBy: null,
+    updatedAt: null,
+    rev: null,
+  })
+
+  assert.deepEqual(await fetchSocialPostPrompt(fakePromptClient({ systemPrompt: '   ', _rev: 'rev-1' })), {
+    custom: null,
+    updatedBy: null,
+    updatedAt: null,
+    rev: 'rev-1',
+  })
+})
+
+test('saveSocialPostPrompt creates the singleton on first use and sets the fields', async () => {
+  const client = fakePromptWriteClient(null)
+  await saveSocialPostPrompt(client, { text: '  Name every investigator.  ', actorEmail: 'Admin@Example.test', now: NOW })
+  assert.equal(client.current._type, 'socialPostingPrompt')
+  assert.equal(client.current._id, 'socialPostingPrompt')
+  assert.equal(client.current.systemPrompt, 'Name every investigator.')
+  assert.equal(client.current.updatedBy, 'admin@example.test')
+  assert.equal(client.current.updatedAt, NOW.toISOString())
+})
+
+test('saveSocialPostPrompt with a matching rev overwrites an existing custom prompt', async () => {
+  const client = fakePromptWriteClient({
+    _id: 'socialPostingPrompt',
+    _type: 'socialPostingPrompt',
+    _rev: 'rev-1',
+    systemPrompt: 'Old rules.',
+    updatedBy: 'first@example.test',
+  })
+  await saveSocialPostPrompt(client, { text: 'New rules.', actorEmail: 'second@example.test', rev: 'rev-1', now: NOW })
+  assert.equal(client.current.systemPrompt, 'New rules.')
+  assert.equal(client.current.updatedBy, 'second@example.test')
+})
+
+test('saveSocialPostPrompt reports a conflict on a stale rev, and when a doc already exists without one', async () => {
+  const stale = fakePromptWriteClient({ _id: 'socialPostingPrompt', _type: 'socialPostingPrompt', _rev: 'rev-2', systemPrompt: 'Current rules.' })
+  await assert.rejects(
+    saveSocialPostPrompt(stale, { text: 'New rules.', actorEmail: 'a@example.test', rev: 'rev-1', now: NOW }),
+    (error) => { assert.equal(error.conflict, true); return true }
+  )
+  assert.equal(stale.current.systemPrompt, 'Current rules.')
+
+  const noRev = fakePromptWriteClient({ _id: 'socialPostingPrompt', _type: 'socialPostingPrompt', _rev: 'rev-2', systemPrompt: 'Current rules.' })
+  await assert.rejects(
+    saveSocialPostPrompt(noRev, { text: 'New rules.', actorEmail: 'a@example.test', now: NOW }),
+    (error) => { assert.equal(error.conflict, true); return true }
+  )
+  assert.equal(noRev.current.systemPrompt, 'Current rules.')
+})
+
+test('saveSocialPostPrompt without a rev succeeds when the document does not exist yet', async () => {
+  const client = fakePromptWriteClient(null)
+  await saveSocialPostPrompt(client, { text: 'First custom rules.', actorEmail: 'a@example.test', now: NOW })
+  assert.equal(client.current.systemPrompt, 'First custom rules.')
+})
+
+test('resetSocialPostPrompt unsets the custom prompt and records who reset it', async () => {
+  const client = fakePromptWriteClient({
+    _id: 'socialPostingPrompt',
+    _type: 'socialPostingPrompt',
+    _rev: 'rev-1',
+    systemPrompt: 'Custom rules.',
+    updatedBy: 'first@example.test',
+  })
+  await resetSocialPostPrompt(client, { actorEmail: 'second@example.test', rev: 'rev-1', now: NOW })
+  assert.equal('systemPrompt' in client.current, false)
+  assert.equal(client.current.updatedBy, 'second@example.test')
+  assert.equal(client.current.updatedAt, NOW.toISOString())
+})
+
+test('resetSocialPostPrompt also reports a conflict on a stale rev', async () => {
+  const client = fakePromptWriteClient({ _id: 'socialPostingPrompt', _type: 'socialPostingPrompt', _rev: 'rev-2', systemPrompt: 'Custom rules.' })
+  await assert.rejects(
+    resetSocialPostPrompt(client, { actorEmail: 'a@example.test', rev: 'rev-1', now: NOW }),
+    (error) => { assert.equal(error.conflict, true); return true }
+  )
 })
 
 // --- Records, sync and statuses ---------------------------------------------
@@ -751,7 +970,7 @@ test('Create post drafts an available paper and records who drafted it', async (
 
 test('Create post works on a legacy pending record and says when the template was used', async () => {
   const store = fakeStore(record({ status: 'pending', text: 'Old suggested text', lastError: 'old failure' }))
-  const { compose } = fakeCompose({ text: `${DEFAULT_X_INTRO} A kidney paper ${LINK}`, generatedBy: 'template' })
+  const { compose } = fakeCompose({ text: `New from ${DEFAULT_TEAM_LABEL} investigators: A kidney paper ${LINK}`, generatedBy: 'template' })
   const result = await draft(store, { compose })
   assert.equal(result.ok, true)
   assert.match(result.message, /standard template/)

@@ -772,10 +772,10 @@ const siteSettings = {
           initialValue: false,
         },
         {
-          name: 'xIntro',
-          title: 'X post opening',
+          name: 'teamLabel',
+          title: 'Team name in posts',
           type: 'string',
-          description: "Opening of the template draft, used when the AI draft is not available: this text, then the paper title and link. Leave blank for 'New publication:'.",
+          description: "How posts introduce the team's investigators, e.g. 'London Kidney' gives 'London Kidney investigators Amit Garg and Arsh Jain …'. Leave blank for 'London Kidney'.",
         },
         {
           name: 'approverEmails',

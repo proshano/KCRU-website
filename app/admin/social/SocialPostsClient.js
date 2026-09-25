@@ -6,13 +6,27 @@ import { useCallback, useEffect, useState } from 'react'
 import AuthButtons from '@/app/components/AuthButtons'
 import {
   BUFFER_UNKNOWN_MESSAGE,
+  SOCIAL_POST_PROMPT_MAX_LENGTH,
   X_MAX_WEIGHTED_LENGTH,
   formatSocialPostDate,
+  validateSocialPostPrompt,
   xWeightedLength,
 } from '@/lib/socialPosting'
 
+const EMPTY_PROMPT = {
+  custom: null,
+  defaultPrompt: '',
+  effective: '',
+  isCustom: false,
+  updatedBy: null,
+  updatedAt: null,
+  rev: null,
+}
+
 const EMPTY_DATA = {
   enabled: true,
+  teamLabel: '',
+  prompt: EMPTY_PROMPT,
   available: [],
   drafts: [],
   queued: [],
@@ -264,6 +278,88 @@ function DismissedCard({ post, busyAction, onAction }) {
   )
 }
 
+function DraftingInstructionsSection({ prompt, teamLabel, busy, onSave, onReset }) {
+  const [expanded, setExpanded] = useState(false)
+  const [text, setText] = useState(prompt.effective)
+  // Resync the editor only when the stored doc actually changed (a new rev), so an
+  // unrelated action elsewhere on the page (which reloads everything) never clobbers
+  // instructions the approver is mid-way through editing.
+  const [syncedRev, setSyncedRev] = useState(prompt.rev)
+  if (prompt.rev !== syncedRev) {
+    setSyncedRev(prompt.rev)
+    setText(prompt.effective)
+  }
+
+  const validation = validateSocialPostPrompt(text)
+  const unchanged = text === prompt.effective
+  const busySaving = busy === 'saveprompt'
+  const busyResetting = busy === 'resetprompt'
+
+  function handleReset() {
+    if (!window.confirm('Reset the drafting instructions to the default? Your custom instructions will be lost.')) return
+    onReset(prompt.rev)
+  }
+
+  return (
+    <section className="rounded-xl border border-black/10 bg-white p-5 shadow-sm">
+      <button
+        type="button"
+        className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <span>
+          <span className="text-lg font-semibold text-gray-900">Drafting instructions (AI prompt)</span>
+          <span className="ml-2 text-sm text-gray-500">
+            {prompt.isCustom ? 'Custom' : 'Default'}
+            {prompt.updatedBy ? ` · last changed by ${prompt.updatedBy} on ${formatDateTime(prompt.updatedAt)}` : ''}
+          </span>
+        </span>
+        <span className="text-sm font-semibold text-purple">{expanded ? 'Hide' : 'Edit'}</span>
+      </button>
+
+      {expanded && (
+        <div className="mt-4 space-y-3">
+          <label className="text-sm font-semibold text-gray-900" htmlFor="social-post-prompt">System prompt</label>
+          <textarea
+            id="social-post-prompt"
+            className="w-full rounded-lg border border-black/20 p-3 font-mono text-xs"
+            rows={14}
+            value={text}
+            disabled={Boolean(busy)}
+            onChange={(event) => setText(event.target.value)}
+          />
+          <p className={`text-xs ${validation.ok ? 'text-gray-500' : 'font-semibold text-red-700'}`}>
+            {text.length} / {SOCIAL_POST_PROMPT_MAX_LENGTH} characters
+            {!validation.ok ? ` — ${validation.error}` : ''}
+          </p>
+          <p className="text-xs text-gray-500">
+            The paper title, {teamLabel || 'London Kidney'} investigators, lay summary and length limit are added
+            automatically, and the paper link is appended after the text. Every draft is checked for all investigator
+            names, no first person (&quot;our&quot;, &quot;we&quot;), no journal name and X&apos;s length limit. A
+            draft that fails twice uses the simple template instead. Changes apply to the next Create post or
+            Regenerate; existing drafts are not changed.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              className={PRIMARY_BUTTON}
+              disabled={Boolean(busy) || !validation.ok || unchanged}
+              onClick={() => onSave(text, prompt.rev)}
+            >
+              {busySaving ? 'Saving…' : 'Save instructions'}
+            </button>
+            {prompt.isCustom && (
+              <button type="button" className={DANGER_BUTTON} disabled={Boolean(busy)} onClick={handleReset}>
+                {busyResetting ? 'Resetting…' : 'Reset to default'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function Section({ title, count, description, empty, children }) {
   return (
     <section className="space-y-4">
@@ -329,6 +425,25 @@ export default function SocialPostsClient() {
     }
   }
 
+  async function actPrompt(action, extra) {
+    setBusy({ id: 'prompt', action })
+    setMessage('')
+    try {
+      const response = await fetch('/api/social/posts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ...extra }),
+      })
+      const payload = await response.json()
+      setMessage(payload.message || payload.error || (response.ok ? 'Saved.' : 'The request failed.'))
+      await load()
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setBusy({ id: '', action: '' })
+    }
+  }
+
   const busyActionFor = (id) => (busy.id === id ? busy.action : '')
 
   return (
@@ -357,6 +472,15 @@ export default function SocialPostsClient() {
         <p className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">{data.bufferStatusWarning}</p>
       )}
       {message && <p className="rounded-lg border border-black/10 bg-white p-4 text-sm">{message}</p>}
+      {!loading && (
+        <DraftingInstructionsSection
+          prompt={data.prompt}
+          teamLabel={data.teamLabel}
+          busy={busyActionFor('prompt')}
+          onSave={(text, rev) => actPrompt('saveprompt', { text, rev })}
+          onReset={(rev) => actPrompt('resetprompt', { rev })}
+        />
+      )}
       {loading ? <div className="h-32 animate-pulse rounded-xl bg-white shadow-sm" /> : (
         <>
           <Section

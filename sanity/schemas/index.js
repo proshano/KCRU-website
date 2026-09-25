@@ -21,6 +21,7 @@ import researchDigestIssue from './researchDigestIssue'
 import researchDigestPaper from './researchDigestPaper'
 import researchOpportunity from './researchOpportunity'
 import socialPost from './socialPost'
+import socialPostingPrompt from './socialPostingPrompt'
 import studyReferral from './studyReferral'
 import studySubmission from './studySubmission'
 import studyApprovalSession from './studyApprovalSession'
@@ -41,7 +42,8 @@ export const schemaTypes = [
   pageContent,
   contactRouting,
   contactLocation,
-  
+  socialPostingPrompt,
+
   // Collections
   researcher,
   newsPost,

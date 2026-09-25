@@ -4,7 +4,6 @@ import { getScopedAdminSession } from '@/lib/adminSessions'
 import { getSessionAccess } from '@/lib/authAccess'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { sanityFetch, writeClient } from '@/lib/sanity'
-import { resolveSiteTitle } from '@/lib/seo'
 import { composeSocialPostDraft } from '@/lib/socialPostDrafting'
 import {
   SOCIAL_NETWORK_X,
@@ -16,22 +15,29 @@ import {
   groupSocialPostsForPortal,
   queueSocialPost,
   refreshQueuedSocialPosts,
+  resolveSocialPostSystemPrompt,
   restoreSocialPost,
   saveSocialPostDraft,
   socialPostRefusal,
   undoSocialPost,
+  validateSocialPostPrompt,
 } from '@/lib/socialPosting'
 import {
   createSanitySocialPostStore,
+  fetchSocialPostPrompt,
   fetchSocialPostRecords,
   fetchSocialPostingSettings,
+  resetSocialPostPrompt,
+  saveSocialPostPrompt,
 } from '@/lib/socialPostingStore'
 import { sanitizeString } from '@/lib/studySubmissions'
-import { DEFAULT_LLM_MODEL, generateSocialPostText, resolveProviderApiKey } from '@/lib/summaries'
+import { DEFAULT_LLM_MODEL, SOCIAL_POST_SYSTEM_PROMPT, createSocialPostGenerateFn, resolveProviderApiKey } from '@/lib/summaries'
 
 const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
-const ACTIONS = ['draft', 'regenerate', 'save', 'discard', 'queue', 'undo', 'dismiss', 'restore']
+const ACTIONS = ['draft', 'regenerate', 'save', 'discard', 'queue', 'undo', 'dismiss', 'restore', 'saveprompt', 'resetprompt']
 const BUFFER_ACTIONS = ['queue', 'undo']
+const PROMPT_ACTIONS = ['saveprompt', 'resetprompt']
+const PROMPT_CONFLICT_MESSAGE = 'The drafting instructions were changed by someone else. Reload to see the latest version.'
 
 async function getSocialPostSession(request) {
   const sessionAccess = await getSessionAccess()
@@ -72,9 +78,10 @@ export async function GET(request) {
   try {
     const canWrite = Boolean(writeClient.config().token)
     const fetchClient = canWrite ? writeClient : { fetch: sanityFetch }
-    const [settings, fetchedRecords] = await Promise.all([
+    const [settings, fetchedRecords, promptDoc] = await Promise.all([
       fetchSocialPostingSettings(fetchClient),
       fetchSocialPostRecords(fetchClient, SOCIAL_NETWORK_X),
+      fetchSocialPostPrompt(fetchClient),
     ])
 
     // Check queued posts in Buffer so the page shows what has been published.
@@ -101,6 +108,16 @@ export async function GET(request) {
       ok: true,
       adminEmail: session.email,
       enabled: settings.postToX,
+      teamLabel: settings.teamLabel,
+      prompt: {
+        custom: promptDoc.custom,
+        defaultPrompt: SOCIAL_POST_SYSTEM_PROMPT,
+        effective: resolveSocialPostSystemPrompt(promptDoc.custom, SOCIAL_POST_SYSTEM_PROMPT),
+        isCustom: Boolean(promptDoc.custom),
+        updatedBy: promptDoc.updatedBy,
+        updatedAt: promptDoc.updatedAt,
+        rev: promptDoc.rev,
+      },
       ...groupSocialPostsForPortal(records),
       ...(bufferStatusWarning ? { bufferStatusWarning } : {}),
     }, { headers: CORS_HEADERS })
@@ -124,9 +141,13 @@ export async function PATCH(request) {
     const id = sanitizeString(body?.id)
     const action = sanitizeString(body?.action).toLowerCase()
     const text = typeof body?.text === 'string' ? body.text : undefined
-    if (!id) return respond(socialPostRefusal(400, 'Social media post id is required.'))
+    const rev = typeof body?.rev === 'string' ? body.rev : undefined
     if (!ACTIONS.includes(action)) {
       return respond(socialPostRefusal(400, `Action must be one of: ${ACTIONS.join(', ')}.`))
+    }
+    // The prompt actions edit a separate singleton document, not a social media post.
+    if (!PROMPT_ACTIONS.includes(action) && !id) {
+      return respond(socialPostRefusal(400, 'Social media post id is required.'))
     }
     if (!writeClient.config().token) {
       return respond(socialPostRefusal(500, 'SANITY_API_TOKEN missing; cannot save social media post changes.'))
@@ -136,16 +157,45 @@ export async function PATCH(request) {
       return respond(socialPostRefusal(500, 'BUFFER_API_KEY is not configured on the server, so posts cannot be queued in or removed from Buffer.'))
     }
 
-    const store = createSanitySocialPostStore(writeClient)
     const actorEmail = session.email
     let result
+    if (action === 'saveprompt') {
+      const validation = validateSocialPostPrompt(text)
+      if (!validation.ok) {
+        result = socialPostRefusal(400, validation.error)
+      } else {
+        try {
+          await saveSocialPostPrompt(writeClient, { text, actorEmail, rev, now: new Date() })
+          result = { ok: true, status: 200, message: 'Drafting instructions saved. This applies to the next Create post or Regenerate.' }
+        } catch (writeError) {
+          if (!writeError?.conflict) throw writeError
+          result = socialPostRefusal(409, PROMPT_CONFLICT_MESSAGE)
+        }
+      }
+      return respond(result)
+    }
+    if (action === 'resetprompt') {
+      try {
+        await resetSocialPostPrompt(writeClient, { actorEmail, rev, now: new Date() })
+        result = { ok: true, status: 200, message: 'Drafting instructions reset to the default.' }
+      } catch (writeError) {
+        if (!writeError?.conflict) throw writeError
+        result = socialPostRefusal(409, PROMPT_CONFLICT_MESSAGE)
+      }
+      return respond(result)
+    }
+
+    const store = createSanitySocialPostStore(writeClient)
     if (action === 'draft' || action === 'regenerate') {
-      const settings = await fetchSocialPostingSettings(writeClient)
+      const [settings, promptDoc] = await Promise.all([
+        fetchSocialPostingSettings(writeClient),
+        fetchSocialPostPrompt(writeClient),
+      ])
       const provider = settings.llmProvider || process.env.LLM_PROVIDER || 'openrouter'
       const model = settings.llmModel || process.env.LLM_MODEL || DEFAULT_LLM_MODEL
-      const siteTitle = resolveSiteTitle({ seo: { title: settings.seoTitle }, unitName: settings.unitName })
+      const systemPrompt = resolveSocialPostSystemPrompt(promptDoc.custom, SOCIAL_POST_SYSTEM_PROMPT)
       const generate = hasLlmCredential(provider)
-        ? (input) => generateSocialPostText(input, { provider, model })
+        ? createSocialPostGenerateFn({ provider, model, systemPrompt })
         : null
       result = await draftSocialPost({
         id,
@@ -155,8 +205,7 @@ export async function PATCH(request) {
         store,
         compose: (post) => composeSocialPostDraft({
           post,
-          intro: settings.xIntro,
-          siteTitle,
+          teamLabel: settings.teamLabel,
           generate,
           llmLabel: `llm:${model}`,
         }),
