@@ -4,6 +4,7 @@ import { getScopedAdminSession } from '@/lib/adminSessions'
 import { getSessionAccess } from '@/lib/authAccess'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { sanityFetch, writeClient } from '@/lib/sanity'
+import { getSiteBaseUrl } from '@/lib/seo'
 import { composeSocialPostDraft } from '@/lib/socialPostDrafting'
 import {
   SOCIAL_NETWORK_X,
@@ -28,6 +29,7 @@ import {
   fetchSocialPostRecords,
   fetchSocialPostingSettings,
   resetSocialPostPrompt,
+  resolveSocialPostSpotlight,
   saveSocialPostPrompt,
 } from '@/lib/socialPostingStore'
 import { sanitizeString } from '@/lib/studySubmissions'
@@ -197,18 +199,31 @@ export async function PATCH(request) {
       const generate = hasLlmCredential(provider)
         ? createSocialPostGenerateFn({ provider, model, systemPrompt })
         : null
+      const regenerate = action === 'regenerate'
       result = await draftSocialPost({
         id,
-        regenerate: action === 'regenerate',
+        regenerate,
         actorEmail,
         enabled: settings.postToX,
         store,
-        compose: (post) => composeSocialPostDraft({
-          post,
-          teamLabel: settings.teamLabel,
-          generate,
-          llmLabel: `llm:${model}`,
-        }),
+        compose: async (post) => {
+          // Link to one investigator's profile, anchored to the paper; if that cannot be
+          // worked out, the post links to the paper itself.
+          let spotlight = null
+          try {
+            spotlight = await resolveSocialPostSpotlight({ client: writeClient, post, regenerate, baseUrl: getSiteBaseUrl() })
+          } catch (spotlightError) {
+            console.error('[social-posting] Could not choose a profile to link; using the paper link', spotlightError)
+          }
+          const draft = await composeSocialPostDraft({
+            post,
+            link: spotlight?.link || post.link,
+            teamLabel: settings.teamLabel,
+            generate,
+            llmLabel: `llm:${model}`,
+          })
+          return { ...draft, spotlight }
+        },
       })
     } else if (action === 'queue') {
       const settings = await fetchSocialPostingSettings(writeClient)

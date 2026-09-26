@@ -6,19 +6,26 @@ import {
   DEFAULT_TEAM_LABEL,
   NOT_IN_BUFFER_MESSAGE,
   SOCIAL_POST_PROMPT_MAX_LENGTH,
+  SOCIAL_POST_SPOTLIGHT_WINDOW_DAYS,
   X_MAX_WEIGHTED_LENGTH,
+  buildProfilePaperLink,
   buildSocialPostNotificationEmail,
   buildXPostText,
   canManageSocialPosts,
+  chooseSpotlightResearcher,
+  collectRecentSpotlights,
   computeHasOtherAuthors,
   createBufferClient,
+  describeSpotlightReason,
   discardSocialPostDraft,
   dismissSocialPost,
   draftSocialPost,
+  findProfileSlugs,
   formatNameList,
   groupSocialPostsForPortal,
   normalizeSocialPostStatus,
   planSocialPostSync,
+  postLinksToProfile,
   queueSocialPost,
   refreshQueuedSocialPosts,
   resolveSocialPostSystemPrompt,
@@ -34,12 +41,14 @@ import {
 import {
   buildSocialPostNotificationIdempotencyKey,
   buildSocialPostRecord,
+  buildSocialPostTeamFields,
   dispatchSocialPostNotifications,
   socialPostDocumentId,
 } from '../lib/socialPostingServer.js'
 import {
   fetchSocialPostPrompt,
   resetSocialPostPrompt,
+  resolveSocialPostSpotlight,
   saveSocialPostPrompt,
   syncSocialPosts,
 } from '../lib/socialPostingStore.js'
@@ -564,6 +573,84 @@ test('buildSocialPostRecord sets hasOtherAuthors from the publication authors an
   assert.equal('hasOtherAuthors' in built2, false)
 })
 
+const PAVEL = { _id: 'r-pavel', name: 'Pavel Roshanov' }
+const AMIT = { _id: 'r-amit', name: 'Amit Garg' }
+
+function recordFor(publication, researchers) {
+  const item = feedItem('doi:10.1000/xyz', '2026-09-20T00:00:00Z', { doi: '10.1000/xyz', source: 'pubmed', ...publication })
+  return buildSocialPostRecord({ item, network: 'x', teamMembers: researchers.map((researcher) => researcher.name), researchers, now: NOW })
+}
+
+test('buildSocialPostRecord stores the team researcher ids, the paper anchor and the first author researcher', () => {
+  const built = recordFor({ authors: ['Roshanov PS', 'Garg AX', 'Other X'] }, [PAVEL, AMIT, PAVEL])
+  assert.deepEqual(built.teamMemberIds, ['r-pavel', 'r-amit'])
+  assert.equal(built.firstAuthorId, 'r-pavel')
+  assert.equal(built.paperAnchor, 'paper-doi-10-1000-xyz')
+  assert.deepEqual(built.teamMembers, ['Pavel Roshanov', 'Amit Garg'])
+  assert.equal(built.hasOtherAuthors, true)
+
+  // Publication names and aliases count, as they do for attribution.
+  const alias = recordFor({ authors: ['Smith RJ', 'Garg AX'] }, [{ _id: 'r-bob', name: 'Bob Smith', publicationAuthorAliases: ['Robert J Smith'] }, AMIT])
+  assert.equal(alias.firstAuthorId, 'r-bob')
+  const displayOrder = recordFor({ authors: ['Amit X Garg', 'Pavel S Roshanov'], source: 'crossref' }, [PAVEL, AMIT])
+  assert.equal(displayOrder.firstAuthorId, 'r-amit')
+})
+
+test('buildSocialPostRecord omits firstAuthorId for a consortium, non-team or ambiguous first author', () => {
+  const consortium = recordFor({ authors: ['CKD Prognosis Consortium', 'Roshanov PS'] }, [PAVEL, AMIT])
+  assert.equal('firstAuthorId' in consortium, false)
+  assert.deepEqual(consortium.teamMemberIds, ['r-pavel', 'r-amit'])
+
+  const outsider = recordFor({ authors: ['Smith J', 'Roshanov PS', 'Garg AX'] }, [PAVEL, AMIT])
+  assert.equal('firstAuthorId' in outsider, false)
+
+  const ambiguous = recordFor({ authors: ['Garg A', 'Roshanov PS'] }, [AMIT, { _id: 'r-amber', name: 'Amber Garg' }])
+  assert.equal('firstAuthorId' in ambiguous, false)
+
+  const noAuthors = recordFor({}, [PAVEL])
+  assert.equal('firstAuthorId' in noAuthors, false)
+})
+
+test('buildSocialPostRecord omits teamMemberIds and paperAnchor when unknown', () => {
+  const item = feedItem('https://example.test/paper', '2026-09-20T00:00:00Z', { authors: ['Roshanov PS'] })
+  const built = buildSocialPostRecord({ item, network: 'x', teamMembers: ['Pavel Roshanov'], now: NOW })
+  for (const field of ['teamMemberIds', 'firstAuthorId', 'paperAnchor']) assert.equal(field in built, false, field)
+})
+
+test('buildSocialPostRecord writes the complete record for a paper with team researchers', () => {
+  const built = recordFor({ authors: ['Roshanov PS', 'Garg AX', 'Other X'] }, [PAVEL, AMIT])
+  assert.deepEqual(built, {
+    _id: socialPostDocumentId('x', 'doi:10.1000/xyz'),
+    _type: 'socialPost',
+    network: 'x',
+    guid: 'doi:10.1000/xyz',
+    link: LINK,
+    title: 'Paper doi:10.1000/xyz',
+    journal: 'Kidney Journal',
+    publishedAt: '2026-09-20T00:00:00.000Z',
+    teamMembers: ['Pavel Roshanov', 'Amit Garg'],
+    hasOtherAuthors: true,
+    teamMemberIds: ['r-pavel', 'r-amit'],
+    firstAuthorId: 'r-pavel',
+    paperAnchor: 'paper-doi-10-1000-xyz',
+    laySummary: 'Summary of doi:10.1000/xyz',
+    status: 'available',
+    createdAt: NOW.toISOString(),
+  })
+})
+
+test('buildSocialPostTeamFields returns the team ids, first author and paper anchor, omitting empty values', () => {
+  const publication = { doi: '10.1000/xyz', source: 'pubmed', authors: ['Roshanov PS', 'Garg AX'] }
+  assert.deepEqual(buildSocialPostTeamFields({ publication, researchers: [PAVEL, AMIT, PAVEL] }), {
+    teamMemberIds: ['r-pavel', 'r-amit'],
+    firstAuthorId: 'r-pavel',
+    paperAnchor: 'paper-doi-10-1000-xyz',
+  })
+  assert.deepEqual(buildSocialPostTeamFields({ publication, researchers: [] }), { paperAnchor: 'paper-doi-10-1000-xyz' })
+  assert.deepEqual(buildSocialPostTeamFields({ researchers: [AMIT] }), { teamMemberIds: ['r-amit'] })
+  assert.deepEqual(buildSocialPostTeamFields(), {})
+})
+
 test('planSocialPostSync offers every unrecorded item oldest first, with no size limit', () => {
   const items = [feedItem('doi:b', '2026-09-20'), feedItem('doi:a', '2026-09-10')]
   assert.deepEqual(planSocialPostSync({ items, records: [] }).toCreate.map((item) => item.identity.guid), ['doi:a', 'doi:b'])
@@ -649,6 +736,28 @@ test('syncSocialPosts offers new feed papers as available records with their lay
   assert.deepEqual(created[0].teamMembers, ['Jane Smith'])
   assert.equal('text' in created[0], false)
   assert.equal(result.records.length, 2)
+})
+
+test('syncSocialPosts records the team researcher ids, first author and paper anchor', async () => {
+  const queries = []
+  const { writeClient, created } = fakeSanity()
+  const client = {
+    async fetch(query) {
+      queries.push(query)
+      if (query.includes('"researcher"')) return [PAVEL, AMIT, { _id: 'r-other', name: 'Not On This Paper' }]
+      return []
+    },
+  }
+  const cache = {
+    publications: [cachePublication('10.1000/new', { authors: ['Garg AX', 'Roshanov PS'], source: 'pubmed' })],
+    provenance: { 'doi:10.1000/new': ['r-pavel', 'r-amit', 'r-missing'] },
+  }
+  await syncSocialPosts({ client, writeClient, now: NOW, loadCache: async () => cache })
+  assert.deepEqual(created[0].teamMembers, ['Pavel Roshanov', 'Amit Garg'])
+  assert.deepEqual(created[0].teamMemberIds, ['r-pavel', 'r-amit'])
+  assert.equal(created[0].firstAuthorId, 'r-amit')
+  assert.equal(created[0].paperAnchor, 'paper-doi-10-1000-new')
+  assert.ok(queries.some((query) => query.includes('publicationAuthorName') && query.includes('publicationAuthorAliases')))
 })
 
 test('syncSocialPosts seed marks new papers seeded, and dry runs write nothing', async () => {
@@ -1018,6 +1127,286 @@ test('resolveXChannel picks the X channel or explains what is wrong', () => {
   assert.throws(() => resolveXChannel([x], 'missing'), /BUFFER_X_CHANNEL_ID/)
 })
 
+// --- Profile link (spotlight) ------------------------------------------------
+
+const SITE = 'https://kcru.example.test'
+const DAY = 24 * 60 * 60 * 1000
+const JANE = { _id: 'r-jane', name: 'Jane Smith', slug: 'jane-smith' }
+const RAJ = { _id: 'r-raj', name: 'Raj Patel', slug: 'Raj-Patel' }
+const AMY = { _id: 'r-amy', name: 'Amy Lee', slug: 'amy-lee' }
+const SPOTLIGHT_RESEARCHERS = [JANE, RAJ, AMY]
+
+function daysAgo(days) {
+  return new Date(NOW.getTime() - days * DAY).toISOString()
+}
+
+function neverRandom() {
+  throw new Error('random should not be used')
+}
+
+test('findProfileSlugs reads /team/<slug> links from post text, case-insensitively', () => {
+  const text = `New from investigators ${SITE}/team/Jane-Smith#paper-doi-10-1000-x and https://www.other.test/team/raj-patel/ plus ${LINK} and /team/amy-lee`
+  assert.deepEqual(Array.from(findProfileSlugs(text)), ['jane-smith', 'raj-patel'])
+  assert.equal(findProfileSlugs(`${SITE}/about/team/amy-lee`).size, 0)
+  assert.equal(findProfileSlugs('').size, 0)
+  assert.equal(findProfileSlugs(null).size, 0)
+
+  assert.equal(postLinksToProfile(`Read more ${SITE}/team/jane-smith#paper-x`, 'Jane-Smith'), true)
+  assert.equal(postLinksToProfile(`Read more ${SITE}/team/jane-smith-2`, 'jane-smith'), false)
+  assert.equal(postLinksToProfile(`Read more ${LINK}`, 'jane-smith'), false)
+  assert.equal(postLinksToProfile(`Read more ${SITE}/team/jane-smith`, ''), false)
+})
+
+test('collectRecentSpotlights counts only written, queued or published posts that link to a profile', () => {
+  const records = [
+    { _id: 'published', status: 'published', text: `Post ${SITE}/team/JANE-SMITH#paper-a`, sentAt: daysAgo(5), dueAt: daysAgo(6) },
+    { _id: 'older', status: 'queued', text: `Post ${SITE}/team/jane-smith`, queuedAt: daysAgo(15) },
+    { _id: 'sending', status: 'sending', text: `Post ${SITE}/team/raj-patel`, queuedAt: daysAgo(2) },
+    { _id: 'dismissed', status: 'dismissed', text: `Post ${SITE}/team/amy-lee`, draftedAt: daysAgo(1) },
+    { _id: 'available', status: 'available', text: `Post ${SITE}/team/amy-lee`, draftedAt: daysAgo(1) },
+    { _id: 'legacy', status: 'pending', text: `Post ${SITE}/team/amy-lee`, draftedAt: daysAgo(1) },
+    { _id: 'seeded', status: 'seeded', text: `Post ${SITE}/team/amy-lee`, draftedAt: daysAgo(1) },
+    { _id: 'doi', status: 'draft', text: `Post ${LINK}`, draftedAt: daysAgo(1) },
+    { _id: 'unknown', status: 'draft', text: `Post ${SITE}/team/someone-else`, draftedAt: daysAgo(1) },
+    { _id: 'no-time', status: 'draft', text: `Post ${SITE}/team/amy-lee` },
+  ]
+  const recent = collectRecentSpotlights({ records, researchers: SPOTLIGHT_RESEARCHERS, now: NOW })
+  assert.deepEqual(Object.fromEntries(recent), {
+    'r-jane': Date.parse(daysAgo(5)),
+    'r-raj': Date.parse(daysAgo(2)),
+  })
+})
+
+test('collectRecentSpotlights uses sentAt, then dueAt, queuedAt and draftedAt, and counts an upcoming dueAt', () => {
+  const upcoming = new Date(NOW.getTime() + 3 * DAY).toISOString()
+  const records = [
+    { _id: 'a', status: 'queued', text: `${SITE}/team/jane-smith`, dueAt: upcoming, queuedAt: daysAgo(40), draftedAt: daysAgo(41) },
+    { _id: 'b', status: 'removing', text: `${SITE}/team/raj-patel`, queuedAt: daysAgo(3), draftedAt: daysAgo(40) },
+    { _id: 'c', status: 'draft', text: `${SITE}/team/amy-lee`, draftedAt: daysAgo(4) },
+    { _id: 'd', status: 'published', text: `${SITE}/team/amy-lee`, sentAt: daysAgo(40), dueAt: daysAgo(1) },
+  ]
+  const recent = collectRecentSpotlights({ records, researchers: SPOTLIGHT_RESEARCHERS, now: NOW })
+  assert.equal(recent.get('r-jane'), Date.parse(upcoming))
+  assert.equal(recent.get('r-raj'), Date.parse(daysAgo(3)))
+  assert.equal(recent.get('r-amy'), Date.parse(daysAgo(4)))
+})
+
+test('collectRecentSpotlights includes the window edge, excludes older posts and leaves out the post being drafted', () => {
+  assert.equal(SOCIAL_POST_SPOTLIGHT_WINDOW_DAYS, 30)
+  const edge = new Date(NOW.getTime() - 30 * DAY)
+  const records = [
+    { _id: 'edge', status: 'published', text: `${SITE}/team/jane-smith`, sentAt: edge.toISOString() },
+    { _id: 'too-old', status: 'published', text: `${SITE}/team/raj-patel`, sentAt: new Date(edge.getTime() - 1).toISOString() },
+    { _id: 'self', status: 'draft', text: `${SITE}/team/amy-lee`, draftedAt: daysAgo(1) },
+  ]
+  const recent = collectRecentSpotlights({ records, researchers: SPOTLIGHT_RESEARCHERS, now: NOW, excludeId: 'self' })
+  assert.deepEqual(Array.from(recent.keys()), ['r-jane'])
+  assert.equal(collectRecentSpotlights({ records, researchers: SPOTLIGHT_RESEARCHERS, now: NOW }).has('r-amy'), true)
+  assert.equal(collectRecentSpotlights({ records, researchers: SPOTLIGHT_RESEARCHERS, now: NOW, windowDays: 31 }).has('r-raj'), true)
+})
+
+test('chooseSpotlightResearcher always picks the first author, even one featured recently', () => {
+  const recentSpotlights = new Map([['r-raj', NOW.getTime()]])
+  assert.deepEqual(
+    chooseSpotlightResearcher({ candidates: SPOTLIGHT_RESEARCHERS, firstAuthorId: 'r-raj', recentSpotlights, random: neverRandom }),
+    { researcher: RAJ, reason: 'first-author' }
+  )
+})
+
+test('chooseSpotlightResearcher picks at random among investigators not featured recently', () => {
+  const recentSpotlights = new Map([['r-jane', NOW.getTime()]])
+  const pick = (value) => chooseSpotlightResearcher({ candidates: SPOTLIGHT_RESEARCHERS, recentSpotlights, random: () => value })
+  assert.deepEqual(pick(0), { researcher: RAJ, reason: 'rotation' })
+  assert.deepEqual(pick(0.99), { researcher: AMY, reason: 'rotation' })
+  // A first author who is not one of the candidates does not change that.
+  assert.equal(chooseSpotlightResearcher({ candidates: SPOTLIGHT_RESEARCHERS, firstAuthorId: 'r-other', recentSpotlights, random: () => 0 }).reason, 'rotation')
+})
+
+test('chooseSpotlightResearcher picks the investigator featured longest ago when all were featured recently', () => {
+  const recentSpotlights = new Map([['r-jane', 3000], ['r-raj', 1000], ['r-amy', 1000]])
+  const pick = (value) => chooseSpotlightResearcher({ candidates: SPOTLIGHT_RESEARCHERS, recentSpotlights, random: () => value })
+  assert.deepEqual(pick(0), { researcher: RAJ, reason: 'least-recent' })
+  assert.deepEqual(pick(0.99), { researcher: AMY, reason: 'least-recent' })
+
+  const single = new Map([['r-jane', 3000], ['r-raj', 2000], ['r-amy', 1000]])
+  assert.deepEqual(
+    chooseSpotlightResearcher({ candidates: SPOTLIGHT_RESEARCHERS, recentSpotlights: single, random: () => 0 }),
+    { researcher: AMY, reason: 'least-recent' }
+  )
+})
+
+test('chooseSpotlightResearcher returns null without a profile, and skips a first author who has none', () => {
+  assert.equal(chooseSpotlightResearcher({ candidates: [], random: neverRandom }), null)
+  assert.equal(chooseSpotlightResearcher({ candidates: [{ _id: 'r-x', name: 'No Profile', slug: '' }], random: neverRandom }), null)
+  assert.equal(chooseSpotlightResearcher(), null)
+
+  const noSlug = { _id: 'r-first', name: 'First Author', slug: '' }
+  assert.deepEqual(
+    chooseSpotlightResearcher({ candidates: [noSlug, JANE], firstAuthorId: 'r-first', random: () => 0 }),
+    { researcher: JANE, reason: 'rotation' }
+  )
+})
+
+test('buildProfilePaperLink links to the profile, anchored to the paper when there is an anchor', () => {
+  assert.equal(
+    buildProfilePaperLink({ baseUrl: `${SITE}/`, slug: 'jane-smith', anchor: 'paper-doi-10-1000-xyz' }),
+    `${SITE}/team/jane-smith#paper-doi-10-1000-xyz`
+  )
+  assert.equal(buildProfilePaperLink({ baseUrl: SITE, slug: 'jane smith' }), `${SITE}/team/jane%20smith`)
+  assert.equal(buildProfilePaperLink({ baseUrl: SITE, slug: '' }), '')
+})
+
+test('describeSpotlightReason explains each choice in plain language', () => {
+  assert.equal(describeSpotlightReason('first-author'), 'first author')
+  assert.equal(describeSpotlightReason('rotation'), 'picked at random from the investigators not featured in the last 30 days')
+  assert.equal(
+    describeSpotlightReason('least-recent'),
+    'every investigator on this paper was featured in the last 30 days, so this is the one featured longest ago'
+  )
+  assert.equal(describeSpotlightReason('unknown'), '')
+})
+
+function spotlightClient({ researchers = SPOTLIGHT_RESEARCHERS, records = [] } = {}) {
+  const queries = []
+  return {
+    queries,
+    async fetch(query, params) {
+      queries.push({ query, params })
+      if (query.includes('"researcher"')) return researchers
+      return records
+    },
+  }
+}
+
+function spotlightPost(overrides = {}) {
+  return record({
+    guid: 'doi:10.1000/xyz',
+    teamMembers: ['Jane Smith', 'Raj Patel'],
+    teamMemberIds: ['r-jane', 'r-raj'],
+    paperAnchor: 'paper-doi-10-1000-xyz',
+    ...overrides,
+  })
+}
+
+test('resolveSocialPostSpotlight links the first author profile, anchored to the paper', async () => {
+  const client = spotlightClient()
+  const spotlight = await resolveSocialPostSpotlight({
+    client,
+    post: spotlightPost({ firstAuthorId: 'r-raj' }),
+    baseUrl: SITE,
+    now: NOW,
+    random: neverRandom,
+  })
+  assert.deepEqual(spotlight, {
+    researcherId: 'r-raj',
+    name: 'Raj Patel',
+    slug: 'Raj-Patel',
+    reason: 'first-author',
+    link: `${SITE}/team/Raj-Patel#paper-doi-10-1000-xyz`,
+  })
+  assert.ok(client.queries.some(({ query }) => query.includes('defined(slug.current)')))
+})
+
+test('resolveSocialPostSpotlight rotates away from investigators featured in the last 30 days', async () => {
+  const records = [{ _id: 'other', status: 'published', text: `Post ${SITE}/team/jane-smith#paper-a`, sentAt: daysAgo(3) }]
+  const spotlight = await resolveSocialPostSpotlight({
+    client: spotlightClient({ records }),
+    post: spotlightPost(),
+    baseUrl: SITE,
+    now: NOW,
+    random: () => 0,
+  })
+  assert.equal(spotlight.researcherId, 'r-raj')
+  assert.equal(spotlight.reason, 'rotation')
+})
+
+test('resolveSocialPostSpotlight leaves the post being drafted out of the history', async () => {
+  const records = [{ _id: 'socialPost-x-1', status: 'draft', text: `Post ${SITE}/team/jane-smith`, draftedAt: daysAgo(1) }]
+  const spotlight = await resolveSocialPostSpotlight({
+    client: spotlightClient({ records }),
+    post: spotlightPost({ teamMemberIds: ['r-jane'] }),
+    baseUrl: SITE,
+    now: NOW,
+    random: () => 0,
+  })
+  assert.equal(spotlight.researcherId, 'r-jane')
+  assert.equal(spotlight.reason, 'rotation')
+})
+
+test('resolveSocialPostSpotlight matches older records by name and anchors to the GUID', async () => {
+  const spotlight = await resolveSocialPostSpotlight({
+    client: spotlightClient(),
+    post: spotlightPost({ teamMemberIds: undefined, paperAnchor: undefined, teamMembers: ['  amy LEE '], guid: 'pmid:12345' }),
+    baseUrl: SITE,
+    now: NOW,
+    random: () => 0,
+  })
+  assert.equal(spotlight.researcherId, 'r-amy')
+  assert.equal(spotlight.link, `${SITE}/team/amy-lee#paper-pmid-12345`)
+})
+
+test('resolveSocialPostSpotlight keeps the chosen profile on Regenerate while it is still on the paper', async () => {
+  const kept = spotlightPost({ status: 'draft', spotlightSlug: 'raj-patel', spotlightReason: 'rotation' })
+  // With this random value a fresh choice would be Jane, so Raj shows the earlier pick was kept.
+  const again = await resolveSocialPostSpotlight({ client: spotlightClient(), post: kept, regenerate: true, baseUrl: SITE, now: NOW, random: () => 0 })
+  assert.equal(again.researcherId, 'r-raj')
+  assert.equal(again.reason, 'rotation')
+
+  // Create post (not Regenerate) always chooses afresh.
+  const fresh = await resolveSocialPostSpotlight({ client: spotlightClient(), post: kept, baseUrl: SITE, now: NOW, random: () => 0 })
+  assert.equal(fresh.researcherId, 'r-jane')
+
+  const gone = spotlightPost({ status: 'draft', spotlightSlug: 'amy-lee', spotlightReason: 'rotation' })
+  const rechosen = await resolveSocialPostSpotlight({ client: spotlightClient(), post: gone, regenerate: true, baseUrl: SITE, now: NOW, random: () => 0.99 })
+  assert.equal(rechosen.researcherId, 'r-raj')
+})
+
+test('resolveSocialPostSpotlight gives the first author the link on Regenerate, even over an earlier rotation pick', async () => {
+  // The draft picked Jane by rotation; the migration later found that Raj is the first author.
+  const post = spotlightPost({ status: 'draft', spotlightSlug: 'jane-smith', spotlightReason: 'rotation', firstAuthorId: 'r-raj' })
+  const again = await resolveSocialPostSpotlight({ client: spotlightClient(), post, regenerate: true, baseUrl: SITE, now: NOW, random: neverRandom })
+  assert.equal(again.researcherId, 'r-raj')
+  assert.equal(again.reason, 'first-author')
+  assert.equal(again.link, `${SITE}/team/Raj-Patel#paper-doi-10-1000-xyz`)
+
+  // A first author without a profile cannot get the link, so the earlier pick stays.
+  const noProfile = spotlightPost({ status: 'draft', spotlightSlug: 'jane-smith', spotlightReason: 'rotation', firstAuthorId: 'r-no-profile' })
+  const kept = await resolveSocialPostSpotlight({ client: spotlightClient(), post: noProfile, regenerate: true, baseUrl: SITE, now: NOW, random: () => 0.99 })
+  assert.equal(kept.researcherId, 'r-jane')
+  assert.equal(kept.reason, 'rotation')
+})
+
+test('resolveSocialPostSpotlight links a profile only when the site has a public https address', async () => {
+  const notPublic = [
+    'http://localhost:3000',
+    'https://localhost:3000',
+    'https://kcru.localhost',
+    'https://127.0.0.1',
+    'https://127.0.1.1:8443',
+    'https://[::1]:3000',
+    'https://0.0.0.0',
+    'http://kcru.example.test',
+    'kcru.example.test',
+    'not a url',
+    '',
+    undefined,
+  ]
+  for (const baseUrl of notPublic) {
+    const client = spotlightClient()
+    assert.equal(await resolveSocialPostSpotlight({ client, post: spotlightPost(), baseUrl, now: NOW, random: () => 0 }), null, String(baseUrl))
+    assert.equal(client.queries.length, 0, String(baseUrl))
+  }
+  const publicSite = await resolveSocialPostSpotlight({ client: spotlightClient(), post: spotlightPost(), baseUrl: 'https://KCRU.example.test/', now: NOW, random: () => 0 })
+  assert.equal(publicSite.link, 'https://KCRU.example.test/team/jane-smith#paper-doi-10-1000-xyz')
+})
+
+test('resolveSocialPostSpotlight returns null when no investigator on the paper has a profile', async () => {
+  const withoutProfiles = spotlightClient({ researchers: [AMY] })
+  assert.equal(await resolveSocialPostSpotlight({ client: withoutProfiles, post: spotlightPost(), baseUrl: SITE, now: NOW }), null)
+  assert.equal(await resolveSocialPostSpotlight({ client: spotlightClient(), post: spotlightPost({ teamMemberIds: undefined, teamMembers: [] }), baseUrl: SITE, now: NOW }), null)
+  assert.equal(await resolveSocialPostSpotlight({ client: spotlightClient(), post: spotlightPost(), baseUrl: '', now: NOW }), null)
+})
+
 // --- Draft, save, discard, dismiss, restore ---------------------------------
 
 function fakeCompose(result = { text: DRAFT_TEXT, generatedBy: 'llm:test-model' }) {
@@ -1091,6 +1480,59 @@ test('Regenerate replaces the text and the generated text of a draft', async () 
   assert.match(result.message, /New draft written/)
   assert.equal(store.current.text, `Fresh AI text ${LINK}`)
   assert.equal(store.current.proposedText, `Fresh AI text ${LINK}`)
+})
+
+const SPOTLIGHT_LINK = `${SITE}/team/jane-smith#paper-doi-10-1000-xyz`
+const SPOTLIGHT_FIELD_NAMES = ['spotlightResearcherId', 'spotlightName', 'spotlightSlug', 'spotlightReason', 'postLink']
+const SPOTLIGHT_RECORD_FIELDS = {
+  spotlightResearcherId: 'r-jane',
+  spotlightName: 'Jane Smith',
+  spotlightSlug: 'jane-smith',
+  spotlightReason: 'first-author',
+  postLink: SPOTLIGHT_LINK,
+}
+
+test('Create post records the profile the draft links to', async () => {
+  const store = fakeStore(record())
+  const text = `Jane Smith found something. ${SPOTLIGHT_LINK}`
+  const { compose } = fakeCompose({
+    text,
+    generatedBy: 'llm:test-model',
+    spotlight: { researcherId: 'r-jane', name: 'Jane Smith', slug: 'jane-smith', reason: 'first-author', link: SPOTLIGHT_LINK },
+  })
+  const result = await draft(store, { compose })
+  assert.equal(result.ok, true)
+  for (const [field, value] of Object.entries(SPOTLIGHT_RECORD_FIELDS)) {
+    assert.equal(store.current[field], value, field)
+    assert.equal(result.post[field], value, field)
+  }
+  assert.equal(store.current.text, text)
+  assert.equal(store.current.link, LINK)
+})
+
+test('a draft that links to the paper clears any earlier profile link', async () => {
+  const store = fakeStore(draftRecord(SPOTLIGHT_RECORD_FIELDS))
+  const { compose } = fakeCompose({ text: DRAFT_TEXT, generatedBy: 'template', spotlight: null })
+  const result = await draft(store, { regenerate: true, compose })
+  assert.equal(result.ok, true)
+  for (const field of SPOTLIGHT_FIELD_NAMES) {
+    assert.equal(field in store.current, false, field)
+    assert.equal(result.post[field], null, field)
+  }
+  assert.equal(store.calls[1].args[2].postLink, null)
+})
+
+test('Discard, Not posting and Restore clear the profile link with the draft', async () => {
+  const discarded = fakeStore(draftRecord(SPOTLIGHT_RECORD_FIELDS))
+  await discardSocialPostDraft({ id: 'socialPost-x-1', store: discarded })
+  const dismissed = fakeStore(draftRecord(SPOTLIGHT_RECORD_FIELDS))
+  await dismissSocialPost({ id: 'socialPost-x-1', actorEmail: 'admin@example.test', store: dismissed, now: NOW })
+  const restored = fakeStore(record({ status: 'dismissed', ...SPOTLIGHT_RECORD_FIELDS }))
+  await restoreSocialPost({ id: 'socialPost-x-1', store: restored })
+  for (const store of [discarded, dismissed, restored]) {
+    for (const field of SPOTLIGHT_FIELD_NAMES) assert.equal(field in store.current, false, field)
+    assert.equal(store.current.link, LINK)
+  }
 })
 
 test('a change made while the draft was being written is reported as a conflict', async () => {
@@ -1535,13 +1977,16 @@ test('the status refresh returns a warning instead of failing, and ignores confl
 
 // --- Migration --------------------------------------------------------------
 
+// Records that already have the profile-link fields, so a test can cover one part of the migration.
+const BACKFILLED = { teamMemberIds: ['r-jane'] }
+
 test('the migration turns pending into available with the lay summary and skipped into dismissed', () => {
   const { patches, counts } = planSocialPostMigration({
     records: [
-      { _id: 'p1', _rev: 'r1', status: 'pending', guid: 'doi:10.1000/a' },
-      { _id: 'p2', _rev: 'r2', status: 'pending', guid: 'doi:10.1000/gone' },
-      { _id: 's1', _rev: 'r3', status: 'skipped', skippedBy: 'admin@example.test', skippedAt: '2026-09-20T00:00:00.000Z' },
-      { _id: 'q1', _rev: 'r4', status: 'queued' },
+      { _id: 'p1', _rev: 'r1', status: 'pending', guid: 'doi:10.1000/a', ...BACKFILLED },
+      { _id: 'p2', _rev: 'r2', status: 'pending', guid: 'doi:10.1000/gone', ...BACKFILLED },
+      { _id: 's1', _rev: 'r3', status: 'skipped', skippedBy: 'admin@example.test', skippedAt: '2026-09-20T00:00:00.000Z', ...BACKFILLED },
+      { _id: 'q1', _rev: 'r4', status: 'queued', ...BACKFILLED },
     ],
     publications: [cachePublication('10.1000/a', { publishedAt: '2025-01-01T00:00:00.000Z' })],
   })
@@ -1553,6 +1998,11 @@ test('the migration turns pending into available with the lay summary and skippe
     skippedToDismissed: 1,
     hasOtherAuthorsFilled: 0,
     hasOtherAuthorsUnknown: 4,
+    teamMemberIdsFilled: 0,
+    firstAuthorIdFilled: 0,
+    paperAnchorFilled: 0,
+    teamMembersUnmatched: 0,
+    teamMembersPartlyMatched: 0,
     unchanged: 1,
   })
   assert.deepEqual(patches[0], {
@@ -1573,11 +2023,11 @@ test('the migration turns pending into available with the lay summary and skippe
 test('the migration fills a missing hasOtherAuthors on records of any status, and leaves an existing value alone', () => {
   const { patches, counts } = planSocialPostMigration({
     records: [
-      { _id: 'avail-more', _rev: 'r1', status: 'available', guid: 'doi:10.1000/more', teamMembers: ['Jane Smith'] },
+      { _id: 'avail-more', _rev: 'r1', status: 'available', guid: 'doi:10.1000/more', teamMembers: ['Jane Smith'], ...BACKFILLED },
       // GROQ returns null (not undefined) for a field absent from the document; both must count as missing.
-      { _id: 'queued-equal', _rev: 'r2', status: 'queued', guid: 'doi:10.1000/equal', teamMembers: ['Jane Smith', 'Raj Patel'], hasOtherAuthors: null },
-      { _id: 'draft-known', _rev: 'r3', status: 'draft', guid: 'doi:10.1000/more', teamMembers: ['Jane Smith'], hasOtherAuthors: false },
-      { _id: 'no-authors', _rev: 'r4', status: 'published', guid: 'doi:10.1000/unknown', teamMembers: [] },
+      { _id: 'queued-equal', _rev: 'r2', status: 'queued', guid: 'doi:10.1000/equal', teamMembers: ['Jane Smith', 'Raj Patel'], hasOtherAuthors: null, ...BACKFILLED },
+      { _id: 'draft-known', _rev: 'r3', status: 'draft', guid: 'doi:10.1000/more', teamMembers: ['Jane Smith'], hasOtherAuthors: false, ...BACKFILLED },
+      { _id: 'no-authors', _rev: 'r4', status: 'published', guid: 'doi:10.1000/unknown', teamMembers: [], ...BACKFILLED },
     ],
     publications: [
       cachePublication('10.1000/more', { authors: ['Jane Smith', 'Someone Else'] }),
@@ -1593,4 +2043,140 @@ test('the migration fills a missing hasOtherAuthors on records of any status, an
   assert.deepEqual(byId['queued-equal'].set, { hasOtherAuthors: false })
   assert.equal('draft-known' in byId, false)
   assert.equal('no-authors' in byId, false)
+})
+
+const ANDREA = { _id: 'r-andrea', name: 'Andrea Cowan' }
+const MIGRATION_RESEARCHERS = [AMIT, PAVEL, ANDREA, { _id: 'r-not-named', name: 'Not Named' }]
+const MIGRATION_PUBLICATIONS = [
+  cachePublication('10.1000/garg', { source: 'pubmed', authors: ['Garg AX', 'Roshanov PS', 'Other X'] }),
+  cachePublication('10.1000/cowan', { source: 'pubmed', authors: ['Cowan ACJ', 'Garg AX'] }),
+  cachePublication('10.1000/roshanov', { source: 'pubmed', authors: ['Roshanov PS', 'Garg AX'] }),
+]
+
+function migrate(records) {
+  const { patches, counts } = planSocialPostMigration({ records, publications: MIGRATION_PUBLICATIONS, researchers: MIGRATION_RESEARCHERS })
+  return { counts, byId: Object.fromEntries(patches.map((patch) => [patch.id, patch])) }
+}
+
+test('the migration fills team researcher ids, the first author and the paper anchor from the names each post records', () => {
+  const { counts, byId } = migrate([
+    { _id: 'garg', _rev: 'r1', status: 'queued', guid: 'doi:10.1000/garg', teamMembers: [' amit  GARG ', 'Pavel Roshanov'], hasOtherAuthors: true, teamMemberIds: null },
+    { _id: 'cowan', _rev: 'r2', status: 'published', guid: 'doi:10.1000/cowan', teamMembers: ['Andrea Cowan'], hasOtherAuthors: true },
+    // Pavel is the first author, but this post does not name him, so it gets no first author.
+    { _id: 'unnamed-first', _rev: 'r3', status: 'available', guid: 'doi:10.1000/roshanov', teamMembers: ['Amit Garg'], hasOtherAuthors: true },
+    { _id: 'done', _rev: 'r4', status: 'draft', guid: 'doi:10.1000/garg', teamMembers: ['Amit Garg'], hasOtherAuthors: true, teamMemberIds: ['r-amit'] },
+  ])
+  // A record that needs only this backfill still gets a patch.
+  assert.deepEqual(byId.garg, {
+    id: 'garg',
+    rev: 'r1',
+    set: { teamMemberIds: ['r-amit', 'r-pavel'], firstAuthorId: 'r-amit', paperAnchor: 'paper-doi-10-1000-garg' },
+    unset: [],
+  })
+  assert.deepEqual(byId.cowan.set, { teamMemberIds: ['r-andrea'], firstAuthorId: 'r-andrea', paperAnchor: 'paper-doi-10-1000-cowan' })
+  assert.deepEqual(byId['unnamed-first'].set, { teamMemberIds: ['r-amit'], paperAnchor: 'paper-doi-10-1000-roshanov' })
+  assert.equal('done' in byId, false)
+  assert.equal(counts.teamMemberIdsFilled, 3)
+  assert.equal(counts.firstAuthorIdFilled, 2)
+  assert.equal(counts.paperAnchorFilled, 3)
+  assert.equal(counts.teamMembersUnmatched, 0)
+  assert.equal(counts.hasOtherAuthorsFilled, 0)
+  assert.equal(counts.unchanged, 1)
+})
+
+test('the migration anchors a paper missing from the cache to its GUID with no first author, and never overwrites a field', () => {
+  const { counts, byId } = migrate([
+    { _id: 'gone', _rev: 'r1', status: 'published', guid: 'pmid:4242', teamMembers: ['Amit Garg'], hasOtherAuthors: true },
+    { _id: 'partial', _rev: 'r2', status: 'draft', guid: 'doi:10.1000/garg', teamMembers: ['Amit Garg'], hasOtherAuthors: true, firstAuthorId: 'r-kept', paperAnchor: 'paper-kept' },
+  ])
+  assert.deepEqual(byId.gone.set, { teamMemberIds: ['r-amit'], paperAnchor: 'paper-pmid-4242' })
+  assert.deepEqual(byId.partial.set, { teamMemberIds: ['r-amit'] })
+  assert.equal(counts.teamMemberIdsFilled, 2)
+  assert.equal(counts.firstAuthorIdFilled, 0)
+  assert.equal(counts.paperAnchorFilled, 1)
+})
+
+test('the migration writes nothing for a record whose team member names match no researcher', () => {
+  const { counts, byId } = migrate([
+    { _id: 'renamed', _rev: 'r1', status: 'available', guid: 'doi:10.1000/garg', teamMembers: ['Amit X. Garg'], hasOtherAuthors: true },
+    { _id: 'no-names', _rev: 'r2', status: 'seeded', guid: 'doi:10.1000/cowan', teamMembers: [], hasOtherAuthors: false },
+  ])
+  assert.deepEqual(byId, {})
+  assert.equal(counts.teamMembersUnmatched, 2)
+  assert.equal(counts.teamMembersPartlyMatched, 0)
+  assert.equal(counts.teamMemberIdsFilled, 0)
+  assert.equal(counts.firstAuthorIdFilled, 0)
+  assert.equal(counts.paperAnchorFilled, 0)
+  assert.equal(counts.unchanged, 2)
+})
+
+test('the migration waits to write a partly matched team until every name matches a researcher', () => {
+  // The post recorded Andrea's name as "Andrea C. Cowan"; her researcher document now says "Andrea Cowan".
+  const record = { _id: 'partly', _rev: 'r1', status: 'queued', guid: 'doi:10.1000/cowan', teamMembers: ['Andrea C. Cowan', 'Amit Garg'], hasOtherAuthors: true }
+  const { counts, byId } = migrate([record])
+  assert.deepEqual(byId, {})
+  assert.equal(counts.teamMembersPartlyMatched, 1)
+  assert.equal(counts.teamMembersUnmatched, 0)
+  assert.equal(counts.teamMemberIdsFilled, 0)
+  assert.equal(counts.firstAuthorIdFilled, 0)
+  assert.equal(counts.paperAnchorFilled, 0)
+  assert.equal(counts.unchanged, 1)
+
+  // A later run, once every name matches, fills all three fields.
+  const later = planSocialPostMigration({
+    records: [record],
+    publications: MIGRATION_PUBLICATIONS,
+    researchers: [AMIT, { ...ANDREA, name: 'Andrea C. Cowan' }],
+  })
+  assert.deepEqual(later.patches[0].set, { teamMemberIds: ['r-andrea', 'r-amit'], firstAuthorId: 'r-andrea', paperAnchor: 'paper-doi-10-1000-cowan' })
+  assert.equal(later.counts.teamMembersPartlyMatched, 0)
+})
+
+test('a legacy record gets its status change, hasOtherAuthors and the profile-link fields in one patch', () => {
+  const { counts, byId } = migrate([
+    { _id: 'legacy-pending', _rev: 'r1', status: 'pending', guid: 'doi:10.1000/cowan', teamMembers: ['Andrea Cowan'], text: 'Old text' },
+    { _id: 'legacy-skipped', _rev: 'r2', status: 'skipped', guid: 'doi:10.1000/garg', teamMembers: ['Amit Garg'], skippedBy: 'admin@example.test', skippedAt: '2026-09-20T00:00:00.000Z' },
+  ])
+  assert.deepEqual(byId['legacy-pending'], {
+    id: 'legacy-pending',
+    rev: 'r1',
+    set: {
+      status: 'available',
+      laySummary: 'Lay summary of 10.1000/cowan.',
+      hasOtherAuthors: true,
+      teamMemberIds: ['r-andrea'],
+      firstAuthorId: 'r-andrea',
+      paperAnchor: 'paper-doi-10-1000-cowan',
+    },
+    unset: ['text', 'proposedText', 'lastError', 'lastErrorAt', 'approvedBy', 'approvedAt'],
+  })
+  assert.deepEqual(byId['legacy-skipped'], {
+    id: 'legacy-skipped',
+    rev: 'r2',
+    set: {
+      status: 'dismissed',
+      dismissedBy: 'admin@example.test',
+      dismissedAt: '2026-09-20T00:00:00.000Z',
+      hasOtherAuthors: true,
+      teamMemberIds: ['r-amit'],
+      firstAuthorId: 'r-amit',
+      paperAnchor: 'paper-doi-10-1000-garg',
+    },
+    unset: [],
+  })
+  assert.deepEqual(counts, {
+    socialPosts: 2,
+    pendingToAvailable: 1,
+    laySummaryFilled: 1,
+    laySummaryMissing: 0,
+    skippedToDismissed: 1,
+    hasOtherAuthorsFilled: 2,
+    hasOtherAuthorsUnknown: 0,
+    teamMemberIdsFilled: 2,
+    firstAuthorIdFilled: 2,
+    paperAnchorFilled: 2,
+    teamMembersUnmatched: 0,
+    teamMembersPartlyMatched: 0,
+    unchanged: 0,
+  })
 })

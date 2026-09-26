@@ -56,6 +56,30 @@ test('a successful AI draft naming every investigator is the generated text plus
   assert.equal('siteTitle' in calls[0], false)
 })
 
+test('a profile link given to composeSocialPostDraft replaces the paper link in the AI draft and the template', async () => {
+  const profileLink = 'https://kcru.example.test/team/jane-smith#paper-doi-10-1000-xyz'
+  const body = 'London Kidney investigators Jane Smith and Raj Patel found how kidney function changes after major surgery.'
+  const { generate } = fakeGenerate(body)
+  const draft = await composeSocialPostDraft({ post: POST, link: profileLink, generate, llmLabel: 'llm:test-model' })
+  assert.deepEqual(draft, { text: `${body} ${profileLink}`, generatedBy: 'llm:test-model' })
+
+  const template = await composeSocialPostDraft({ post: POST, link: profileLink, teamLabel: 'KCRU', generate: null })
+  assert.deepEqual(template, {
+    text: buildXPostText({ title: POST.title, link: profileLink, teamMembers: POST.teamMembers, teamLabel: 'KCRU' }),
+    generatedBy: 'template',
+  })
+  assert.ok(template.text.endsWith(profileLink))
+  assert.equal(template.text.includes(LINK), false)
+
+  const { generate: failing } = fakeGenerate(null)
+  const fallback = await composeSocialPostDraft({ post: POST, link: profileLink, generate: failing })
+  assert.ok(fallback.text.endsWith(profileLink))
+
+  // Without a link, or with a blank one, the paper link is used as before.
+  const { generate: plain } = fakeGenerate(body)
+  assert.equal((await composeSocialPostDraft({ post: POST, link: '  ', generate: plain })).text, `${body} ${LINK}`)
+})
+
 test('composeSocialPostDraft passes hasOtherAuthors from the record to generate on the first call and the retry', async () => {
   const withOthers = { ...POST, hasOtherAuthors: true }
   const { calls: firstCalls, generate: firstGenerate } = fakeGenerate('London Kidney investigators Jane Smith and Raj Patel and colleagues found something.')

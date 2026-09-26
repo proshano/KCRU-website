@@ -8,7 +8,9 @@ import {
   BUFFER_UNKNOWN_MESSAGE,
   SOCIAL_POST_PROMPT_MAX_LENGTH,
   X_MAX_WEIGHTED_LENGTH,
+  describeSpotlightReason,
   formatSocialPostDate,
+  postLinksToProfile,
   validateSocialPostPrompt,
   xWeightedLength,
 } from '@/lib/socialPosting'
@@ -50,6 +52,17 @@ function describeGeneratedBy(generatedBy) {
   if (generatedBy === 'template') return 'Built from the standard template because the AI draft was not available.'
   if (String(generatedBy || '').startsWith('llm:')) return `AI draft (${generatedBy.slice(4)}). Check it against the paper before queueing.`
   return 'Suggested text from an earlier version of this page.'
+}
+
+// Shown only while the text still links to the chosen profile, so an edited link is not misdescribed.
+function SpotlightNote({ post, text }) {
+  if (!post.spotlightSlug || !postLinksToProfile(text, post.spotlightSlug)) return null
+  const reason = describeSpotlightReason(post.spotlightReason)
+  return (
+    <p className="text-xs text-gray-500">
+      {`Links to ${post.spotlightName || 'an investigator'}'s profile${reason ? ` (${reason})` : ''}.`}
+    </p>
+  )
 }
 
 function PaperDetails({ post }) {
@@ -170,6 +183,7 @@ function DraftCard({ post, busyAction, enabled, edit, onEdit, onAction }) {
           {describeGeneratedBy(post.generatedBy)}
           {post.draftedBy ? ` Drafted by ${post.draftedBy} on ${formatDateTime(post.draftedAt)}.` : ''}
         </p>
+        <SpotlightNote post={post} text={text} />
       </div>
 
       <ErrorNote post={post} />
@@ -213,7 +227,10 @@ function QueuedCard({ post, busyAction, onAction }) {
   return (
     <Card>
       <PaperDetails post={post} />
-      <p className="whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-sm text-gray-800">{post.text}</p>
+      <div className="space-y-1">
+        <p className="whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-sm text-gray-800">{post.text}</p>
+        <SpotlightNote post={post} text={post.text} />
+      </div>
       <p className="text-sm text-gray-600">
         Scheduled for <span className="font-semibold">{post.dueAt ? formatDateTime(post.dueAt) : 'the next Buffer posting slot'}</span>.
         {' '}Queued by {post.queuedBy || post.approvedBy || 'unknown'} on {formatDateTime(post.queuedAt)}.
@@ -335,8 +352,8 @@ function DraftingInstructionsSection({ prompt, teamLabel, busy, onSave, onReset 
           </p>
           <p className="text-xs text-gray-500">
             The paper title, {teamLabel || 'London Kidney'} investigators, whether there are other (non-team)
-            authors, lay summary and length limit are added automatically, and the paper link is appended after the
-            text. Every draft is checked for all investigator names, no first person (&quot;our&quot;,
+            authors, lay summary and length limit are added automatically, and a link to the paper on one
+            investigator&apos;s profile page (or to the paper itself) is appended after the text. Every draft is checked for all investigator names, no first person (&quot;our&quot;,
             &quot;we&quot;), no journal name and X&apos;s length limit. A draft that fails twice uses the simple
             template instead. Changes apply to the next Create post or Regenerate; existing drafts are not changed.
           </p>

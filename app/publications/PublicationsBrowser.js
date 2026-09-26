@@ -8,7 +8,7 @@ import { getShareButtons, shareIcons } from '@/lib/sharing'
 import { urlFor } from '@/lib/sanity'
 import { comparePublicationsByDisplayDate, findResearchersForPublication } from '@/lib/publicationUtils'
 import { isPublicationExcluded } from '@/lib/publicationExclusions'
-import { getPublicationKey } from '@/lib/publicationIdentity'
+import { getPublicationAnchorId, getPublicationKey, revealLinkedPublication } from '@/lib/publicationIdentity'
 
 const DEFAULT_VISIBLE_TAGS = 5
 const METHODS_VISIBLE_TAGS = 4
@@ -128,6 +128,14 @@ export default function PublicationsBrowser({
     const handle = () => setVisibleCounts(computeVisible())
     window.addEventListener('resize', handle)
     return () => window.removeEventListener('resize', handle)
+  }, [])
+
+  // Older Safari (including X's in-app browser on iPhone) leaves a closed year section shut when following a #paper-… link.
+  useEffect(() => {
+    const reveal = () => revealLinkedPublication(window.location.hash, document)
+    reveal()
+    window.addEventListener('hashchange', reveal)
+    return () => window.removeEventListener('hashchange', reveal)
   }, [])
 
   // Normalize tags to canonical categories (fixes LLM misclassifications)
@@ -433,7 +441,10 @@ function PublicationItem({ pub, researchers, provenance, altmetricEnabled, onTag
   const publicationHref = buildOutboundRedirectUrl(rawPublicationHref)
 
   return (
-    <article className="p-6 space-y-3 bg-white border border-black/[0.05] shadow-sm rounded">
+    <article
+      id={getPublicationAnchorId(pub) || undefined}
+      className="p-6 space-y-3 bg-white border border-black/[0.05] shadow-sm rounded scroll-mt-24 target:ring-2 target:ring-purple"
+    >
       <div className="flex flex-wrap items-start gap-4">
         <div className="flex-1 min-w-[240px] space-y-1">
           <h3 className="text-lg font-semibold leading-snug">

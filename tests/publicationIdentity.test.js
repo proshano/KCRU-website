@@ -2,12 +2,83 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  getPublicationAnchorId,
   getPublicationKey,
   mergePublications,
   normalizeDoi,
   normalizePublicationProvenance,
+  publicationAnchorFromKey,
+  revealLinkedPublication,
   withPublicationKey,
 } from '../lib/publicationIdentity.js'
+
+test('publication anchors are page-safe ids built from the publication key or feed GUID', () => {
+  assert.equal(publicationAnchorFromKey('doi:10.1000/ABC.def(1)'), 'paper-doi-10-1000-abc-def-1')
+  assert.equal(publicationAnchorFromKey('pmid:12345'), 'paper-pmid-12345')
+  assert.equal(publicationAnchorFromKey('--doi:10.1000/x--'), 'paper-doi-10-1000-x')
+  assert.equal(publicationAnchorFromKey(''), '')
+  assert.equal(publicationAnchorFromKey('///'), '')
+  assert.equal(publicationAnchorFromKey(null), '')
+
+  assert.equal(getPublicationAnchorId({ doi: 'https://doi.org/10.1000/XYZ', pmid: '999' }), 'paper-doi-10-1000-xyz')
+  assert.equal(getPublicationAnchorId({ pmid: '999' }), 'paper-pmid-999')
+  assert.equal(getPublicationAnchorId({}), '')
+  assert.equal(getPublicationAnchorId(null), '')
+  // The feed GUID of a paper gives the same anchor as the paper itself.
+  assert.equal(publicationAnchorFromKey('doi:10.1000/xyz'), getPublicationAnchorId({ doi: '10.1000/xyz' }))
+})
+
+function fakePage({ inClosedSection = true, sectionOpen = false } = {}) {
+  const section = { open: sectionOpen }
+  const paper = {
+    scrolled: 0,
+    closest: (selector) => (selector === 'details' && inClosedSection ? section : null),
+    scrollIntoView() { this.scrolled += 1 },
+  }
+  const lookups = []
+  const doc = {
+    getElementById(id) {
+      lookups.push(id)
+      return id === 'paper-doi-10-1000-xyz' ? paper : null
+    },
+  }
+  return { doc, paper, section, lookups }
+}
+
+test('revealLinkedPublication opens the closed year section holding the linked paper and scrolls to it', () => {
+  const page = fakePage()
+  assert.equal(revealLinkedPublication('#paper-doi-10-1000-xyz', page.doc), true)
+  assert.equal(page.section.open, true)
+  assert.equal(page.paper.scrolled, 1)
+
+  const encoded = fakePage()
+  assert.equal(revealLinkedPublication('#paper-doi-10-1000-x%79z', encoded.doc), true)
+  assert.equal(encoded.section.open, true)
+
+  const alreadyOpen = fakePage({ sectionOpen: true })
+  assert.equal(revealLinkedPublication('#paper-doi-10-1000-xyz', alreadyOpen.doc), true)
+  assert.equal(alreadyOpen.section.open, true)
+  assert.equal(alreadyOpen.paper.scrolled, 1)
+
+  const outsideSection = fakePage({ inClosedSection: false })
+  assert.equal(revealLinkedPublication('#paper-doi-10-1000-xyz', outsideSection.doc), true)
+  assert.equal(outsideSection.paper.scrolled, 1)
+})
+
+test('revealLinkedPublication does nothing without a paper anchor or a matching paper', () => {
+  for (const hash of ['', '#', '#main-content', '#paper-%E0%A4%A', undefined]) {
+    const page = fakePage()
+    assert.equal(revealLinkedPublication(hash, page.doc), false, String(hash))
+    assert.deepEqual(page.lookups, [], String(hash))
+    assert.equal(page.section.open, false)
+    assert.equal(page.paper.scrolled, 0)
+  }
+  const missing = fakePage()
+  assert.equal(revealLinkedPublication('#paper-doi-10-1000-other', missing.doc), false)
+  assert.equal(missing.section.open, false)
+  assert.equal(missing.paper.scrolled, 0)
+  assert.equal(revealLinkedPublication('#paper-doi-10-1000-xyz', undefined), false)
+})
 
 test('discovery sources are deduplicated and ordered so comparisons are stable', () => {
   const withCrossref = mergePublications([
