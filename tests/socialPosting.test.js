@@ -313,7 +313,20 @@ function fakePromptWriteClient(initialDoc = null) {
     },
     async createIfNotExists(newDoc) {
       calls.push({ name: 'createIfNotExists', args: [newDoc] })
+      // Mirrors Sanity: this bumps _rev even on a no-op, which is exactly why production
+      // code must never call it ahead of an ifRevisionId-guarded patch on the same doc.
       if (!doc) doc = { ...newDoc, _rev: nextRev() }
+      else doc = { ...doc, _rev: nextRev() }
+      return doc
+    },
+    async create(newDoc) {
+      calls.push({ name: 'create', args: [newDoc] })
+      if (doc) {
+        const error = new Error(`Document with ID "${newDoc._id}" already exists`)
+        error.statusCode = 409
+        throw error
+      }
+      doc = { ...newDoc, _rev: nextRev() }
       return doc
     },
     patch(id) {
@@ -429,6 +442,22 @@ test('saveSocialPostPrompt without a rev succeeds when the document does not exi
   const client = fakePromptWriteClient(null)
   await saveSocialPostPrompt(client, { text: 'First custom rules.', actorEmail: 'a@example.test', now: NOW })
   assert.equal(client.current.systemPrompt, 'First custom rules.')
+})
+
+// Regression test: Sanity's createIfNotExists bumps _rev even when the document already
+// exists, so calling it ahead of an ifRevisionId-guarded patch turned every save after the
+// first into a spurious 409 conflict. This exercises the exact save-fetch-save sequence that
+// broke: only the very first save worked, and every later save from /admin/social failed.
+test('saveSocialPostPrompt: a second save using the rev from the first save succeeds', async () => {
+  const client = fakePromptWriteClient(null)
+  await saveSocialPostPrompt(client, { text: 'First rules.', actorEmail: 'a@example.test', now: NOW })
+  const { rev } = await fetchSocialPostPrompt(fakePromptClient({ ...client.current }))
+
+  await saveSocialPostPrompt(client, { text: 'Second rules.', actorEmail: 'b@example.test', rev, now: NOW })
+
+  assert.equal(client.current.systemPrompt, 'Second rules.')
+  assert.equal(client.current.updatedBy, 'b@example.test')
+  assert.ok(!client.calls.some((call) => call.name === 'createIfNotExists'))
 })
 
 test('resetSocialPostPrompt unsets the custom prompt and records who reset it', async () => {
