@@ -12,6 +12,7 @@ const socialPost = {
     { name: 'journal', title: 'Journal', type: 'string', readOnly: true },
     { name: 'publishedAt', title: 'Publication date', type: 'datetime', readOnly: true },
     { name: 'teamMembers', title: 'Team members', type: 'array', of: [{ type: 'string' }], readOnly: true },
+    { name: 'hasOtherAuthors', title: 'Other authors besides the team', type: 'boolean', readOnly: true },
     { name: 'laySummary', title: 'Lay summary', type: 'text', readOnly: true },
     { name: 'proposedText', title: 'Generated post text', type: 'text', readOnly: true },
     { name: 'text', title: 'Post text', type: 'text', readOnly: true },

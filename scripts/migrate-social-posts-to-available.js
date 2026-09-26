@@ -14,7 +14,7 @@
 import { pathToFileURL } from 'node:url'
 
 import { selectFeedPublications } from '../lib/publicationFeed.js'
-import { SOCIAL_POST_TYPE } from '../lib/socialPosting.js'
+import { SOCIAL_POST_TYPE, computeHasOtherAuthors } from '../lib/socialPosting.js'
 
 const PENDING_FIELDS_TO_UNSET = ['text', 'proposedText', 'lastError', 'lastErrorAt', 'approvedBy', 'approvedAt']
 
@@ -25,10 +25,12 @@ function cleanString(value) {
 export function planSocialPostMigration({ records = [], publications = [] } = {}) {
   // The feed's own selection and identity rules, without its 60-day window and
   // 50-item cap, so papers that have aged out of the feed still match.
-  const laySummaryByGuid = new Map(selectFeedPublications(publications, {
+  const feedItems = selectFeedPublications(publications, {
     windowDays: Number.POSITIVE_INFINITY,
     maxItems: Number.POSITIVE_INFINITY,
-  }).map((item) => [item.identity.guid, cleanString(item.publication.laySummary)]))
+  })
+  const laySummaryByGuid = new Map(feedItems.map((item) => [item.identity.guid, cleanString(item.publication.laySummary)]))
+  const authorsByGuid = new Map(feedItems.map((item) => [item.identity.guid, item.publication.authors]))
 
   const patches = []
   const counts = {
@@ -37,31 +39,44 @@ export function planSocialPostMigration({ records = [], publications = [] } = {}
     laySummaryFilled: 0,
     laySummaryMissing: 0,
     skippedToDismissed: 0,
+    hasOtherAuthorsFilled: 0,
+    hasOtherAuthorsUnknown: 0,
     unchanged: 0,
   }
   for (const record of records) {
+    const set = {}
+    const unset = []
+
     if (record?.status === 'pending') {
       const laySummary = laySummaryByGuid.get(record.guid) || ''
       counts.pendingToAvailable += 1
       counts[laySummary ? 'laySummaryFilled' : 'laySummaryMissing'] += 1
-      patches.push({
-        id: record._id,
-        rev: record._rev,
-        set: { status: 'available', ...(laySummary ? { laySummary } : {}) },
-        unset: PENDING_FIELDS_TO_UNSET,
-      })
+      Object.assign(set, { status: 'available', ...(laySummary ? { laySummary } : {}) })
+      unset.push(...PENDING_FIELDS_TO_UNSET)
     } else if (record?.status === 'skipped') {
       counts.skippedToDismissed += 1
-      patches.push({
-        id: record._id,
-        rev: record._rev,
-        set: {
-          status: 'dismissed',
-          ...(record.skippedBy ? { dismissedBy: record.skippedBy } : {}),
-          ...(record.skippedAt ? { dismissedAt: record.skippedAt } : {}),
-        },
-        unset: [],
+      Object.assign(set, {
+        status: 'dismissed',
+        ...(record.skippedBy ? { dismissedBy: record.skippedBy } : {}),
+        ...(record.skippedAt ? { dismissedAt: record.skippedAt } : {}),
       })
+    }
+
+    // Fills the flag on records of any status, but never overwrites an existing true/false.
+    // GROQ returns null (not undefined) for a field absent from the document, so treat
+    // both as missing.
+    if (record?.hasOtherAuthors == null) {
+      const hasOtherAuthors = computeHasOtherAuthors(authorsByGuid.get(record?.guid), record?.teamMembers)
+      if (hasOtherAuthors === null) {
+        counts.hasOtherAuthorsUnknown += 1
+      } else {
+        set.hasOtherAuthors = hasOtherAuthors
+        counts.hasOtherAuthorsFilled += 1
+      }
+    }
+
+    if (Object.keys(set).length || unset.length) {
+      patches.push({ id: record._id, rev: record._rev, set, unset })
     } else {
       counts.unchanged += 1
     }
@@ -92,7 +107,7 @@ async function main() {
 
   const [records, cache] = await Promise.all([
     writeClient.fetch(
-      `*[_type == $type && !(_id in path("drafts.**"))] { _id, _rev, guid, status, skippedBy, skippedAt }`,
+      `*[_type == $type && !(_id in path("drafts.**"))] { _id, _rev, guid, status, skippedBy, skippedAt, teamMembers, hasOtherAuthors }`,
       { type: SOCIAL_POST_TYPE }
     ),
     readCache(),

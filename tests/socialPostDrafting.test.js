@@ -49,10 +49,37 @@ test('a successful AI draft naming every investigator is the generated text plus
     laySummary: POST.laySummary,
     teamMembers: ['Jane Smith', 'Raj Patel'],
     teamLabel: 'KCRU',
+    hasOtherAuthors: null,
     maxLength: SOCIAL_POST_BODY_MAX_LENGTH,
   })
   assert.equal('journal' in calls[0], false)
   assert.equal('siteTitle' in calls[0], false)
+})
+
+test('composeSocialPostDraft passes hasOtherAuthors from the record to generate on the first call and the retry', async () => {
+  const withOthers = { ...POST, hasOtherAuthors: true }
+  const { calls: firstCalls, generate: firstGenerate } = fakeGenerate('London Kidney investigators Jane Smith and Raj Patel and colleagues found something.')
+  await composeSocialPostDraft({ post: withOthers, generate: firstGenerate, llmLabel: 'llm:test-model' })
+  assert.equal(firstCalls[0].hasOtherAuthors, true)
+
+  const withoutOthers = { ...POST, hasOtherAuthors: false }
+  const { calls: falseCalls, generate: falseGenerate } = fakeGenerate('London Kidney investigators Jane Smith and Raj Patel found something.')
+  await composeSocialPostDraft({ post: withoutOthers, generate: falseGenerate, llmLabel: 'llm:test-model' })
+  assert.equal(falseCalls[0].hasOtherAuthors, false)
+
+  const missingFlag = { ...POST }
+  delete missingFlag.hasOtherAuthors
+  const { calls: unsetCalls, generate: unsetGenerate } = fakeGenerate('London Kidney investigators Jane Smith and Raj Patel found something.')
+  await composeSocialPostDraft({ post: missingFlag, generate: unsetGenerate, llmLabel: 'llm:test-model' })
+  assert.equal(unsetCalls[0].hasOtherAuthors, null)
+
+  const tooLong = `London Kidney investigators Jane Smith and Raj Patel found that ${'word '.repeat(50).trim()}`
+  const short = 'London Kidney investigators Jane Smith and Raj Patel found a shorter post about kidney function after surgery.'
+  const { calls: retryCalls, generate: retryGenerate } = fakeGenerate(tooLong, short)
+  await composeSocialPostDraft({ post: withOthers, generate: retryGenerate, llmLabel: 'llm:test-model' })
+  assert.equal(retryCalls.length, 2)
+  assert.equal(retryCalls[0].hasOtherAuthors, true)
+  assert.equal(retryCalls[1].hasOtherAuthors, true)
 })
 
 test('the template is used when the LLM returns nothing, fails, or is unavailable', async () => {
@@ -193,6 +220,30 @@ test('buildSocialPostPrompt says "none listed" with no investigators, and asks f
   assert.match(prompt, /Your previous draft was:\nAn earlier draft that was too long\./)
   assert.match(prompt, /The post must name Jane Smith\./)
   assert.match(prompt, /corrected version in at most 200 characters/)
+})
+
+test('buildSocialPostPrompt states whether there are other authors as yes, no or unknown, and never a count', () => {
+  const base = { title: POST.title, laySummary: POST.laySummary, teamMembers: POST.teamMembers, teamLabel: 'KCRU', maxLength: 200 }
+  const withOthers = buildSocialPostPrompt({ ...base, hasOtherAuthors: true })
+  assert.match(withOthers, /Other authors on this paper besides these KCRU investigators: yes/)
+
+  const withoutOthers = buildSocialPostPrompt({ ...base, hasOtherAuthors: false })
+  assert.match(withoutOthers, /Other authors on this paper besides these KCRU investigators: no/)
+
+  const unknownExplicit = buildSocialPostPrompt({ ...base, hasOtherAuthors: null })
+  assert.match(unknownExplicit, /Other authors on this paper besides these KCRU investigators: unknown/)
+
+  const unknownOmitted = buildSocialPostPrompt(base)
+  assert.match(unknownOmitted, /Other authors on this paper besides these KCRU investigators: unknown/)
+
+  for (const prompt of [withOthers, withoutOthers, unknownExplicit, unknownOmitted]) {
+    assert.doesNotMatch(prompt, /\d+\s+(other\s+)?authors?/i)
+  }
+})
+
+test('the default SOCIAL_POST_SYSTEM_PROMPT tells the model to add "and colleagues" when there are other authors', () => {
+  assert.match(SOCIAL_POST_SYSTEM_PROMPT, /add "and colleagues" after the names/)
+  assert.match(SOCIAL_POST_SYSTEM_PROMPT, /If there are none or it is unknown, do not add it\./)
 })
 
 test('cleanSocialPostText strips links, labels, fences and wrapping quotes', () => {

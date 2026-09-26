@@ -67,6 +67,7 @@ function PaperDetails({ post }) {
       <p className="text-sm text-gray-700">
         <span className="font-semibold">Team members: </span>
         {post.teamMembers?.length ? post.teamMembers.join(', ') : 'Not recorded'}
+        {post.hasOtherAuthors ? ' · plus other authors' : ''}
       </p>
     </div>
   )
@@ -333,11 +334,11 @@ function DraftingInstructionsSection({ prompt, teamLabel, busy, onSave, onReset 
             {!validation.ok ? ` — ${validation.error}` : ''}
           </p>
           <p className="text-xs text-gray-500">
-            The paper title, {teamLabel || 'London Kidney'} investigators, lay summary and length limit are added
-            automatically, and the paper link is appended after the text. Every draft is checked for all investigator
-            names, no first person (&quot;our&quot;, &quot;we&quot;), no journal name and X&apos;s length limit. A
-            draft that fails twice uses the simple template instead. Changes apply to the next Create post or
-            Regenerate; existing drafts are not changed.
+            The paper title, {teamLabel || 'London Kidney'} investigators, whether there are other (non-team)
+            authors, lay summary and length limit are added automatically, and the paper link is appended after the
+            text. Every draft is checked for all investigator names, no first person (&quot;our&quot;,
+            &quot;we&quot;), no journal name and X&apos;s length limit. A draft that fails twice uses the simple
+            template instead. Changes apply to the next Create post or Regenerate; existing drafts are not changed.
           </p>
           <div className="flex flex-wrap gap-3">
             <button

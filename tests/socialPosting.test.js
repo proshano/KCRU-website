@@ -10,6 +10,7 @@ import {
   buildSocialPostNotificationEmail,
   buildXPostText,
   canManageSocialPosts,
+  computeHasOtherAuthors,
   createBufferClient,
   discardSocialPostDraft,
   dismissSocialPost,
@@ -265,6 +266,45 @@ test('buildXPostText shortens a long byline to first three plus "and colleagues"
   assert.ok(text.includes(title))
 })
 
+test('computeHasOtherAuthors returns null for missing, empty or blank authors, and compares lengths otherwise', () => {
+  assert.equal(computeHasOtherAuthors(undefined, ['Amit Garg']), null)
+  assert.equal(computeHasOtherAuthors([], ['Amit Garg']), null)
+  assert.equal(computeHasOtherAuthors(['', '   '], ['Amit Garg']), null)
+  assert.equal(computeHasOtherAuthors(['House AA', 'Garg A', 'Other X'], ['Amit Garg']), true)
+  assert.equal(computeHasOtherAuthors(['Garg A', 'Jain A'], ['Amit Garg', 'Arsh Jain']), false)
+  assert.equal(computeHasOtherAuthors(['Garg A'], ['Amit Garg', 'Arsh Jain']), false)
+})
+
+test('buildXPostText adds "and colleagues" when hasOtherAuthors is true, with or without names, and never doubles it up', () => {
+  const withNames = buildXPostText({ title: 'A kidney paper', link: LINK, teamMembers: ['Amit Garg', 'Arsh Jain'], hasOtherAuthors: true })
+  assert.equal(withNames, `New from ${DEFAULT_TEAM_LABEL} investigators Amit Garg and Arsh Jain and colleagues: A kidney paper ${LINK}`)
+
+  const withoutFlag = buildXPostText({ title: 'A kidney paper', link: LINK, teamMembers: ['Amit Garg', 'Arsh Jain'], hasOtherAuthors: false })
+  assert.equal(withoutFlag, `New from ${DEFAULT_TEAM_LABEL} investigators Amit Garg and Arsh Jain: A kidney paper ${LINK}`)
+  assert.equal(
+    buildXPostText({ title: 'A kidney paper', link: LINK, teamMembers: ['Amit Garg', 'Arsh Jain'] }),
+    withoutFlag
+  )
+
+  const noNames = buildXPostText({ title: 'A kidney paper', link: LINK, hasOtherAuthors: true })
+  assert.equal(noNames, `New from ${DEFAULT_TEAM_LABEL} investigators and colleagues: A kidney paper ${LINK}`)
+
+  const teamMembers = [
+    'Alexandra Montgomery-Whitfield',
+    'Bartholomew Fitzgerald-Huntington',
+    'Constance Featherstonehaugh-Radcliffe',
+    'Demetrius Kowalczyk-Abernathy',
+    'Evangeline Radcliffe-Sinclair',
+    'Frederick Abernathy-Wentworth',
+    'Gwendolyn Chesterfield',
+  ]
+  const title = 'A moderately long study title about kidney outcomes after transplantation surgery in adults'
+  const shortened = buildXPostText({ title, link: LINK, teamMembers, hasOtherAuthors: true })
+  assert.ok(xWeightedLength(shortened) <= X_MAX_WEIGHTED_LENGTH)
+  assert.ok(shortened.includes(`${teamMembers[0]}, ${teamMembers[1]}, ${teamMembers[2]} and colleagues:`))
+  assert.equal(shortened.match(/and colleagues/g).length, 1)
+})
+
 test('validateXPostText rejects empty and over-limit text', () => {
   assert.deepEqual(validateXPostText(`Hi ${LINK}`), { ok: true, weightedLength: 26, error: null })
   assert.equal(validateXPostText('   ').ok, false)
@@ -507,6 +547,21 @@ test('buildSocialPostRecord creates an available record with the lay summary and
   assert.equal(built.createdAt, NOW.toISOString())
   assert.equal('text' in built, false)
   assert.equal('proposedText' in built, false)
+  assert.equal('hasOtherAuthors' in built, false)
+})
+
+test('buildSocialPostRecord sets hasOtherAuthors from the publication authors and team members, and omits it when unknown', () => {
+  const withOthers = feedItem('doi:10.1000/others', '2026-09-20T00:00:00Z', { authors: ['House AA', 'Garg A', 'Other X'] })
+  const built = buildSocialPostRecord({ item: withOthers, network: 'x', teamMembers: ['Amit Garg'], now: NOW })
+  assert.equal(built.hasOtherAuthors, true)
+
+  const noOthers = feedItem('doi:10.1000/none', '2026-09-20T00:00:00Z', { authors: ['Garg A', 'Jain A'] })
+  const same = buildSocialPostRecord({ item: noOthers, network: 'x', teamMembers: ['Amit Garg', 'Arsh Jain'], now: NOW })
+  assert.equal(same.hasOtherAuthors, false)
+
+  const unknown = feedItem('doi:10.1000/unknown', '2026-09-20T00:00:00Z')
+  const built2 = buildSocialPostRecord({ item: unknown, network: 'x', teamMembers: ['Amit Garg'], now: NOW })
+  assert.equal('hasOtherAuthors' in built2, false)
 })
 
 test('planSocialPostSync offers every unrecorded item oldest first, with no size limit', () => {
@@ -1496,6 +1551,8 @@ test('the migration turns pending into available with the lay summary and skippe
     laySummaryFilled: 1,
     laySummaryMissing: 1,
     skippedToDismissed: 1,
+    hasOtherAuthorsFilled: 0,
+    hasOtherAuthorsUnknown: 4,
     unchanged: 1,
   })
   assert.deepEqual(patches[0], {
@@ -1511,4 +1568,29 @@ test('the migration turns pending into available with the lay summary and skippe
     set: { status: 'dismissed', dismissedBy: 'admin@example.test', dismissedAt: '2026-09-20T00:00:00.000Z' },
     unset: [],
   })
+})
+
+test('the migration fills a missing hasOtherAuthors on records of any status, and leaves an existing value alone', () => {
+  const { patches, counts } = planSocialPostMigration({
+    records: [
+      { _id: 'avail-more', _rev: 'r1', status: 'available', guid: 'doi:10.1000/more', teamMembers: ['Jane Smith'] },
+      // GROQ returns null (not undefined) for a field absent from the document; both must count as missing.
+      { _id: 'queued-equal', _rev: 'r2', status: 'queued', guid: 'doi:10.1000/equal', teamMembers: ['Jane Smith', 'Raj Patel'], hasOtherAuthors: null },
+      { _id: 'draft-known', _rev: 'r3', status: 'draft', guid: 'doi:10.1000/more', teamMembers: ['Jane Smith'], hasOtherAuthors: false },
+      { _id: 'no-authors', _rev: 'r4', status: 'published', guid: 'doi:10.1000/unknown', teamMembers: [] },
+    ],
+    publications: [
+      cachePublication('10.1000/more', { authors: ['Jane Smith', 'Someone Else'] }),
+      cachePublication('10.1000/equal', { authors: ['Jane Smith', 'Raj Patel'] }),
+      cachePublication('10.1000/unknown'),
+    ],
+  })
+  assert.equal(counts.hasOtherAuthorsFilled, 2)
+  assert.equal(counts.hasOtherAuthorsUnknown, 1)
+  assert.equal(counts.unchanged, 2)
+  const byId = Object.fromEntries(patches.map((patch) => [patch.id, patch]))
+  assert.deepEqual(byId['avail-more'].set, { hasOtherAuthors: true })
+  assert.deepEqual(byId['queued-equal'].set, { hasOtherAuthors: false })
+  assert.equal('draft-known' in byId, false)
+  assert.equal('no-authors' in byId, false)
 })
