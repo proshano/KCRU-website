@@ -203,6 +203,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   const [draftSaving, setDraftSaving] = useState(false)
   const [draftError, setDraftError] = useState('')
   const [draftAction, setDraftAction] = useState('')
+  const [formScrollRequest, setFormScrollRequest] = useState(0)
   const autosaveTimeoutRef = useRef(null)
   const autosavePendingRef = useRef(false)
   const autosaveSuppressRef = useRef(false)
@@ -210,6 +211,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   const draftSavingRef = useRef(false)
   const saveDraftRef = useRef(null)
   const formRef = useRef(null)
+  const studyListRef = useRef(null)
   const inclusionCriteriaRefs = useRef([])
   const exclusionCriteriaRefs = useRef([])
   const criteriaFocusRef = useRef(null)
@@ -315,6 +317,20 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     }
     criteriaFocusRef.current = null
   }, [form.inclusionCriteria, form.exclusionCriteria])
+
+  useEffect(() => {
+    // On narrow screens the study list is stacked above the form, so picking a study or starting a
+    // new one changes a form that is off screen. Scroll to it once the change has rendered; the
+    // form's scroll margin keeps it clear of the sticky site nav.
+    if (!formScrollRequest) return
+    const formElement = formRef.current
+    const listElement = studyListRef.current
+    if (!formElement || !listElement) return
+    const isStacked = formElement.getBoundingClientRect().top >= listElement.getBoundingClientRect().bottom
+    if (!isStacked) return
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    formElement.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+  }, [formScrollRequest])
 
   const filteredTrials = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -432,6 +448,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     const nextForm = mapTrialToForm(trial)
     setBaselineSnapshot(serializeDraft(nextForm))
     setForm(nextForm)
+    setFormScrollRequest((count) => count + 1)
   }
 
   function handleNewStudy() {
@@ -449,6 +466,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     autosaveSuppressRef.current = true
     setBaselineSnapshot(serializeDraft(EMPTY_FORM))
     setForm(EMPTY_FORM)
+    setFormScrollRequest((count) => count + 1)
   }
 
   async function handleDuplicateSelect() {
@@ -1184,13 +1202,16 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
 
       {canViewManager ? (
         <section className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-8">
-          <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4 h-fit">
+          <div
+            ref={studyListRef}
+            className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4 h-fit"
+          >
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Existing Studies</h2>
               <button
                 type="button"
                 onClick={handleNewStudy}
-                className="text-sm font-medium text-purple hover:text-purple/80"
+                className="-my-2 py-2 text-sm font-medium text-purple hover:text-purple/80"
               >
                 + New study
               </button>
@@ -1238,7 +1259,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
             </div>
           </div>
 
-          <form ref={formRef} onSubmit={handleSave} className="space-y-6">
+          <form ref={formRef} onSubmit={handleSave} className="space-y-6 scroll-mt-40">
             <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Study Details</h2>
