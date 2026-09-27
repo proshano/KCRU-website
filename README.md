@@ -18,7 +18,7 @@ This repository holds the code for [londonkidney.ca](https://londonkidney.ca), t
 
 ## For staff
 
-Staff edit content in Sanity Studio. Staff tools are at `/admin`, and coordinators manage studies at `/trials/manage`. Both use LHSC or St. Joseph's Microsoft sign-in. Site Settings in Sanity holds the staff lists, feature switches, email schedules, and AI settings.
+Staff edit content in Sanity Studio. Staff tools are at `/admin`, and coordinators manage studies at `/trials/manage`. Both use LHSC or St. Joseph's Microsoft sign-in. The mailing list, the lists of staff who can sign in, and the addresses that get notification emails are edited at `/admin/people`. Site Settings in Sanity holds the feature switches, email schedules, and AI settings.
 
 ## For developers
 

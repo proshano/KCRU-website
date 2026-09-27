@@ -46,13 +46,14 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 
 ## Contact & Email
 
-- Contact form posts to `app/api/contact/route.js` and routes via Sanity `contactRouting`.
+- Contact form posts to `app/api/contact/route.js` and routes via Sanity `contactRouting`. Approval admins change each reason's target email (plus `siteSettings.contactEmail` and `.replyToEmail`) at `/admin/people`; the reasons' wording and order stay in Studio.
 - Email delivery uses `lib/email.js` (Resend), optional reCAPTCHA, and PDF-only attachments (6MB max).
 - Keep error states and form fields straightforward for nontechnical users.
 
 ## Study Updates
 
 - Subscriber management uses `app/api/updates/manage/route.js` with `manageToken`.
+- Admins manage the mailing list itself at `/admin/people` (see People & Email Lists); `/admin/updates` links there instead of listing subscribers.
 - Dispatch runs via `/api/updates/study-email/dispatch`; scheduled sends are triggered from `.github/workflows/study-email.yml`, which runs daily at 11:00 UTC (morning Eastern time) and lets the route enforce only the configured nth weekday from Sanity.
 - Requires `SANITY_API_TOKEN` to record send status.
 - Interest area options come from active `therapeuticArea` docs; subscribers store `interestAreas` references plus `allTherapeuticAreas` for opt-in-all.
@@ -131,12 +132,23 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 
 - Admin hub at `/admin` with module-specific entry points at `/admin/approvals` and `/admin/updates`.
 - `/admin/social` (approvals admins) picks new publications to post on X, drafts and edits posts, and queues or undoes them in Buffer; see Social Posting.
+- `/admin/people` (any admin) manages the mailing list, who can sign in, and notification email addresses; see People & Email Lists.
 - `/admin/classification-eval` (approvals admins) compares the Jev decision model against the stored publication classification; see Classification Model Evaluation.
 - Research digest diagnostics remain available at `/admin/research-digest`, but routine operation must not depend on staff review.
 - Legacy admin URLs `/trials/approvals` and `/updates/admin` remain supported.
 - Admin sessions are scoped to approvals vs updates based on `siteSettings.studyApprovals.admins` and `siteSettings.studyUpdates.admins`.
 - `app/api/admin/login/route.js` and `app/api/admin/verify/route.js` accept a `scope` to limit access (`approvals`, `updates`, or `any`).
 - `app/api/admin/access/route.js` returns the current session's access flags for the admin hub.
+
+## People & Email Lists
+
+- `/admin/people` replaces Sanity Studio for the email addresses staff maintain. Tabs: **Mailing list** (`updateSubscriber` documents), **Sign-in access** (`siteSettings.studyApprovals.admins`, `.studyUpdates.admins`, `.studyApprovals.coordinatorEmails`), and **Notification emails** (`siteSettings.socialPosting.approverEmails`, `contactRouting.options[].email`, `siteSettings.contactEmail`, `.replyToEmail`). The update email test list and the research digest pilot list are only summarized there, with links to `/admin/updates` and `/admin/research-digest`, where their on/off switches live. The sign-in domains (`studyApprovals.coordinatorDomain`) are shown read-only and still change in Studio, because a wrong value locks everyone out.
+- Each group edits its own settings: approval admins edit approval admins, coordinators, social post recipients and the contact addresses; update email admins edit update email admins and the mailing list. Any admin can view. The rules live in `PEOPLE_FIELDS` / `canEditPeopleField` in `lib/peopleSettings.js` (browser-safe, shared by page and API) and are enforced by `updatePeopleField` in `lib/peopleSettingsStore.js`, called from `app/api/admin/people/route.js` (GET/PATCH) with the access and email from the signed-in session, never from the request body.
+- Every settings write sends the value the page started from (`previous`); a mismatch is a 409, and the patch carries `ifRevisionID`, so concurrent edits conflict instead of overwriting. Writes go to the published document and to its unpublished Studio draft when one exists (each guarded by its own revision), because publishing an older draft would otherwise undo the change and could quietly restore someone's access. Nested lists are written by merging into that document's own parent object (`studyApprovals`, `studyUpdates`, `socialPosting`), so sibling fields and a draft's other unpublished edits survive. Contact routing rewrites only the reasons whose address changed.
+- An admin cannot remove their own address from approval admins or update email admins (`findEditorLockout`), so a group can never be emptied from the portal. Addresses outside the sign-in domains get a "Can't sign in" warning but are allowed, since they can still receive notification emails. Pasted text is parsed with `extractEmailAddresses`, which accepts Outlook "Name <address>; ..." lines and reports anything with an `@` that is not a valid address. Stored addresses are lowercased and deduplicated.
+- Access changes take effect within a couple of minutes: `lib/auth.js` caches the lists for 60 seconds and the public Sanity client reads through the CDN. Portal edits appear in Sanity history as the API token, so each change is logged with the admin's email (`[people-admin]`, `[updates-admin-subscribers]`); subscriber addresses are kept out of those logs (record ids only).
+- Mailing list edits go through `app/api/updates/admin/subscribers/route.js` (GET list, POST add, PATCH edit, DELETE; update admins only), with validation in `lib/subscriberAdmin.js` (browser-safe) and Sanity access in `lib/subscriberAdminStore.js`. Staff see one status (`active`, `suppressed`, `unsubscribed`) mapped onto `subscriptionStatus`/`deliveryStatus`; only `subscribed` counts as deliverable, matching the send routes. Adding someone, or resubscribing someone who unsubscribed, requires confirming that they asked for the emails (`consentConfirmed`); admin-added records get `source: admin`, a fresh `manageToken`, and the read-only `addedBy` field (Studio must be redeployed to show it). Duplicate addresses are refused case-insensitively. Edits send only changed fields, carry the record's `_rev`, and also patch its Studio draft; deletes remove both copies. The page nudges staff to unsubscribe rather than delete, so an opt-out record is kept. The CSV download prefixes cells that start with `= + - @` so a signup name cannot run as a spreadsheet formula.
+- Pre-existing gap, left as is: the send routes and the subscriber counts on `/admin/updates` query `updateSubscriber` through `writeClient`, whose API version defaults to the raw perspective, so an unpublished Studio draft of a subscriber is emailed (and counted) alongside its published record, and a Studio-created subscriber that was never published is still emailed. The `/admin/people` list therefore shows one row per person (the published record, else the draft) and treats draft-only records as live.
 
 ## Authentication
 

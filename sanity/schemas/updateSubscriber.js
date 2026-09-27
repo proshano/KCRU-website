@@ -118,6 +118,13 @@ const updateSubscriber = {
       initialValue: 'admin'
     },
     {
+      name: 'addedBy',
+      title: 'Added by',
+      type: 'string',
+      readOnly: true,
+      description: 'The admin who added this subscriber at /admin/people.'
+    },
+    {
       name: 'notes',
       title: 'Notes',
       type: 'text',

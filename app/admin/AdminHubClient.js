@@ -66,6 +66,14 @@ const MODULES = [
     href: '/admin/research-digest',
     actionLabel: 'Open digest review',
   },
+  {
+    key: 'people',
+    accessKey: 'admin',
+    title: 'People & email lists',
+    description: 'Manage the mailing list, who can sign in to post and approve studies, and who gets notification emails.',
+    href: '/admin/people',
+    actionLabel: 'Open people & email lists',
+  },
 ]
 
 export default function AdminHubClient() {
