@@ -11,6 +11,7 @@ import {
   createSubscriber,
   deleteSubscriber,
   mergeSubscriberRows,
+  publishSubscriber,
   updateSubscriber,
 } from '../lib/subscriberAdminStore.js'
 
@@ -138,14 +139,14 @@ test('an edit clears blank optional fields and checks interest areas against the
   assert.match(buildSubscriberPatch({ unknown: 1 }, {}, { now: NOW }).error, /Nothing to change/)
 })
 
-test('lists one row per person, preferring the published record over a Studio draft', () => {
+test('lists one row per person, preferring the published record, and marks never-published drafts', () => {
   const rows = mergeSubscriberRows([
     { _id: 'a', _rev: 'r1', email: 'a@x.ca', subscriptionStatus: 'subscribed', updatedAt: '2026-01-01T00:00:00Z' },
     { _id: 'drafts.a', _rev: 'r2', email: 'a-draft@x.ca', subscriptionStatus: 'subscribed', updatedAt: '2026-09-01T00:00:00Z' },
     { _id: 'drafts.b', _rev: 'r3', email: 'b@x.ca', subscriptionStatus: 'subscribed', deliveryStatus: 'suppressed', updatedAt: '2026-05-01T00:00:00Z', interestAreaIds: ['area-ckd', null] },
   ])
   assert.deepEqual(rows.map((row) => [row._id, row.email, row.status, row.draftOnly]), [
-    ['drafts.b', 'b@x.ca', 'suppressed', true],
+    ['drafts.b', 'b@x.ca', 'unpublished', true],
     ['a', 'a@x.ca', 'active', false],
   ])
   assert.deepEqual(rows[0].interestAreaIds, ['area-ckd'])
@@ -164,10 +165,11 @@ function createClient(documents = {}, { mutateError } = {}) {
     calls,
     async fetch(query, params = {}) {
       if (query.includes('lower(email) == $email')) {
-        return [...docs.values()].find(
+        return [...docs.values()].filter(
           (doc) => doc._type === 'updateSubscriber' && doc.email.toLowerCase() === params.email && !(params.excludeIds || []).includes(doc._id)
-        ) || null
+        )
       }
+      if (query.includes('count(*[_id == $id]) > 0')) return docs.has(params.id)
       if (query.includes('*[_id == $id]')) {
         const doc = docs.get(params.id)
         if (!doc) return null
@@ -186,6 +188,7 @@ function createClient(documents = {}, { mutateError } = {}) {
       calls.mutate.push(mutations)
       if (mutateError) throw mutateError
       for (const mutation of mutations) {
+        if (mutation.create) docs.set(mutation.create._id, { ...mutation.create, _rev: 'rev-created' })
         if (mutation.delete) docs.delete(mutation.delete.id)
         if (mutation.patch) {
           const doc = docs.get(mutation.patch.id)
@@ -310,4 +313,102 @@ test('deleting removes the published record and its Studio draft', async () => {
   const client = createClient(existing())
   await deleteSubscriber(client, { id: 'sub-1' })
   assert.deepEqual(client.calls.mutate[0], [{ delete: { id: 'sub-1' } }, { delete: { id: 'drafts.sub-1' } }])
+})
+
+const unpublished = () => ({
+  ...existing(),
+  'drafts.sub-9': {
+    _id: 'drafts.sub-9',
+    _rev: 'rev-9',
+    _type: 'updateSubscriber',
+    email: 'Studio.Only@lhsc.on.ca',
+    role: 'nurse',
+    correspondencePreferences: ['newsletter'],
+    subscriptionStatus: 'subscribed',
+    manageToken: 'token-from-studio',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    lastNewsletterSentAt: '2026-06-01T00:00:00.000Z',
+  },
+})
+const PUBLISH_FORM = { email: 'studio.only@lhsc.on.ca', role: 'nurse', correspondencePreferences: ['newsletter'], status: 'unpublished' }
+
+test('publishing a never-published record creates it under the same id and removes the draft', async () => {
+  const client = createClient(unpublished())
+  const subscriber = await publishSubscriber(client, {
+    id: 'drafts.sub-9',
+    rev: 'rev-9',
+    input: PUBLISH_FORM,
+    consentConfirmed: true,
+    adminEmail: 'admin@lhsc.on.ca',
+    ...CHOICES,
+    now: NOW,
+    createToken: () => 'unused',
+  })
+  const [[create, remove]] = client.calls.mutate
+  assert.equal(create.create._id, 'sub-9')
+  assert.equal(create.create.subscriptionStatus, 'subscribed')
+  assert.equal(create.create.deliveryStatus, 'active')
+  // Links already sent with the Studio record's token keep working, and its history carries over.
+  assert.equal(create.create.manageToken, 'token-from-studio')
+  assert.equal(create.create.createdAt, '2026-01-01T00:00:00.000Z')
+  assert.equal(create.create.lastNewsletterSentAt, '2026-06-01T00:00:00.000Z')
+  assert.equal(create.create.addedBy, 'admin@lhsc.on.ca')
+  assert.deepEqual(remove, { delete: { id: 'drafts.sub-9' } })
+  assert.equal(subscriber._id, 'sub-9')
+  assert.equal(subscriber.status, 'active')
+})
+
+test('publishing needs consent, a current revision, and an address nobody else has', async () => {
+  const input = { id: 'drafts.sub-9', rev: 'rev-9', input: PUBLISH_FORM, ...CHOICES, now: NOW }
+  await assert.rejects(
+    publishSubscriber(createClient(unpublished()), input),
+    (error) => error.statusCode === 400 && error.code === 'consent_required'
+  )
+  await assert.rejects(
+    publishSubscriber(createClient(unpublished()), { ...input, rev: 'stale', consentConfirmed: true }),
+    (error) => error.statusCode === 409
+  )
+  await assert.rejects(
+    publishSubscriber(createClient(unpublished()), { ...input, id: 'sub-1', rev: 'rev-1', consentConfirmed: true }),
+    (error) => error.statusCode === 400 && /already published/.test(error.message)
+  )
+  const taken = createClient(unpublished())
+  await assert.rejects(
+    publishSubscriber(taken, { ...input, input: { ...PUBLISH_FORM, email: 'jane.doe@lhsc.on.ca' }, consentConfirmed: true }),
+    (error) => error.statusCode === 409 && error.code === 'duplicate'
+  )
+  assert.equal(taken.calls.mutate.length, 0)
+})
+
+test('a never-published record is published, not edited in place', async () => {
+  await assert.rejects(
+    updateSubscriber(createClient(unpublished()), { id: 'drafts.sub-9', rev: 'rev-9', changes: { notes: 'x' }, now: NOW }),
+    (error) => error.statusCode === 400 && /never published/.test(error.message)
+  )
+})
+
+test('adding an address held only by an unpublished record points staff to that record', async () => {
+  await assert.rejects(
+    createSubscriber(createClient(unpublished()), {
+      input: { ...NEW_SUBSCRIBER, email: 'studio.only@LHSC.on.ca' },
+      consentConfirmed: true,
+      ...CHOICES,
+      now: NOW,
+      createToken: () => 'token',
+    }),
+    (error) => error.statusCode === 409 && error.code === 'duplicate' && /never published/.test(error.message)
+  )
+  // A draft that edits another, published subscriber's address is a different case.
+  const docs = existing()
+  docs['drafts.sub-1'].email = 'renamed@lhsc.on.ca'
+  await assert.rejects(
+    createSubscriber(createClient(docs), {
+      input: { ...NEW_SUBSCRIBER, email: 'renamed@lhsc.on.ca' },
+      consentConfirmed: true,
+      ...CHOICES,
+      now: NOW,
+      createToken: () => 'token',
+    }),
+    (error) => error.statusCode === 409 && /unpublished change to another subscriber/.test(error.message)
+  )
 })

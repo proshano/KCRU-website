@@ -41,6 +41,9 @@ test('the admin console query returns every section the page reads', async () =>
     { _id: 'paper-pending', _type: 'researchDigestPaper', issueDate: '2026-07-24', discoveredDate: '2026-07-24', approvalStatus: 'pending', priorityScore: 50, title: 'Pending paper', journal: 'CJASN' },
     { _id: 'sub-active', _type: 'updateSubscriber', email: 'a@example.com', correspondencePreferences: ['research_digest'], subscriptionStatus: 'subscribed', deliveryStatus: 'active' },
     { _id: 'sub-other', _type: 'updateSubscriber', email: 'b@example.com', correspondencePreferences: ['study_updates'], subscriptionStatus: 'subscribed', deliveryStatus: 'active' },
+    // Studio drafts are never emailed, so the console must not list or count them.
+    { _id: 'drafts.sub-active', _type: 'updateSubscriber', email: 'a@example.com', correspondencePreferences: ['research_digest'], subscriptionStatus: 'subscribed', deliveryStatus: 'active' },
+    { _id: 'drafts.sub-new', _type: 'updateSubscriber', email: 'c@example.com', correspondencePreferences: ['research_digest'], subscriptionStatus: 'subscribed', deliveryStatus: 'active' },
     { _id: 'opp-open', _type: 'researchOpportunity', approvalStatus: 'pending', status: 'open', title: 'A grant' },
   ]
 

@@ -83,3 +83,76 @@ test('new subscriber creation stores preferences and keeps the token out of the 
   assert.equal(createdDocument.manageToken, 'new-token')
   assert.equal(createdDocument.email, 'new@example.org')
 })
+
+// Studio drafts share the email and token of the record they edit, and drafts are never
+// emailed, so the lookup must settle on the published record.
+function draftAwareClient({ records, publishedIds = [] }) {
+  const calls = { create: [], patch: [] }
+  return {
+    calls,
+    config: () => ({ token: 'configured' }),
+    fetch: async (query, params) => {
+      if (query.includes('count(*[_id == $id]) > 0')) return publishedIds.includes(params.id)
+      return records
+    },
+    patch: (id) => ({
+      set(value) {
+        calls.patch.push({ id, value })
+        return this
+      },
+      async commit() {},
+    }),
+    create: async (document) => {
+      calls.create.push(document)
+    },
+  }
+}
+
+test('recovery returns the published record even when a Studio draft of it matches too', async () => {
+  const client = draftAwareClient({
+    records: [
+      { _id: 'drafts.subscriber-1', manageToken: 'shared-token' },
+      { _id: 'subscriber-1', manageToken: 'shared-token' },
+    ],
+    publishedIds: ['subscriber-1'],
+  })
+  const result = await createOrRecoverSubscriber({
+    client,
+    subscriber: { email: 'known@example.org', role: 'physician' },
+    headers: headers(),
+    recaptchaData: {},
+    createToken: () => 'new-token',
+  })
+  assert.deepEqual(result, { manageToken: 'shared-token', created: false })
+  assert.equal(client.calls.create.length, 0)
+})
+
+test('an address held only by an unpublished draft is signed up under that draft id and token', async () => {
+  const client = draftAwareClient({ records: [{ _id: 'drafts.studio-1', manageToken: 'studio-token' }] })
+  const result = await createOrRecoverSubscriber({
+    client,
+    subscriber: { email: 'draft@example.org', role: 'nurse' },
+    headers: headers(),
+    recaptchaData: {},
+    createToken: () => 'new-token',
+  })
+  assert.deepEqual(result, { manageToken: 'studio-token', created: true })
+  assert.equal(client.calls.create[0]._id, 'studio-1')
+  assert.equal(client.calls.create[0].subscriptionStatus, 'subscribed')
+})
+
+test('a draft that edits another published record never lends its id or token', async () => {
+  const client = draftAwareClient({
+    records: [{ _id: 'drafts.subscriber-2', manageToken: 'other-token' }],
+    publishedIds: ['subscriber-2'],
+  })
+  const result = await createOrRecoverSubscriber({
+    client,
+    subscriber: { email: 'renamed@example.org', role: 'nurse' },
+    headers: headers(),
+    recaptchaData: {},
+    createToken: () => 'new-token',
+  })
+  assert.deepEqual(result, { manageToken: 'new-token', created: true })
+  assert.equal('_id' in client.calls.create[0], false)
+})

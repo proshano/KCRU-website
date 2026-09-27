@@ -6,6 +6,7 @@ import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { getZonedParts } from '@/lib/cronUtils'
 import { normalizeTestEmailList, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
+import { PUBLISHED_SUBSCRIBER_FILTER } from '@/lib/updateSubscriberStatus'
 
 const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
 
@@ -98,12 +99,12 @@ export async function GET(request) {
     const [statsRaw, settingsRaw, areasRaw] = await Promise.all([
       fetcher(
         `{
-          "total": count(*[_type == "updateSubscriber"]),
-          "active": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER}]),
-          "optedIn": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER} && "study_updates" in correspondencePreferences && defined(email)]),
-          "eligible": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER} && "study_updates" in correspondencePreferences && defined(email) && (!defined(lastStudyUpdateSentAt) || lastStudyUpdateSentAt < $monthStartIso)]),
-          "suppressed": count(*[_type == "updateSubscriber" && deliveryStatus == "suppressed"]),
-          "lastSentAt": *[_type == "updateSubscriber" && defined(lastStudyUpdateSentAt)] | order(lastStudyUpdateSentAt desc)[0].lastStudyUpdateSentAt
+          "total": count(*[${PUBLISHED_SUBSCRIBER_FILTER}]),
+          "active": count(*[${PUBLISHED_SUBSCRIBER_FILTER} && ${DELIVERABLE_FILTER}]),
+          "optedIn": count(*[${PUBLISHED_SUBSCRIBER_FILTER} && ${DELIVERABLE_FILTER} && "study_updates" in correspondencePreferences && defined(email)]),
+          "eligible": count(*[${PUBLISHED_SUBSCRIBER_FILTER} && ${DELIVERABLE_FILTER} && "study_updates" in correspondencePreferences && defined(email) && (!defined(lastStudyUpdateSentAt) || lastStudyUpdateSentAt < $monthStartIso)]),
+          "suppressed": count(*[${PUBLISHED_SUBSCRIBER_FILTER} && deliveryStatus == "suppressed"]),
+          "lastSentAt": *[${PUBLISHED_SUBSCRIBER_FILTER} && defined(lastStudyUpdateSentAt)] | order(lastStudyUpdateSentAt desc)[0].lastStudyUpdateSentAt
         }`,
         { monthStartIso }
       ),

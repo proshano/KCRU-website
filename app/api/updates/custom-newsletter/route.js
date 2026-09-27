@@ -9,7 +9,7 @@ import { ROLE_VALUES, SPECIALTY_VALUES } from '@/lib/communicationOptions'
 import { normalizeList, sanitizeString } from '@/lib/inputUtils'
 import { normalizeAllowedAudienceFilter } from '@/lib/newsletterAudienceFilters'
 import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
-import { isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
+import { DELIVERABLE_SUBSCRIBER_FILTER, isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
 import {
   ALL_THERAPEUTIC_AREAS_VALUE,
   fetchTherapeuticAreas,
@@ -51,11 +51,8 @@ function buildSubscriberQuery({ roles, specialties, interestAreas, legacyInteres
     : ''
 
   const query = `
-    *[_type == "updateSubscriber"
-      && subscriptionStatus == "subscribed"
-      && deliveryStatus != "suppressed"
+    *[${DELIVERABLE_SUBSCRIBER_FILTER}
       && "${NEWSLETTER_PREF}" in correspondencePreferences
-      && defined(email)
       ${roleFilter}
       ${specialtyFilter}
       ${interestFilter}

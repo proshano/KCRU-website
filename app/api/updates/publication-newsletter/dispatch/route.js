@@ -9,7 +9,7 @@ import { getPublicationDate } from '@/lib/publicationUtils'
 import { mergeWithClassifications } from '@/lib/publications'
 import { isPublicationExcluded } from '@/lib/publicationExclusions'
 import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
-import { isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
+import { DELIVERABLE_SUBSCRIBER_FILTER, PUBLISHED_SUBSCRIBER_FILTER, isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
 import { getWindowStart, hasWindowElapsed, parseLastGlobalSentAt } from '@/lib/publicationNewsletterWindow'
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
@@ -150,7 +150,7 @@ async function fetchBootstrapSentAt() {
   const fetcher = writeClient.config().token ? writeClient.fetch.bind(writeClient) : sanityFetch
   try {
     const raw = await fetcher(
-      `*[_type == "updateSubscriber" && defined(lastPublicationNewsletterSentAt)]
+      `*[${PUBLISHED_SUBSCRIBER_FILTER} && defined(lastPublicationNewsletterSentAt)]
         | order(lastPublicationNewsletterSentAt desc)[0].lastPublicationNewsletterSentAt`
     )
     return parseLastGlobalSentAt({ lastGlobalSentAt: raw })
@@ -193,11 +193,8 @@ async function recordGlobalSend(sentAt) {
 async function fetchSubscribers() {
   const fetcher = writeClient.config().token ? writeClient.fetch.bind(writeClient) : sanityFetch
   const query = `
-    *[_type == "updateSubscriber"
-      && subscriptionStatus == "subscribed"
-      && deliveryStatus != "suppressed"
+    *[${DELIVERABLE_SUBSCRIBER_FILTER}
       && "${NEWSLETTER_PREF}" in correspondencePreferences
-      && defined(email)
     ]{
       _id,
       name,

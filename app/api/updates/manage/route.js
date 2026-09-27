@@ -7,6 +7,7 @@ import {
   DELIVERY_STATUS_SUPPRESSED,
   SUBSCRIPTION_STATUS_SUBSCRIBED,
   SUBSCRIPTION_STATUS_UNSUBSCRIBED,
+  pickPublishedSubscriber,
   resolveDeliveryStatus,
 } from '@/lib/updateSubscriberStatus'
 import {
@@ -17,9 +18,13 @@ import {
 } from '@/lib/therapeuticAreas'
 import { fetchSites, resolveSiteIds } from '@/lib/sites'
 
+// A Studio draft copies the manage token, so the lookup can match two copies of one person.
+// Preferences are read from, and saved to, the published record (the one that is emailed),
+// and an open draft of it gets the same change, so publishing that draft cannot undo an
+// unsubscribe. A record that was never published is used directly.
 async function getSubscriberByToken(token) {
-  return writeClient.fetch(
-    `*[_type == "updateSubscriber" && manageToken == $token][0]{
+  const records = await writeClient.fetch(
+    `*[_type == "updateSubscriber" && manageToken == $token && !(_id in path("versions.**"))]{
       _id,
       name,
       email,
@@ -34,6 +39,15 @@ async function getSubscriberByToken(token) {
     }`,
     { token }
   )
+  return pickPublishedSubscriber(records)
+}
+
+async function saveSubscriber({ subscriber, draft }, fields) {
+  const transaction = writeClient.transaction()
+  for (const doc of [subscriber, draft].filter(Boolean)) {
+    transaction.patch(doc._id, (patch) => patch.set(fields))
+  }
+  await transaction.commit()
 }
 
 export async function GET(request) {
@@ -44,7 +58,7 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Missing token.' }, { status: 400 })
   }
 
-  const [subscriber, areas, sites] = await Promise.all([
+  const [{ subscriber }, areas, sites] = await Promise.all([
     getSubscriberByToken(token),
     fetchTherapeuticAreas(),
     fetchSites()
@@ -93,7 +107,8 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Server not configured to save preferences.' }, { status: 500 })
   }
 
-  const subscriber = await getSubscriberByToken(trimmedToken)
+  const match = await getSubscriberByToken(trimmedToken)
+  const { subscriber } = match
   if (!subscriber?._id) {
     return NextResponse.json({ error: 'Subscription not found.' }, { status: 404 })
   }
@@ -101,14 +116,11 @@ export async function POST(request) {
   const now = new Date().toISOString()
 
   if (action === 'unsubscribe') {
-    await writeClient
-      .patch(subscriber._id)
-      .set({
-        subscriptionStatus: SUBSCRIPTION_STATUS_UNSUBSCRIBED,
-        updatedAt: now,
-        unsubscribedAt: now
-      })
-      .commit()
+    await saveSubscriber(match, {
+      subscriptionStatus: SUBSCRIPTION_STATUS_UNSUBSCRIBED,
+      updatedAt: now,
+      unsubscribedAt: now
+    })
 
     return NextResponse.json({
       ok: true,
@@ -171,22 +183,19 @@ export async function POST(request) {
     existingDeliveryStatus === DELIVERY_STATUS_SUPPRESSED ? DELIVERY_STATUS_SUPPRESSED : DELIVERY_STATUS_ACTIVE
   const nextSubscriptionStatus = SUBSCRIPTION_STATUS_SUBSCRIBED
 
-  await writeClient
-    .patch(subscriber._id)
-    .set({
-      name: trimmedName,
-      role: normalizedRole,
-      specialty: normalizedSpecialty || null,
-      practiceSites: buildReferenceList(resolvedPracticeSiteIds),
-      interestAreas: buildReferenceList(resolvedInterestAreaIds),
-      allTherapeuticAreas,
-      correspondencePreferences: normalizedCorrespondence,
-      subscriptionStatus: nextSubscriptionStatus,
-      deliveryStatus: nextDeliveryStatus,
-      updatedAt: now,
-      unsubscribedAt: null
-    })
-    .commit()
+  await saveSubscriber(match, {
+    name: trimmedName,
+    role: normalizedRole,
+    specialty: normalizedSpecialty || null,
+    practiceSites: buildReferenceList(resolvedPracticeSiteIds),
+    interestAreas: buildReferenceList(resolvedInterestAreaIds),
+    allTherapeuticAreas,
+    correspondencePreferences: normalizedCorrespondence,
+    subscriptionStatus: nextSubscriptionStatus,
+    deliveryStatus: nextDeliveryStatus,
+    updatedAt: now,
+    unsubscribedAt: null
+  })
 
   return NextResponse.json({
     ok: true,

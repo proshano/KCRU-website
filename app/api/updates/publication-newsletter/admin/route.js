@@ -5,6 +5,7 @@ import { getScopedAdminSession } from '@/lib/adminSessions'
 import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
+import { PUBLISHED_SUBSCRIBER_FILTER } from '@/lib/updateSubscriberStatus'
 import { hasWindowElapsed, parseLastGlobalSentAt } from '@/lib/publicationNewsletterWindow'
 
 const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
@@ -106,11 +107,11 @@ export async function GET(request) {
 
     const statsRaw = await fetcher(
       `{
-        "total": count(*[_type == "updateSubscriber"]),
-        "active": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER}]),
-        "optedIn": count(*[_type == "updateSubscriber" && ${DELIVERABLE_FILTER} && "newsletter" in correspondencePreferences && defined(email)]),
-        "suppressed": count(*[_type == "updateSubscriber" && deliveryStatus == "suppressed"]),
-        "derivedLastSentAt": *[_type == "updateSubscriber" && defined(lastPublicationNewsletterSentAt)] | order(lastPublicationNewsletterSentAt desc)[0].lastPublicationNewsletterSentAt
+        "total": count(*[${PUBLISHED_SUBSCRIBER_FILTER}]),
+        "active": count(*[${PUBLISHED_SUBSCRIBER_FILTER} && ${DELIVERABLE_FILTER}]),
+        "optedIn": count(*[${PUBLISHED_SUBSCRIBER_FILTER} && ${DELIVERABLE_FILTER} && "newsletter" in correspondencePreferences && defined(email)]),
+        "suppressed": count(*[${PUBLISHED_SUBSCRIBER_FILTER} && deliveryStatus == "suppressed"]),
+        "derivedLastSentAt": *[${PUBLISHED_SUBSCRIBER_FILTER} && defined(lastPublicationNewsletterSentAt)] | order(lastPublicationNewsletterSentAt desc)[0].lastPublicationNewsletterSentAt
       }`
     )
 

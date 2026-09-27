@@ -18,7 +18,7 @@ import {
 } from '@/lib/researchDigestConfig'
 import { writeClient } from '@/lib/sanity'
 import { filterSubscribersByTestEmails, normalizeUpdateEmailTesting } from '@/lib/updateEmailTesting'
-import { isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
+import { DELIVERABLE_SUBSCRIBER_FILTER, PUBLISHED_SUBSCRIBER_FILTER, isSubscriberDeliverable } from '@/lib/updateSubscriberStatus'
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(
   /\/$/,
@@ -34,11 +34,8 @@ function normalizeDate(value) {
 async function fetchSubscribers({ issueDate, force }) {
   const sentFilter = force ? '' : ' && (!defined(lastResearchDigestSentAt) || lastResearchDigestSentAt < $issueDateStart)'
   const query = `
-    *[_type == "updateSubscriber"
-      && subscriptionStatus == "subscribed"
-      && deliveryStatus != "suppressed"
+    *[${DELIVERABLE_SUBSCRIBER_FILTER}
       && "${RESEARCH_DIGEST_PREF}" in correspondencePreferences
-      && defined(email)
       ${sentFilter}
     ]{
       _id,
@@ -58,7 +55,7 @@ async function fetchPilotRecipients(recipients = []) {
   if (!emails.length) return []
 
   const existing = await writeClient.fetch(
-    `*[_type == "updateSubscriber" && lower(email) in $emails]{
+    `*[${PUBLISHED_SUBSCRIBER_FILTER} && lower(email) in $emails]{
       _id,
       name,
       email,

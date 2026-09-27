@@ -10,6 +10,7 @@ import {
   createSubscriber,
   deleteSubscriber,
   listSubscribers,
+  publishSubscriber,
   updateSubscriber,
 } from '@/lib/subscriberAdminStore'
 import { buildTherapeuticAreaOptions, fetchTherapeuticAreas } from '@/lib/therapeuticAreas'
@@ -159,6 +160,24 @@ export async function PATCH(request) {
 
   const body = await readJson(request)
   if (!body) return respondError('Invalid JSON payload.', 400)
+
+  // A record created in Studio but never published is reviewed and published as a whole.
+  if (body.action === 'publish') {
+    try {
+      const subscriber = await publishSubscriber(writeClient, {
+        id: body.id,
+        rev: body.rev,
+        input: body.subscriber,
+        consentConfirmed: body.consentConfirmed === true,
+        adminEmail: session.email,
+        ...(await fetchChoiceIds()),
+      })
+      logChange('publish', session, { id: subscriber._id })
+      return NextResponse.json({ ok: true, subscriber }, { headers: CORS_HEADERS })
+    } catch (error) {
+      return handleWriteError(error, 'PATCH publish')
+    }
+  }
 
   try {
     const result = await updateSubscriber(writeClient, {

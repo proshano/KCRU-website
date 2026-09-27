@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { CORRESPONDENCE_OPTIONS, ROLE_OPTIONS, SPECIALTY_OPTIONS } from '@/lib/communicationOptions'
-import { SUBSCRIBER_STATUS_OPTIONS } from '@/lib/subscriberAdmin'
+import { SUBSCRIBER_STATUS_OPTIONS, UNPUBLISHED_STATUS } from '@/lib/subscriberAdmin'
 import {
   CARD,
   DANGER_BUTTON,
@@ -29,11 +29,15 @@ const EMAIL_TYPE_LABELS = new Map([
   [RESEARCH_DIGEST, 'Research digest'],
   [STUDY_UPDATES, 'Study updates'],
 ])
-const STATUS_TITLES = new Map(SUBSCRIBER_STATUS_OPTIONS.map((option) => [option.value, option.title]))
+const STATUS_TITLES = new Map([
+  ...SUBSCRIBER_STATUS_OPTIONS.map((option) => [option.value, option.title]),
+  [UNPUBLISHED_STATUS, 'Not published'],
+])
 const STATUS_STYLES = {
   active: 'bg-emerald-100 text-emerald-800',
   suppressed: 'bg-amber-100 text-amber-800',
   unsubscribed: 'bg-gray-200 text-gray-700',
+  [UNPUBLISHED_STATUS]: 'bg-orange-100 text-orange-800',
 }
 
 const EMPTY_OPTIONS = { therapeuticAreas: [], sites: [], researchDigestPublic: false }
@@ -163,7 +167,8 @@ function SubscriberForm({ mode, subscriber, options, busy, status, onSubmit, onC
   const [form, setForm] = useState(() => (subscriber ? formFromSubscriber(subscriber) : EMPTY_FORM))
   const [consent, setConsent] = useState(false)
   const isAdd = mode === 'add'
-  const resubscribing = !isAdd && subscriber.status === 'unsubscribed' && form.status !== 'unsubscribed'
+  const isPublish = mode === 'publish'
+  const resubscribing = mode === 'edit' && subscriber.status === 'unsubscribed' && form.status !== 'unsubscribed'
   const wantsStudyUpdates = form.correspondencePreferences.includes(STUDY_UPDATES)
   const idPrefix = isAdd ? 'new-subscriber' : `subscriber-${subscriber._id}`
 
@@ -196,8 +201,14 @@ function SubscriberForm({ mode, subscriber, options, busy, status, onSubmit, onC
   return (
     <form onSubmit={submit} className="space-y-5 rounded-xl border border-purple/30 bg-purple/5 p-4 md:p-5">
       <h3 className="text-lg font-semibold text-gray-900">
-        {isAdd ? 'Add someone to the mailing list' : `Edit ${subscriber.email}`}
+        {isAdd ? 'Add someone to the mailing list' : isPublish ? `Publish ${subscriber.email}` : `Edit ${subscriber.email}`}
       </h3>
+      {isPublish && (
+        <p className="text-sm text-gray-700">
+          This person was added in Sanity Studio but never published, so they get no emails. Check their details, then
+          publish to add them to the mailing list, or delete the record if it is not needed.
+        </p>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-1">
@@ -301,7 +312,7 @@ function SubscriberForm({ mode, subscriber, options, busy, status, onSubmit, onC
         />
       </div>
 
-      {!isAdd && (
+      {mode === 'edit' && (
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium text-gray-800">Status</legend>
           {SUBSCRIBER_STATUS_OPTIONS.map((option) => (
@@ -321,7 +332,7 @@ function SubscriberForm({ mode, subscriber, options, busy, status, onSubmit, onC
         </fieldset>
       )}
 
-      {(isAdd || resubscribing) && (
+      {(isAdd || isPublish || resubscribing) && (
         <label className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
           <input
             type="checkbox"
@@ -331,16 +342,16 @@ function SubscriberForm({ mode, subscriber, options, busy, status, onSubmit, onC
             onChange={(event) => setConsent(event.target.checked)}
           />
           <span>
-            {isAdd
-              ? 'This person agreed to receive these emails (for example, they asked in person or by email).'
-              : 'This person asked to receive emails again after unsubscribing.'}
+            {resubscribing
+              ? 'This person asked to receive emails again after unsubscribing.'
+              : 'This person agreed to receive these emails (for example, they asked in person or by email).'}
           </span>
         </label>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
         <button type="submit" className={PRIMARY_BUTTON} disabled={busy}>
-          {busy ? 'Saving...' : isAdd ? 'Add to mailing list' : 'Save changes'}
+          {busy ? 'Saving...' : isAdd ? 'Add to mailing list' : isPublish ? 'Publish to mailing list' : 'Save changes'}
         </button>
         <button type="button" className={SECONDARY_BUTTON} disabled={busy} onClick={onCancel}>
           Cancel
@@ -384,13 +395,16 @@ function SubscriberRow({ subscriber, areaTitles, onEdit, editing, canWrite }) {
           {areas ? ` · Study areas: ${areas}` : ''}
         </p>
         {subscriber.notes && <p className="text-xs italic text-gray-500">Note: {subscriber.notes}</p>}
+        {subscriber.status === UNPUBLISHED_STATUS && (
+          <p className="text-xs text-orange-800">Added in Sanity Studio but never published, so they get no emails.</p>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-3">
         {subscriber.updatedAt && (
           <span className="text-xs text-gray-500">Updated {formatDate(subscriber.updatedAt)}</span>
         )}
         <button type="button" className={SMALL_BUTTON} onClick={onEdit} aria-expanded={editing} disabled={!canWrite}>
-          {editing ? 'Close' : 'Edit'}
+          {editing ? 'Close' : subscriber.status === UNPUBLISHED_STATUS ? 'Review' : 'Edit'}
         </button>
       </div>
     </div>
@@ -448,7 +462,7 @@ export default function SubscriberManager() {
   )
 
   const counts = useMemo(() => {
-    const result = { all: items.length, active: 0, suppressed: 0, unsubscribed: 0 }
+    const result = { all: items.length, active: 0, suppressed: 0, unsubscribed: 0, [UNPUBLISHED_STATUS]: 0 }
     for (const item of items) result[item.status] += 1
     return result
   }, [items])
@@ -491,6 +505,16 @@ export default function SubscriberManager() {
         setItems((current) => [result.subscriber, ...current])
         setEditor(null)
         setNotice({ type: 'success', message: `Added ${result.subscriber.email} to the mailing list.` })
+      } else if (editor.mode === 'publish') {
+        const draft = items.find((item) => item._id === editor.id)
+        const { status: _status, ...subscriber } = payload
+        const result = await requestJson(API, {
+          method: 'PATCH',
+          body: { action: 'publish', id: draft._id, rev: draft._rev, subscriber, consentConfirmed },
+        })
+        setItems((current) => current.map((item) => (item._id === draft._id ? result.subscriber : item)))
+        setEditor(null)
+        setNotice({ type: 'success', message: `Published ${result.subscriber.email}. They are now on the mailing list.` })
       } else {
         const subscriber = items.find((item) => item._id === editor.id)
         const changes = changedFields(toPayload(formFromSubscriber(subscriber)), payload)
@@ -530,14 +554,16 @@ export default function SubscriberManager() {
     setStatusFilter('all')
     setTypeFilter('all')
     setVisibleCount(RENDER_STEP)
-    openEditor(match ? { mode: 'edit', id: match._id } : null)
+    openEditor(match ? { mode: match.status === UNPUBLISHED_STATUS ? 'publish' : 'edit', id: match._id } : null)
   }
 
   async function deleteSubscriber() {
     const subscriber = items.find((item) => item._id === editor?.id)
     if (!subscriber) return
     const confirmed = window.confirm(
-      `Delete ${subscriber.email} permanently?\n\nThis removes their details and preferences. To stop emails but keep a record that they opted out, set their status to Unsubscribed instead.`
+      subscriber.status === UNPUBLISHED_STATUS
+        ? `Delete the unpublished record for ${subscriber.email}?\n\nThey are not on the mailing list, so this only removes the record.`
+        : `Delete ${subscriber.email} permanently?\n\nThis removes their details and preferences. To stop emails but keep a record that they opted out, set their status to Unsubscribed instead.`
     )
     if (!confirmed) return
     setBusy(true)
@@ -565,8 +591,17 @@ export default function SubscriberManager() {
             choices with the link at the bottom of every email.
           </p>
           <p className="text-sm text-gray-500">
-            {counts.all} in total: {counts.active} active, {counts.suppressed} suppressed, {counts.unsubscribed} unsubscribed.
+            {counts.all - counts[UNPUBLISHED_STATUS]} on the list: {counts.active} active, {counts.suppressed} suppressed,{' '}
+            {counts.unsubscribed} unsubscribed.
           </p>
+          {counts[UNPUBLISHED_STATUS] > 0 && (
+            <p className="text-sm text-orange-800">
+              {counts[UNPUBLISHED_STATUS] === 1
+                ? '1 more person was added in Sanity Studio but never published, so they get no emails.'
+                : `${counts[UNPUBLISHED_STATUS]} more people were added in Sanity Studio but never published, so they get no emails.`}{' '}
+              Review them to publish or delete.
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -634,6 +669,7 @@ export default function SubscriberManager() {
           {SUBSCRIBER_STATUS_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>{option.title}</option>
           ))}
+          {counts[UNPUBLISHED_STATUS] > 0 && <option value={UNPUBLISHED_STATUS}>Not published</option>}
         </select>
         <label className="sr-only" htmlFor="subscriber-type-filter">Email type</label>
         <select
@@ -663,7 +699,7 @@ export default function SubscriberManager() {
           </p>
           <ul className="divide-y divide-black/5 border-y border-black/5">
             {visible.map((subscriber) => {
-              const editing = editor?.mode === 'edit' && editor.id === subscriber._id
+              const editing = editor?.mode !== 'add' && editor?.id === subscriber._id
               return (
                 <li key={subscriber._id}>
                   <SubscriberRow
@@ -671,13 +707,19 @@ export default function SubscriberManager() {
                     areaTitles={areaTitles}
                     editing={editing}
                     canWrite={canWrite}
-                    onEdit={() => openEditor(editing ? null : { mode: 'edit', id: subscriber._id })}
+                    onEdit={() =>
+                      openEditor(
+                        editing
+                          ? null
+                          : { mode: subscriber.status === UNPUBLISHED_STATUS ? 'publish' : 'edit', id: subscriber._id }
+                      )
+                    }
                   />
                   {editing && (
                     <div className="pb-4">
                       <SubscriberForm
                         key={subscriber._rev}
-                        mode="edit"
+                        mode={editor.mode}
                         subscriber={subscriber}
                         options={options}
                         busy={busy}
