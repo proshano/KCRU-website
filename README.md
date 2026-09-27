@@ -13,7 +13,7 @@ This repository holds the code for [londonkidney.ca](https://londonkidney.ca), t
 ## AI and privacy
 
 - AI writes the publication summaries, tags, and search engine descriptions, which appear without review. It also drafts study summaries and posts on X, which staff review first, and it runs the trial assistant.
-- The trial assistant does not save conversations, but it sends them to an outside AI service to generate replies. It does not remove identifying information, so users should describe the patient without names, birth dates, or record numbers.
+- The trial assistant does not save conversations, but it sends them to an outside AI service to generate replies.
 - The site stores what people submit through its forms (subscriptions, contact messages, and referrals), with the sender's IP address and browser type. See the [privacy statement](https://londonkidney.ca/privacy).
 
 ## For staff
