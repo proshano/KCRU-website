@@ -78,6 +78,35 @@ test('OpenAlex requests use the field:direction sort syntax the API accepts', as
   assert.ok(!requestedUrls[0].includes('-publication_date'))
 })
 
+test('OpenAlex discovery skips repository-hosted copies so the journal version is not duplicated', async () => {
+  const shared = {
+    type: 'article',
+    publication_date: '2026-03-01',
+    publication_year: 2026,
+    display_name: 'CRT-Estimands Framework',
+    authorships: [{ author: { display_name: 'Jane Smith' } }],
+  }
+  const repositoryWork = {
+    ...shared,
+    doi: 'https://doi.org/10.17615/vcsn-dr67',
+    primary_location: { source: { type: 'repository', display_name: 'Carolina Digital Repository' } },
+  }
+  const journalWork = {
+    ...shared,
+    doi: 'https://doi.org/10.1136/bmj-2025-089050',
+    primary_location: { source: { type: 'journal', display_name: 'BMJ' } },
+  }
+  const fetchFn = async () => new Response(JSON.stringify({ results: [repositoryWork, journalWork] }), { status: 200 })
+
+  const publications = await fetchOpenAlexPublications(
+    { name: 'Jane Smith', orcid: '0000-0001-2345-6789' },
+    { fetchFn, sinceYear: 2025 }
+  )
+
+  assert.equal(publications.length, 1)
+  assert.equal(publications[0].doi, '10.1136/bmj-2025-089050')
+})
+
 test('OpenAlex discovery still runs when no API key is configured', async () => {
   let calls = 0
   const fetchFn = async () => {
