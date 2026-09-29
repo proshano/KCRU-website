@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 import { evaluate, parse } from 'groq-js'
 
@@ -86,7 +87,8 @@ function sourceFiles(dir) {
 }
 
 test('every other subscriber query goes through the published filter', () => {
-  const root = new URL('..', import.meta.url).pathname
+  // fileURLToPath decodes the URL; .pathname keeps spaces as %20 and the scan fails.
+  const root = fileURLToPath(new URL('..', import.meta.url))
   const offenders = [...sourceFiles(join(root, 'app')), ...sourceFiles(join(root, 'lib'))]
     .map((path) => relative(root, path))
     .filter((path) => !HANDLES_DRAFTS_ITSELF.has(path))
