@@ -53,12 +53,14 @@ test('PubMed efetch preserves structured author, ORCID, and affiliation evidence
       family: 'Smith',
       displayName: 'Jane A. Smith',
       orcid: 'https://orcid.org/0000-0001-2345-6789',
+      orcidSource: 'pubmed',
       affiliations: ['Western University, London, Ontario.'],
     }, {
       given: 'Matthew A',
       family: 'Weir',
       displayName: 'Matthew A Weir',
       orcid: null,
+      orcidSource: null,
       affiliations: [],
       role: 'investigator',
     }])

@@ -24,7 +24,11 @@ function evidenceLines(review) {
   if (evidence.recurringCoauthors?.length) {
     lines.push(`Recurring coauthors: ${evidence.recurringCoauthors.join(', ')}`)
   }
-  if (evidence.matchedOrcid) lines.push(`Candidate ORCID: ${evidence.matchedOrcid}`)
+  if (evidence.matchedOrcid) {
+    const source = evidence.matchedOrcidSource
+    const label = source === 'openalex' ? 'OpenAlex profile, unverified' : source
+    lines.push(`Candidate ORCID: ${evidence.matchedOrcid}${label ? ` (${label})` : ''}`)
+  }
   if (evidence.queryPaths?.length) lines.push(`Discovery paths: ${evidence.queryPaths.join(', ')}`)
   return lines
 }

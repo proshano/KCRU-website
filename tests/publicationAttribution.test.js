@@ -289,6 +289,76 @@ test('an exact ORCID confirms attribution but a missing ORCID remains optional',
   assert.equal(missing.decision, 'hold')
 })
 
+const gargResearcher = { _id: 'researcher-1', name: 'Amit Garg', orcid: '0000-0003-3398-3114' }
+const lhscFingerprint = {
+  researcher: gargResearcher,
+  confirmedPublicationKeys: new Set(),
+  coauthorCounts: new Map(),
+  knownAffiliations: new Set(['london health sciences centre']),
+}
+
+function gargPublication(source, authorOverrides = {}) {
+  return {
+    source,
+    attributionAuthors: [{
+      displayName: 'Amit X. Garg',
+      given: 'Amit X.',
+      family: 'Garg',
+      orcid: '0000-0003-3398-3114',
+      affiliations: ['Icahn School of Medicine at Mount Sinai'],
+      ...authorOverrides,
+    }],
+  }
+}
+
+function evaluateGarg(publication) {
+  return evaluatePublicationAttribution({ researcher: gargResearcher, fingerprint: lhscFingerprint, publication })
+}
+
+test('an ORCID reported by OpenAlex is held unless a known affiliation or coauthors corroborate it', () => {
+  const namesake = evaluateGarg(gargPublication('openalex', { orcidSource: 'openalex' }))
+  assert.equal(namesake.decision, 'hold')
+  assert.equal(namesake.evidence.hasExactOrcid, false)
+  assert.equal(namesake.evidence.hasUnverifiedOrcid, true)
+  assert.equal(namesake.evidence.matchedOrcidSource, 'openalex')
+  assert.match(namesake.reason, /OpenAlex/)
+
+  const knownAffiliation = evaluateGarg(gargPublication('openalex', {
+    orcidSource: 'openalex',
+    affiliations: ['London Health Sciences Centre, London, ON'],
+  }))
+  assert.equal(knownAffiliation.decision, 'confirmed')
+  assert.equal(knownAffiliation.reason, 'OpenAlex ORCID plus known affiliation')
+
+  const publisherOrcid = evaluateGarg(gargPublication('openalex', { orcidSource: 'crossref' }))
+  assert.equal(publisherOrcid.decision, 'confirmed')
+  assert.equal(publisherOrcid.reason, 'exact author ORCID')
+  assert.equal(publisherOrcid.evidence.hasExactOrcid, true)
+})
+
+test('an untagged ORCID inherits the trust of the publication source', () => {
+  assert.equal(evaluateGarg(gargPublication('openalex')).decision, 'hold')
+  assert.equal(evaluateGarg(gargPublication('crossref')).decision, 'confirmed')
+})
+
+test('an unverified ORCID does not change the existing decision table', () => {
+  assert.equal(decideAttributionEvidence({ hasUnverifiedOrcid: true, nameKind: 'full' }).decision, 'hold')
+  assert.equal(decideAttributionEvidence({
+    hasUnverifiedOrcid: true,
+    nameKind: 'full',
+    hasAffiliationMatch: true,
+  }).decision, 'confirmed')
+  assert.equal(decideAttributionEvidence({
+    hasUnverifiedOrcid: true,
+    nameKind: 'full',
+    recurringCoauthors: 2,
+  }).decision, 'confirmed')
+  assert.deepEqual(
+    decideAttributionEvidence({ hasExactOrcid: true, nameKind: 'abbreviated' }),
+    { decision: 'confirmed', reason: 'exact author ORCID' }
+  )
+})
+
 test('review document ids are deterministic per researcher and canonical publication key', () => {
   assert.equal(
     getPublicationAttributionReviewId('researcher-1', { doi: '10.1000/ABC' }),

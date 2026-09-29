@@ -4,6 +4,7 @@ const attributionAuthorFields = [
   { name: 'displayName', type: 'string', title: 'Display name' },
   { name: 'role', type: 'string', title: 'Contributor role' },
   { name: 'orcid', type: 'string', title: 'ORCID' },
+  { name: 'orcidSource', type: 'string', title: 'ORCID source' },
   { name: 'affiliations', type: 'array', of: [{ type: 'string' }], title: 'Affiliations' },
 ]
 
@@ -82,7 +83,9 @@ const publicationAttributionReview = {
         { name: 'isPubmedConfirmed', type: 'boolean', title: 'PubMed confirmed' },
         { name: 'expectedOrcid', type: 'string', title: 'Expected ORCID' },
         { name: 'matchedOrcid', type: 'string', title: 'Matched ORCID' },
+        { name: 'matchedOrcidSource', type: 'string', title: 'Matched ORCID source' },
         { name: 'hasExactOrcid', type: 'boolean', title: 'Exact ORCID' },
+        { name: 'hasUnverifiedOrcid', type: 'boolean', title: 'ORCID reported by OpenAlex only' },
         { name: 'hasConflictingOrcid', type: 'boolean', title: 'Conflicting ORCID' },
         { name: 'hasNameConflict', type: 'boolean', title: 'Conflicting author name' },
         { name: 'nameKind', type: 'string', title: 'Name form' },

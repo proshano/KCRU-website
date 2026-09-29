@@ -9,6 +9,7 @@ import {
   filterRejectedProvenance,
   mergeApprovedReviewSnapshots,
   resolveAutomaticallyConfirmedAttributionReviews,
+  sweepCoauthorAttributions,
   upsertPublicationAttributionCandidates,
   vetPubmedAttributions,
 } from '../lib/publicationAttributionReview.js'
@@ -218,6 +219,82 @@ test('a pending PubMed namesake cannot be automatically approved or restored by 
     requireAttribution: true,
   })
   assert.deepEqual(retained.publications, [])
+})
+
+function coauthor(overrides = {}) {
+  return { _id: 'researcher-2', name: 'John Doe', orcid: '0000-0002-1825-0097', publicationExclusions: [], ...overrides }
+}
+
+const decisiveCoauthor = { given: 'John', family: 'Doe', orcid: '0000-0002-1825-0097', orcidSource: 'crossref' }
+const nameOnlyCoauthor = { given: 'John', family: 'Doe' }
+
+function coauthorPaper(coauthorEntry, overrides = {}) {
+  return publication({ attributionAuthors: [{ given: 'Jane', family: 'Smith' }, coauthorEntry], ...overrides })
+}
+
+function sweep(options = {}) {
+  return sweepCoauthorAttributions({
+    publications: [coauthorPaper(decisiveCoauthor)],
+    provenance: { 'doi:10.1000/candidate': ['researcher-1'] },
+    researchers: [researcher(), coauthor()],
+    ...options,
+  })
+}
+
+test('the coauthor sweep attributes a paper to a second researcher with decisive evidence', () => {
+  const result = sweep()
+  assert.deepEqual(result.additions, { 'doi:10.1000/candidate': ['researcher-2'] })
+  assert.deepEqual(result.candidates, [])
+  assert.equal(result.stats.evaluated, 1)
+  assert.equal(result.stats.confirmed, 1)
+})
+
+test('the coauthor sweep holds a name-only coauthor for review instead of publishing it', () => {
+  const result = sweep({ publications: [coauthorPaper(nameOnlyCoauthor)] })
+  assert.deepEqual(result.additions, {})
+  assert.equal(result.candidates.length, 1)
+  assert.equal(result.candidates[0].researcher._id, 'researcher-2')
+  assert.equal(result.candidates[0].evaluation.decision, 'hold')
+  assert.equal(result.stats.held, 1)
+})
+
+test('the coauthor sweep never treats a coauthor as a PubMed-confirmed hit', () => {
+  const result = sweep({
+    publications: [coauthorPaper(nameOnlyCoauthor, { source: 'pubmed', sources: ['pubmed'] })],
+  })
+  assert.deepEqual(result.additions, {})
+  assert.equal(result.candidates.length, 1)
+  assert.equal(result.candidates[0].evaluation.decision, 'hold')
+  assert.equal(result.candidates[0].evaluation.evidence.isPubmedConfirmed, false)
+})
+
+test('the coauthor sweep skips carried-forward, excluded, rejected and degraded researchers', () => {
+  for (const options of [
+    { existingProvenance: { 'doi:10.1000/candidate': ['researcher-2'] } },
+    { researchers: [researcher(), coauthor({ publicationExclusions: ['doi:10.1000/candidate'] })] },
+    { reviews: [review('rejected', { researcher: coauthor() })] },
+    { skipResearcherIds: ['researcher-2'] },
+  ]) {
+    const result = sweep(options)
+    const label = Object.keys(options).join()
+    assert.deepEqual(result.additions, {}, label)
+    assert.deepEqual(result.candidates, [], label)
+  }
+})
+
+test('the coauthor sweep ignores researchers who are not on the byline', () => {
+  const result = sweep({ publications: [coauthorPaper({ given: 'Jonathan', family: 'Doe' })] })
+  assert.equal(result.stats.evaluated, 0)
+  assert.deepEqual(result.candidates, [])
+})
+
+test('the coauthor sweep resolves a pending review that gains decisive evidence', () => {
+  const pending = review('pending', { researcher: coauthor() })
+  const result = sweep({ reviews: [pending] })
+  assert.deepEqual(result.additions, { 'doi:10.1000/candidate': ['researcher-2'] })
+  assert.equal(result.resolutions.length, 1)
+  assert.equal(result.resolutions[0].review, pending)
+  assert.equal(result.candidates.length, 1)
 })
 
 test('candidate upserts deduplicate and do not overwrite an existing decision', async () => {
