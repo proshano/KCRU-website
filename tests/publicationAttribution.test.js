@@ -341,6 +341,41 @@ test('an untagged ORCID inherits the trust of the publication source', () => {
   assert.equal(evaluateGarg(gargPublication('crossref')).decision, 'confirmed')
 })
 
+test('a conflicting ORCID from OpenAlex does not block corroborated evidence', () => {
+  const fingerprint = {
+    ...lhscFingerprint,
+    coauthorCounts: new Map([['naylor:k', 2], ['sontrop:j', 2]]),
+  }
+  const corroborated = (orcidSource) => evaluatePublicationAttribution({
+    researcher: gargResearcher,
+    fingerprint,
+    publication: {
+      source: 'openalex',
+      attributionAuthors: [
+        {
+          displayName: 'Amit X. Garg',
+          given: 'Amit X.',
+          family: 'Garg',
+          orcid: '0000-0002-1825-0097',
+          orcidSource,
+          affiliations: ['London Health Sciences Centre, London, ON'],
+        },
+        { given: 'Kyla', family: 'Naylor' },
+        { given: 'Jessica', family: 'Sontrop' },
+      ],
+    },
+  })
+
+  const openAlex = corroborated('openalex')
+  assert.equal(openAlex.decision, 'confirmed')
+  assert.equal(openAlex.evidence.hasConflictingOrcid, false)
+
+  const publisher = corroborated('crossref')
+  assert.equal(publisher.decision, 'hold')
+  assert.equal(publisher.reason, 'matching name has a conflicting author ORCID')
+  assert.equal(publisher.evidence.hasConflictingOrcid, true)
+})
+
 test('an unverified ORCID does not change the existing decision table', () => {
   assert.equal(decideAttributionEvidence({ hasUnverifiedOrcid: true, nameKind: 'full' }).decision, 'hold')
   assert.equal(decideAttributionEvidence({
