@@ -247,6 +247,7 @@ test('the coauthor sweep attributes a paper to a second researcher with decisive
   assert.deepEqual(result.candidates, [])
   assert.equal(result.stats.evaluated, 1)
   assert.equal(result.stats.confirmed, 1)
+  assert.equal(result.stats.carried, 0)
   assert.equal(result.decisions.length, 1)
   assert.equal(result.decisions[0].decision, 'confirmed')
 })
@@ -270,9 +271,8 @@ test('the coauthor sweep never treats a coauthor as a PubMed-confirmed hit', () 
   assert.equal(result.candidates[0].evaluation.evidence.isPubmedConfirmed, false)
 })
 
-test('the coauthor sweep skips carried-forward, excluded, rejected and degraded researchers', () => {
+test('the coauthor sweep skips excluded, rejected and degraded researchers', () => {
   for (const options of [
-    { existingProvenance: { 'doi:10.1000/candidate': ['researcher-2'] } },
     { researchers: [researcher(), coauthor({ publicationExclusions: ['doi:10.1000/candidate'] })] },
     { reviews: [review('rejected', { researcher: coauthor() })] },
     { skipResearcherIds: ['researcher-2'] },
@@ -282,6 +282,26 @@ test('the coauthor sweep skips carried-forward, excluded, rejected and degraded 
     assert.deepEqual(result.additions, {}, label)
     assert.deepEqual(result.candidates, [], label)
   }
+})
+
+test('the coauthor sweep re-confirms a link it added in an earlier run', () => {
+  const result = sweep({ existingProvenance: { 'doi:10.1000/candidate': ['researcher-2'] } })
+  assert.deepEqual(result.additions, { 'doi:10.1000/candidate': ['researcher-2'] })
+  assert.deepEqual(result.candidates, [])
+  assert.equal(result.stats.confirmed, 1)
+  assert.equal(result.stats.carried, 1)
+})
+
+test('a carried-forward pair without decisive evidence is neither re-added nor sent to review', () => {
+  const result = sweep({
+    publications: [coauthorPaper(nameOnlyCoauthor)],
+    existingProvenance: { 'doi:10.1000/candidate': ['researcher-2'] },
+  })
+  assert.deepEqual(result.additions, {})
+  assert.deepEqual(result.candidates, [])
+  assert.equal(result.stats.held, 0)
+  assert.equal(result.decisions.length, 1)
+  assert.equal(result.decisions[0].decision, 'hold')
 })
 
 test('the coauthor sweep ignores researchers who are not on the byline', () => {
