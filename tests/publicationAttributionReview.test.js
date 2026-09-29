@@ -247,6 +247,8 @@ test('the coauthor sweep attributes a paper to a second researcher with decisive
   assert.deepEqual(result.candidates, [])
   assert.equal(result.stats.evaluated, 1)
   assert.equal(result.stats.confirmed, 1)
+  assert.equal(result.decisions.length, 1)
+  assert.equal(result.decisions[0].decision, 'confirmed')
 })
 
 test('the coauthor sweep holds a name-only coauthor for review instead of publishing it', () => {
@@ -285,6 +287,13 @@ test('the coauthor sweep skips carried-forward, excluded, rejected and degraded 
 test('the coauthor sweep ignores researchers who are not on the byline', () => {
   const result = sweep({ publications: [coauthorPaper({ given: 'Jonathan', family: 'Doe' })] })
   assert.equal(result.stats.evaluated, 0)
+  assert.deepEqual(result.candidates, [])
+})
+
+test('the coauthor sweep does not count an investigator-list appearance as coauthorship', () => {
+  const result = sweep({ publications: [coauthorPaper({ ...decisiveCoauthor, role: 'investigator' })] })
+  assert.equal(result.stats.evaluated, 0)
+  assert.deepEqual(result.additions, {})
   assert.deepEqual(result.candidates, [])
 })
 
@@ -332,6 +341,47 @@ test('candidate upserts deduplicate and do not overwrite an existing decision', 
   assert.equal(Object.hasOwn(refreshPatch, 'status'), false)
   assert.equal(Object.hasOwn(refreshPatch, 'reviewedAt'), false)
   assert.equal(Object.hasOwn(refreshPatch, 'lastNotifiedAt'), false)
+})
+
+test('candidate upserts commit in size-bounded batches', async () => {
+  const candidates = ['10.1000/one', '10.1000/two', '10.1000/three'].map((doi) => ({
+    researcher: researcher(),
+    publication: publication({ doi }),
+    evaluation: { reason: 'Needs review.', evidence: {} },
+  }))
+  function batchingClient() {
+    const state = { commits: 0, creates: [] }
+    const writeClient = {
+      config: () => ({ token: 'configured' }),
+      transaction: () => ({
+        createIfNotExists(document) { state.creates.push(document._id); return this },
+        patch() { return this },
+        async commit() { state.commits += 1 },
+      }),
+    }
+    return { state, writeClient }
+  }
+
+  const bounded = batchingClient()
+  const boundedResult = await upsertPublicationAttributionCandidates({
+    writeClient: bounded.writeClient,
+    candidates,
+    maxMutationBytes: 1,
+  })
+  assert.equal(boundedResult.upserted, 3)
+  assert.equal(boundedResult.batches, 3)
+  assert.equal(bounded.state.commits, 3)
+  assert.equal(bounded.state.creates.length, 3)
+
+  const single = batchingClient()
+  const singleResult = await upsertPublicationAttributionCandidates({
+    writeClient: single.writeClient,
+    candidates,
+  })
+  assert.equal(singleResult.upserted, 3)
+  assert.equal(singleResult.batches, 1)
+  assert.equal(single.state.commits, 1)
+  assert.equal(single.state.creates.length, 3)
 })
 
 test('a pending review that gains decisive evidence is resolved before publication', async () => {
