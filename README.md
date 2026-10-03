@@ -5,7 +5,7 @@ This repository holds the code for [londonkidney.ca](https://londonkidney.ca), t
 ## What the site does
 
 - **Publications.** Each morning the site finds new papers by the unit's investigators in PubMed and other databases. An AI model writes a short plain language summary of each one and tags it by topic, study type, and method. If it is unclear whether a paper belongs to one of the investigators, an administrator checks it first.
-- **Studies.** Coordinators add studies through a web form that can copy details from ClinicalTrials.gov, and an administrator approves each one before it appears. Clinicians can refer a patient to a recruiting study by entering their own email address, and the study team replies. The form asks nothing about the patient.
+- **Studies.** Coordinators add studies through a web form that can copy details from ClinicalTrials.gov, and an administrator approves each one before it appears. A study has a team for each site that coordinates it (Victoria Hospital, University Hospital), each with its own investigator and contact, and lists where patients can be seen. Clinicians can refer a patient to a recruiting study by entering their own email address and, when both sites take referrals, choosing which team should reply. The form asks nothing about the patient.
 - **Trial assistant.** Clinicians describe a patient in general terms in a chat window, and the assistant suggests recruiting studies that may fit. The study team confirms eligibility.
 - **Email updates.** Subscribers can receive monthly updates on recruiting studies and occasional news about new publications.
 - **Posts on X.** Staff can draft posts about new papers with AI help and schedule them through Buffer. Nothing is posted without staff approval.

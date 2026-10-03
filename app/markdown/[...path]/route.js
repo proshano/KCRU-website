@@ -1,5 +1,12 @@
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getSiteBaseUrl, normalizeDescription, resolveSiteDescription, resolveSiteTitle } from '@/lib/seo'
+import {
+  listTeamInvestigators,
+  publicTeamContact,
+  recruitmentSiteNames,
+  resolveStudyTeams,
+  teamLabel,
+} from '@/lib/studyTeams'
 
 export const revalidate = 3600
 
@@ -54,6 +61,19 @@ function addList(lines, items) {
     lines.push(`- ${item}`)
   })
   lines.push('')
+}
+
+// "Amit Garg (University Hospital); Jane Doe (Victoria Hospital)"
+function investigatorsLine(trial) {
+  return listTeamInvestigators(resolveStudyTeams(trial))
+    .map((pi) => (pi.siteName ? `${pi.name} (${pi.siteName})` : pi.name))
+    .join('; ')
+}
+
+function addStudyPeople(lines, trial) {
+  const investigators = investigatorsLine(trial)
+  addKeyValue(lines, investigators.includes(';') ? 'Principal investigators' : 'Principal investigator', investigators)
+  addKeyValue(lines, 'Patients can be seen at', recruitmentSiteNames(trial).join(', '))
 }
 
 function normalizeTitle(value, fallback) {
@@ -212,14 +232,13 @@ async function buildTrialsIndexMarkdown() {
     const slug = getSlugValue(trial.slug)
     const status = STATUS_LABELS[trial.status] || trial.status || 'Status TBD'
     const summary = normalizeDescription(trial.seo?.description || trial.laySummary || '', 240)
-    const piName = trial.principalInvestigator?.name || trial.principalInvestigatorName
 
     lines.push(`### ${trial.title}`)
     addKeyValue(lines, 'URL', `${baseUrl}/trials/${slug}`)
     addKeyValue(lines, 'Status', status)
     addKeyValue(lines, 'NCT ID', trial.nctId)
     addKeyValue(lines, 'Sponsor', trial.ctGovData?.sponsor)
-    addKeyValue(lines, 'Principal investigator', piName)
+    addStudyPeople(lines, trial)
     if (summary) addKeyValue(lines, 'Summary', summary)
     addKeyValue(lines, 'ClinicalTrials.gov', trial.ctGovData?.url)
     lines.push('')
@@ -238,7 +257,6 @@ async function buildTrialDetailMarkdown(slug) {
     trial.laySummary || trial.ctGovData?.briefSummary || trial.seo?.description || '',
     400
   )
-  const piName = trial.principalInvestigator?.name || trial.principalInvestigatorName
 
   const lines = []
   lines.push(`# ${trial.title}`)
@@ -247,7 +265,7 @@ async function buildTrialDetailMarkdown(slug) {
   addKeyValue(lines, 'Status', status)
   addKeyValue(lines, 'NCT ID', trial.nctId)
   addKeyValue(lines, 'Sponsor', trial.ctGovData?.sponsor)
-  addKeyValue(lines, 'Principal investigator', piName)
+  addStudyPeople(lines, trial)
   addKeyValue(lines, 'ClinicalTrials.gov', trial.ctGovData?.url)
   addKeyValue(lines, 'Study website', trial.sponsorWebsite)
   lines.push('')
@@ -273,21 +291,24 @@ async function buildTrialDetailMarkdown(slug) {
     }
   }
 
-  const contact = trial.localContact || {}
-  const contactDetails = []
-  if (contact?.displayPublicly !== false) {
-    if (contact?.name) contactDetails.push(`Name: ${contact.name}`)
-    if (contact?.role) contactDetails.push(`Role: ${contact.role}`)
-    if (contact?.email) contactDetails.push(`Email: ${contact.email}`)
-    if (contact?.phone) contactDetails.push(`Phone: ${contact.phone}`)
-  }
-  if (contactDetails.length) {
+  // Only contacts a team chose to display; one block per team.
+  const contactBlocks = resolveStudyTeams(trial)
+    .map((team) => ({ team, contact: publicTeamContact(team) }))
+    .filter(({ contact }) => contact)
+  if (contactBlocks.length) {
     lines.push('## Contact')
     lines.push('')
-    contactDetails.forEach((detail) => {
-      lines.push(`- ${detail}`)
+    contactBlocks.forEach(({ team, contact }) => {
+      const site = teamLabel(team)
+      if (site) {
+        lines.push(`### ${site} team`)
+      }
+      if (contact.name) lines.push(`- Name: ${contact.name}`)
+      if (contact.role) lines.push(`- Role: ${contact.role}`)
+      if (contact.email) lines.push(`- Email: ${contact.email}`)
+      if (contact.phone) lines.push(`- Phone: ${contact.phone}`)
+      lines.push('')
     })
-    lines.push('')
   }
 
   return finalizeMarkdown(lines)

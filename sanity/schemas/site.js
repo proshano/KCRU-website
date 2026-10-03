@@ -62,6 +62,22 @@ const site = {
       ]
     },
     {
+      name: 'coordinatesStudies',
+      title: 'Coordinates studies',
+      type: 'boolean',
+      initialValue: false,
+      description:
+        'This site runs studies with its own principal investigators, coordinators and startup fees (for example Victoria Hospital or University Hospital). A study has one team per coordinating site.'
+    },
+    {
+      name: 'recruitsPatients',
+      title: 'Patients can be enrolled here',
+      type: 'boolean',
+      initialValue: false,
+      description:
+        'Patients can be seen and enrolled for studies at this location (for example Westmount / Kidney Care Centre). Separate from who coordinates the study.'
+    },
+    {
       name: 'active',
       title: 'Active Site?',
       type: 'boolean',
@@ -85,12 +101,15 @@ const site = {
       title: 'name',
       type: 'type',
       city: 'city',
-      active: 'active'
+      active: 'active',
+      coordinatesStudies: 'coordinatesStudies',
+      recruitsPatients: 'recruitsPatients'
     },
-    prepare({ title, type, city, active }) {
+    prepare({ title, type, city, active, coordinatesStudies, recruitsPatients }) {
+      const roles = [coordinatesStudies && 'coordinates studies', recruitsPatients && 'enrols patients'].filter(Boolean)
       return {
         title: active ? title : `${title} (inactive)`,
-        subtitle: `${type?.replace('_', ' ')} • ${city || ''}`
+        subtitle: [type?.replace('_', ' '), city, roles.join(', ')].filter(Boolean).join(' • ')
       }
     }
   }

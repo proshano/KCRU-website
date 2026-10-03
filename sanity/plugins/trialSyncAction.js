@@ -92,7 +92,7 @@ function TrialSyncAction(props) {
         })
       } else {
         // For existing documents, patch only synced fields
-        // This preserves manually-set fields like therapeuticAreas, principalInvestigator, status, localContact, slug, etc.
+        // This preserves manually-set fields like therapeuticAreas, siteTeams, recruitmentSites, status, slug, etc.
         
         // Check if slug is missing and auto-generate if needed
         const existingSlug = doc?.slug?.current

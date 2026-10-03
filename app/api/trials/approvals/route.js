@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
-import { sanityFetch, writeClient } from '@/lib/sanity'
+import { STUDY_STAFF_PROJECTION, sanityFetch, writeClient } from '@/lib/sanity'
+import { fetchSites } from '@/lib/sites'
 import { sanitizeString } from '@/lib/studySubmissions'
 import { getScopedAdminSession } from '@/lib/adminSessions'
 import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { handleRejectedSubmission, reviewSubmission } from '@/lib/studyApprovals'
+import { revalidateStudyPages } from '@/lib/studyRevalidation'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 
 const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
@@ -35,7 +37,7 @@ export async function GET(request) {
     const freshFetch = writeClient.config().token
       ? (query, params) => writeClient.fetch(query, params)
       : sanityFetch
-    const [submissionsRaw, areasRaw, researchersRaw] = await Promise.all([
+    const [submissionsRaw, areasRaw, researchersRaw, sites] = await Promise.all([
       freshFetch(`
         *[_type == "studySubmission"] | order(submittedAt desc) {
           _id,
@@ -47,13 +49,7 @@ export async function GET(request) {
           payload,
           "studyId": studyRef._ref,
           "supersedesCount": count(*[_type == "studySubmission" && supersededBy._ref == ^._id]),
-          "study": studyRef->{
-            _id,
-            title,
-            "slug": slug.current,
-            status,
-            nctId
-          }
+          "study": studyRef->{ ${STUDY_STAFF_PROJECTION} }
         }
       `),
       freshFetch(`
@@ -67,9 +63,11 @@ export async function GET(request) {
         *[_type == "researcher"] | order(name asc) {
           _id,
           name,
-          slug
+          slug,
+          "primarySiteId": primarySite._ref
         }
       `),
+      fetchSites(freshFetch),
     ])
 
     const seenStudyIds = new Set()
@@ -90,6 +88,7 @@ export async function GET(request) {
         meta: {
           areas: areasRaw || [],
           researchers: researchersRaw || [],
+          sites,
         },
       },
       { headers: CORS_HEADERS }
@@ -155,9 +154,11 @@ export async function PATCH(request) {
       } catch (error) {
         console.error('[approvals] rejection email failed', error)
       }
+    } else {
+      revalidateStudyPages(result.slug)
     }
 
-    return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })
+    return NextResponse.json({ ok: true, reinstated: result.reinstated || null }, { headers: CORS_HEADERS })
   } catch (error) {
     console.error('[approvals] PATCH failed', error)
     return NextResponse.json(

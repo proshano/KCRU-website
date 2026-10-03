@@ -41,6 +41,15 @@ const researcher = {
       description: 'Clinical Investigator, PhD Scientist, or Research Staff (coordinators/assistants).'
     },
     {
+      name: 'primarySite',
+      title: 'Primary Study Site',
+      type: 'reference',
+      to: [{ type: 'site' }],
+      options: { filter: 'coordinatesStudies == true && active == true' },
+      description:
+        'The site this investigator runs studies from. Used only as the default when they are chosen as a study team\'s PI; a team can still choose another site.'
+    },
+    {
       name: 'photo',
       title: 'Photo',
       type: 'image',

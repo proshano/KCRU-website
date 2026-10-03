@@ -5,10 +5,59 @@ import { escapeHtml } from '@/lib/escapeHtml'
 import { getClientIp } from '@/lib/httpUtils'
 import { sanitizeString } from '@/lib/inputUtils'
 import { verifyRecaptcha } from '@/lib/recaptcha'
+import { claimSecurityRateLimit, getRateLimitResponseDetails } from '@/lib/securityRateLimit'
+import { pickReferralTeam, resolveStudyTeams, teamInvestigatorName, teamLabel } from '@/lib/studyTeams'
 
 const MIN_FORM_TIME_MS = 800
+const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000
+const MAX_REFERRALS_PER_ORIGIN = 5
+const GLOBAL_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000
+const MAX_REFERRALS_GLOBAL = 120
 
-async function storeReferral({ providerEmail, study, headers }) {
+const TEAM_ERRORS = {
+  none: 'This study is not accepting referrals.',
+  choose: 'Choose which study team should follow up.',
+  not_found: 'That study team is not accepting referrals. Reload the page and try again.',
+}
+
+// The limiter keeps its claims in Sanity like every other public write on the
+// site. Without a write token (local development) referrals are not stored
+// either, so the limiter is skipped rather than failing every request.
+async function enforceRateLimit(headers) {
+  if (!writeClient.config().token) return null
+  try {
+    await claimSecurityRateLimit({
+      namespace: 'referral-origin',
+      key: getClientIp(headers),
+      limit: MAX_REFERRALS_PER_ORIGIN,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+      minimumIntervalMs: 2000,
+    })
+    await claimSecurityRateLimit({
+      namespace: 'referral-global',
+      key: 'all-public-callers',
+      limit: MAX_REFERRALS_GLOBAL,
+      windowMs: GLOBAL_RATE_LIMIT_WINDOW_MS,
+      minimumIntervalMs: 250,
+    })
+    return null
+  } catch (error) {
+    const rateLimit = getRateLimitResponseDetails(error)
+    if (!rateLimit) {
+      console.error('[referral] rate-limit check failed', error)
+      return NextResponse.json(
+        { error: 'Referrals are temporarily unavailable. Please try again shortly.' },
+        { status: 503 }
+      )
+    }
+    return NextResponse.json(
+      { error: rateLimit.message },
+      { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfter) } }
+    )
+  }
+}
+
+async function storeReferral({ providerEmail, study, team, headers }) {
   if (!writeClient.config().token) {
     console.warn('SANITY_API_TOKEN missing; skipping studyReferral storage.')
     return null
@@ -20,6 +69,11 @@ async function storeReferral({ providerEmail, study, headers }) {
     providerEmail,
     study: { _type: 'reference', _ref: study._id },
     studyTitle: study.title,
+    team: {
+      teamKey: team._key,
+      siteId: team.site?._id || '',
+      siteName: teamLabel(team),
+    },
     status: 'new',
     submittedAt: now,
     meta: {
@@ -29,16 +83,19 @@ async function storeReferral({ providerEmail, study, headers }) {
   })
 }
 
-async function sendReferralNotification({ providerEmail, study, coordinatorEmail }) {
+async function sendReferralNotification({ providerEmail, study, team }) {
   const submittedAt = new Date().toISOString()
-  const subject = `Study Referral - ${study.title}`
-  
+  const siteName = teamLabel(team)
+  const teamName = siteName ? `${siteName} team` : 'study team'
+  const subject = siteName ? `Study Referral - ${study.title} (${siteName} team)` : `Study Referral - ${study.title}`
+
   const text = [
     `Study Referral Request`,
     '',
-    `A healthcare provider has requested to discuss a potential patient referral for this study.`,
+    `A healthcare provider has requested to discuss a potential patient referral for this study with the ${teamName}.`,
     '',
     `Study: ${study.title}`,
+    siteName ? `Team: ${siteName}` : null,
     `From: ${providerEmail}`,
     `Submitted: ${submittedAt}`,
     '',
@@ -46,16 +103,17 @@ async function sendReferralNotification({ providerEmail, study, coordinatorEmail
     '',
     '—',
     'Sent via londonkidney.ca'
-  ].join('\n')
+  ].filter((line) => line !== null).join('\n')
 
   const html = `
     <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.5;">
       <p style="margin: 0 0 16px; font-size: 16px;"><strong>Study Referral Request</strong></p>
       <p style="margin: 0 0 16px;">
-        A healthcare provider has requested to discuss a potential patient referral for this study.
+        A healthcare provider has requested to discuss a potential patient referral for this study with the ${escapeHtml(teamName)}.
       </p>
       <p style="margin: 0 0 16px;">
         <strong>Study:</strong> ${escapeHtml(study.title)}<br/>
+        ${siteName ? `<strong>Team:</strong> ${escapeHtml(siteName)}<br/>` : ''}
         <strong>From:</strong> ${escapeHtml(providerEmail)}<br/>
         <strong>Submitted:</strong> ${escapeHtml(submittedAt)}
       </p>
@@ -69,7 +127,7 @@ async function sendReferralNotification({ providerEmail, study, coordinatorEmail
 
   try {
     const result = await sendEmail({
-      to: coordinatorEmail,
+      to: team.contact.email,
       subject,
       text,
       html,
@@ -100,6 +158,7 @@ export async function POST(request) {
   const {
     email,
     studySlug,
+    teamKey,
     isProvider,
     recaptchaToken,
     honeypot,
@@ -138,13 +197,16 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Please wait a moment before submitting.' }, { status: 400 })
   }
 
+  const rateLimited = await enforceRateLimit(headers)
+  if (rateLimited) return rateLimited
+
   // reCAPTCHA verification
   const recaptchaResult = await verifyRecaptcha(recaptchaToken)
   if (!recaptchaResult.success) {
     return NextResponse.json({ error: 'reCAPTCHA validation failed.' }, { status: 400 })
   }
 
-  // Fetch study and coordinator info
+  // Fetch the study with every team's contact (server-only projection)
   const studyRaw = await sanityFetch(queries.trialCoordinator, { slug: trimmedSlug })
   const study = JSON.parse(JSON.stringify(studyRaw || {}))
 
@@ -152,32 +214,33 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Study not found.' }, { status: 404 })
   }
 
-  if (!study.acceptsReferrals) {
-    return NextResponse.json({ error: 'This study is not accepting referrals.' }, { status: 400 })
+  // Each team decides whether it takes referrals; the clinician picks the team
+  // when more than one does, because referrals are counted per site.
+  const { team, error: teamError } = pickReferralTeam(resolveStudyTeams(study), sanitizeString(teamKey))
+  if (!team) {
+    return NextResponse.json({ error: TEAM_ERRORS[teamError] || TEAM_ERRORS.none }, { status: 400 })
   }
 
-  if (!study.coordinatorEmail) {
-    return NextResponse.json({ error: 'No coordinator email configured for this study.' }, { status: 400 })
+  if (!team.contact?.email) {
+    return NextResponse.json({ error: 'No coordinator email configured for this study team.' }, { status: 400 })
   }
 
-  // Store referral in Sanity
-  await storeReferral({ providerEmail: trimmedEmail, study, headers })
+  await storeReferral({ providerEmail: trimmedEmail, study, team, headers })
 
-  // Send email to coordinator
-  const sendResult = await sendReferralNotification({
-    providerEmail: trimmedEmail,
-    study,
-    coordinatorEmail: study.coordinatorEmail
-  })
+  const sendResult = await sendReferralNotification({ providerEmail: trimmedEmail, study, team })
 
   if (sendResult?.skipped || sendResult?.error) {
     const reason = sendResult?.reason || sendResult?.message || 'Email failed to send.'
     return NextResponse.json({ error: reason }, { status: 500 })
   }
 
+  const siteName = teamLabel(team)
   return NextResponse.json({
     ok: true,
-    message: 'Thank you. The study coordinator will be in touch shortly.'
+    team: { key: team._key, siteName, investigator: teamInvestigatorName(team) },
+    message: siteName
+      ? `Thank you. The ${siteName} team will be in touch shortly.`
+      : 'Thank you. The study coordinator will be in touch shortly.'
   })
 }
 

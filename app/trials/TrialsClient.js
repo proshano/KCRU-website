@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { TrialSection } from './TrialCards'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
+import { listTeamInvestigators, recruitmentSiteNames, resolveStudyTeams } from '@/lib/studyTeams'
 
 /**
  * Normalize text for search - lowercase, remove special chars, collapse spaces
@@ -51,14 +52,15 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
       const therapeuticLabels =
         trial.therapeuticAreas?.map((area) => getTherapeuticAreaLabel(area?.name)).filter(Boolean) || []
       const therapeuticRaw = trial.therapeuticAreas?.map((area) => area?.name).filter(Boolean) || []
+      const teams = resolveStudyTeams(trial)
       // Build a combined searchable text for the trial
       const searchableFields = [
         trial.title,
         trial.nctId,
         trial.ctGovData?.sponsor,
         trial.laySummary,
-        trial.principalInvestigator?.name,
-        trial.principalInvestigatorName,
+        ...listTeamInvestigators(teams).flatMap((pi) => [pi.name, pi.siteName]),
+        ...recruitmentSiteNames(trial),
         ...therapeuticLabels,
         ...therapeuticRaw,
         ...(trial.therapeuticAreas?.map(a => a.shortLabel) || []),

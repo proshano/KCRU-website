@@ -3,6 +3,7 @@ import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
 import { getScopedAdminSession } from '@/lib/adminSessions'
 import { handleRejectedSubmission, reviewSubmission } from '@/lib/studyApprovals'
+import { revalidateStudyPages } from '@/lib/studyRevalidation'
 import { extractBearerToken } from '@/lib/httpUtils'
 
 const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
@@ -65,6 +66,8 @@ export async function GET(request) {
       } catch (error) {
         console.error('[approvals-quick] rejection email failed', error)
       }
+    } else {
+      revalidateStudyPages(result.slug)
     }
 
     return NextResponse.redirect(

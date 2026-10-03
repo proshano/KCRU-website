@@ -1,3 +1,5 @@
+import { studyTeamPayloadFields } from './studyPayloadTeams'
+
 const studySubmission = {
   name: 'studySubmission',
   title: 'Study Submissions',
@@ -107,11 +109,11 @@ const studySubmission = {
         { name: 'inclusionCriteria', title: 'Inclusion Criteria', type: 'array', of: [{ type: 'string' }] },
         { name: 'exclusionCriteria', title: 'Exclusion Criteria', type: 'array', of: [{ type: 'string' }] },
         { name: 'sponsorWebsite', title: 'Study website (if available)', type: 'url' },
-        { name: 'acceptsReferrals', title: 'Accepts Referrals', type: 'boolean' },
+        { name: 'acceptsReferrals', title: 'Accepts Referrals (legacy, now per team)', type: 'boolean' },
         { name: 'featured', title: 'Featured', type: 'boolean' },
         {
           name: 'localContact',
-          title: 'Local Contact',
+          title: 'Local Contact (legacy, now per team)',
           type: 'object',
           fields: [
             { name: 'name', title: 'Name', type: 'string' },
@@ -121,8 +123,9 @@ const studySubmission = {
             { name: 'displayPublicly', title: 'Display Publicly', type: 'boolean' }
           ]
         },
-        { name: 'principalInvestigatorId', title: 'Principal Investigator', type: 'string' },
-        { name: 'principalInvestigatorName', title: 'Principal Investigator (Other)', type: 'string' },
+        { name: 'principalInvestigatorId', title: 'Principal Investigator (legacy, now per team)', type: 'string' },
+        { name: 'principalInvestigatorName', title: 'Principal Investigator (Other, legacy)', type: 'string' },
+        ...studyTeamPayloadFields,
         {
           name: 'ctGovData',
           title: 'ClinicalTrials.gov Data',

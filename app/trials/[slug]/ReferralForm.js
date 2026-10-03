@@ -7,15 +7,16 @@ function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value || '')
 }
 
-export default function ReferralForm({ 
-  acceptsReferrals, 
-  studySlug, 
-  studyTitle, 
-  coordinatorEmail,
-  recaptchaSiteKey 
-}) {
+/**
+ * Referral form for one study. `teams` lists the study teams that take
+ * referrals as { key, label }; with more than one, the clinician chooses which
+ * team follows up, because referrals are counted per site. Contact emails never
+ * reach the browser; the API resolves the team's contact from `teamKey`.
+ */
+export default function ReferralForm({ teams = [], studySlug, recaptchaSiteKey }) {
   const [isOpen, setIsOpen] = useState(false)
   const [email, setEmail] = useState('')
+  const [teamKey, setTeamKey] = useState(teams.length === 1 ? teams[0].key : '')
   const [isProvider, setIsProvider] = useState(false)
   const [honeypot, setHoneypot] = useState('')
   const [loading, setLoading] = useState(false)
@@ -23,8 +24,9 @@ export default function ReferralForm({
   const [captchaReady, setCaptchaReady] = useState(!recaptchaSiteKey)
   const startTimeRef = useRef(Date.now())
 
-  const canSubmit = isValidEmail(email) && isProvider && !loading
-  const isEnabled = acceptsReferrals && coordinatorEmail
+  const needsTeamChoice = teams.length > 1
+  const isEnabled = teams.length > 0
+  const canSubmit = isValidEmail(email) && isProvider && (!needsTeamChoice || teamKey) && !loading
 
   async function getRecaptchaToken() {
     if (!recaptchaSiteKey) return null
@@ -53,6 +55,11 @@ export default function ReferralForm({
       return
     }
 
+    if (needsTeamChoice && !teamKey) {
+      setStatus({ type: 'error', message: 'Choose which study team should follow up.' })
+      return
+    }
+
     if (!isProvider) {
       setStatus({ type: 'error', message: 'You must confirm you are a healthcare provider.' })
       return
@@ -69,6 +76,7 @@ export default function ReferralForm({
         body: JSON.stringify({
           email: email.trim(),
           studySlug,
+          teamKey: teamKey || teams[0]?.key || '',
           isProvider,
           recaptchaToken,
           honeypot,
@@ -99,7 +107,7 @@ export default function ReferralForm({
     setStatus({ type: 'idle', message: '' })
   }
 
-  // Disabled state - not accepting referrals
+  // Disabled state - no team is accepting referrals
   if (!isEnabled) {
     return (
       <button
@@ -158,11 +166,30 @@ export default function ReferralForm({
       )}
 
       <p className="text-sm text-gray-600 mb-4">
-        Enter your email and our study coordinator will contact you within 1-2 business days to discuss the referral. 
+        Enter your email and the study team will contact you within 1-2 business days to discuss the referral.
         This keeps patient information off the website.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {needsTeamChoice && (
+          <fieldset className="space-y-2">
+            <legend className="block text-sm font-medium text-gray-700">Which study team should follow up?</legend>
+            {teams.map((team) => (
+              <label key={team.key} className="flex items-start gap-3 cursor-pointer text-sm text-gray-700">
+                <input
+                  type="radio"
+                  name="referral-team"
+                  value={team.key}
+                  checked={teamKey === team.key}
+                  onChange={() => setTeamKey(team.key)}
+                  className="mt-0.5 h-4 w-4 border-gray-300 text-purple focus:ring-purple/50"
+                />
+                <span>{team.label}</span>
+              </label>
+            ))}
+          </fieldset>
+        )}
+
         <div>
           <label htmlFor="referral-email" className="block text-sm font-medium text-gray-700 mb-1">
             Your email address

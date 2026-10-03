@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { sanityFetch, queries, writeClient } from '@/lib/sanity'
+import { listTeamInvestigators, resolveStudyTeams } from '@/lib/studyTeams'
 import { generateSeoSummary, generateSeoTopics } from '@/lib/summaries'
 import { normalizeDescription } from '@/lib/seo'
 import { getPublicationSeoSnapshot } from '@/lib/publicationsSeo'
@@ -296,14 +297,18 @@ async function runRefresh({ source = 'manual' } = {}) {
 
     for (const trial of staleTrials) {
       const areaNames = (trial.therapeuticAreas || []).map((area) => area?.name).filter(Boolean)
-      const piName = trial.principalInvestigator?.name || trial.principalInvestigatorName
+      const investigators = listTeamInvestigators(resolveStudyTeams(trial)).map((pi) =>
+        pi.siteName ? `${pi.name} (${pi.siteName})` : pi.name
+      )
       const summaryBody = buildSummaryBody([
         trial.laySummary,
         trial.ctGovData?.briefSummary,
         trial.ctGovData?.officialTitle,
         trial.status && `Status: ${trial.status}`,
         areaNames.length ? `Areas: ${areaNames.join(', ')}` : '',
-        piName ? `Principal investigator: ${piName}` : ''
+        investigators.length
+          ? `Principal investigator${investigators.length === 1 ? '' : 's'}: ${investigators.join(', ')}`
+          : ''
       ])
 
       let description = normalizeDescription(summaryBody, SUMMARY_MAX_CHARS)

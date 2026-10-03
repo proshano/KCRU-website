@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { sanityFetch, writeClient } from '@/lib/sanity'
+import { STUDY_STAFF_PROJECTION, sanityFetch, writeClient } from '@/lib/sanity'
+import { fetchSites, resolveSiteIds } from '@/lib/sites'
 import { sendEmail } from '@/lib/email'
 import {
   normalizeStudyPayload,
@@ -8,8 +9,18 @@ import {
   ensureUniqueSlug,
   buildPatchFields,
   buildUnsetFields,
-  buildReferences,
+  buildTrialSummaryDoc,
 } from '@/lib/studySubmissions'
+import { applyStudyPatch } from '@/lib/studyApprovals'
+import { revalidateStudyPages } from '@/lib/studyRevalidation'
+import {
+  formatTeamError,
+  recruitingSites,
+  recruitmentSiteLabels,
+  summarizePayloadTeam,
+  summarizeStudyChanges,
+  validateSiteTeams,
+} from '@/lib/studyTeams'
 import { createAdminTokenSession, getScopedAdminSession, isAdminEmail } from '@/lib/adminSessions'
 import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
@@ -23,6 +34,22 @@ const SITE_BASE_URL = (process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL 
 const APPROVAL_BASE_URL = `${SITE_BASE_URL}/admin/approvals`
 const APPROVAL_SESSION_TTL_HOURS = 72
 const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
+
+// Studies in payload shape plus the latest pending change for each, so the Study
+// Manager can start a coordinator's edit from it instead of overwriting it. The
+// submitter's IP and browser stay approvals-only.
+const STUDY_LIST_QUERY = `
+  *[_type == "trialSummary"] | order(status asc, title asc) {
+    ${STUDY_STAFF_PROJECTION},
+    "pendingSubmission": *[_type == "studySubmission" && status == "pending" && studyRef._ref == ^._id]
+      | order(submittedAt desc)[0]{ _id, submittedAt, "submittedByEmail": submittedBy.email, payload }
+  }
+`
+
+// Reads that must see a submission or approval made seconds ago bypass the CDN.
+function freshFetch(query, params) {
+  return writeClient.config().token ? writeClient.fetch(query, params) : sanityFetch(query, params)
+}
 
 function formatDate(value) {
   if (!value) return 'Unknown'
@@ -69,17 +96,6 @@ function formatListHtml(items) {
   `
 }
 
-function formatLocalContact(contact) {
-  if (!contact) return 'None'
-  const parts = []
-  if (contact.name) parts.push(contact.name)
-  if (contact.role) parts.push(contact.role)
-  if (contact.email) parts.push(contact.email)
-  if (contact.phone) parts.push(contact.phone)
-  parts.push(`Public: ${formatBoolean(contact.displayPublicly)}`)
-  return parts.length ? parts.join(' | ') : 'None'
-}
-
 async function getApprovalAdmins() {
   const settings = await sanityFetch(`
     *[_type == "siteSettings"][0]{
@@ -118,6 +134,38 @@ async function createApprovalSessionLink(email) {
   return `${APPROVAL_BASE_URL}?token=${token}`
 }
 
+async function loadMeta() {
+  const [areas, researchers, sites] = await Promise.all([
+    freshFetch(`
+      *[_type == "therapeuticArea" && active == true] | order(order asc, name asc) {
+        _id,
+        name,
+        shortLabel
+      }
+    `),
+    freshFetch(`
+      *[_type == "researcher"] | order(name asc) {
+        _id,
+        name,
+        slug,
+        "primarySiteId": primarySite._ref
+      }
+    `),
+    fetchSites(freshFetch),
+  ])
+  return { areas: areas || [], researchers: researchers || [], sites }
+}
+
+// The first problem with a payload, worded for the form, or '' when it is valid.
+// Recruitment locations outside the configured sites are dropped silently.
+function validateStudyPayload(payload, sites) {
+  if (!payload.title) return 'Title is required.'
+  const teamErrors = validateSiteTeams(payload.siteTeams, { sites })
+  if (teamErrors.length) return formatTeamError(teamErrors[0], payload.siteTeams, sites)
+  payload.recruitmentSiteIds = resolveSiteIds(payload.recruitmentSiteIds, recruitingSites(sites))
+  return ''
+}
+
 function buildApprovalEmail({
   action,
   approvalLink,
@@ -126,33 +174,30 @@ function buildApprovalEmail({
   submittedAt,
   submittedByEmail,
   supersededCount,
-  therapeuticAreaNames,
-  principalInvestigatorName,
+  meta,
+  changes,
 }) {
   const actionLabel = action === 'update' ? 'Update' : 'New study'
   const submittedAtLabel = formatDate(submittedAt)
-  const inclusionCount = Array.isArray(payload.inclusionCriteria)
-    ? payload.inclusionCriteria.length
-    : 0
-  const exclusionCount = Array.isArray(payload.exclusionCriteria)
-    ? payload.exclusionCriteria.length
-    : 0
-  const inclusionLabel = inclusionCount
-    ? `${inclusionCount} item${inclusionCount === 1 ? '' : 's'}`
-    : 'None'
-  const exclusionLabel = exclusionCount
-    ? `${exclusionCount} item${exclusionCount === 1 ? '' : 's'}`
-    : 'None'
   const inclusionItems = Array.isArray(payload.inclusionCriteria) ? payload.inclusionCriteria.filter(Boolean) : []
   const exclusionItems = Array.isArray(payload.exclusionCriteria) ? payload.exclusionCriteria.filter(Boolean) : []
+  const countLabel = (items) => (items.length ? `${items.length} item${items.length === 1 ? '' : 's'}` : 'None')
 
-  const resolvedAreas =
-    Array.isArray(therapeuticAreaNames) && therapeuticAreaNames.length
-      ? therapeuticAreaNames
-      : payload.therapeuticAreaIds
-  const therapeuticAreaLabel = Array.isArray(resolvedAreas) && resolvedAreas.length
-    ? resolvedAreas.join(', ')
-    : 'None'
+  const areaLabels = new Map(
+    (meta?.areas || []).map((area) => [
+      area._id,
+      area.shortLabel
+        ? `${area.shortLabel} - ${getTherapeuticAreaLabel(area.name)}`
+        : getTherapeuticAreaLabel(area.name),
+    ])
+  )
+  const therapeuticAreaLabel = (payload.therapeuticAreaIds || []).map((id) => areaLabels.get(id) || id).join(', ') || 'None'
+  const teamRows = (payload.siteTeams || []).map((team, index) => {
+    const summary = summarizePayloadTeam(team, index, meta)
+    return [summary.label, summary.summary]
+  })
+  const recruitmentLabel = recruitmentSiteLabels(payload.recruitmentSiteIds, meta?.sites).join(', ') || 'None'
+
   const detailRows = [
     ['Study title', payload.title || 'Untitled'],
     ['Short clinical title', payload.emailTitle || 'None'],
@@ -163,13 +208,12 @@ function buildApprovalEmail({
     ['Phase', payload.phase || 'None'],
     ['Slug', payload.slug || 'None'],
     ['Featured', formatBoolean(payload.featured)],
-    ['Accepts referrals', formatBoolean(payload.acceptsReferrals)],
     ['Therapeutic areas', therapeuticAreaLabel],
-    ['Principal investigator', principalInvestigatorName || payload.principalInvestigatorName || payload.principalInvestigatorId || 'None'],
+    ...teamRows,
+    ['Recruitment locations', recruitmentLabel],
     ['Sponsor website', payload.sponsorWebsite || 'None'],
-    ['Local contact', formatLocalContact(payload.localContact)],
-    ['Inclusion criteria', inclusionLabel],
-    ['Exclusion criteria', exclusionLabel],
+    ['Inclusion criteria', countLabel(inclusionItems)],
+    ['Exclusion criteria', countLabel(exclusionItems)],
   ]
 
   const notes = []
@@ -178,6 +222,10 @@ function buildApprovalEmail({
       `Supersedes ${supersededCount} earlier pending submission${supersededCount === 1 ? '' : 's'}.`
     )
   }
+  // What the approver is deciding on: the differences from the live study.
+  const changeLines = action === 'update'
+    ? (Array.isArray(changes) && changes.length ? changes : ['No differences from the current study.'])
+    : []
 
   const textLines = [
     `Study submission pending approval (${actionLabel})`,
@@ -189,6 +237,7 @@ function buildApprovalEmail({
     '',
     `Open approvals (valid for ${APPROVAL_SESSION_TTL_HOURS} hours): ${approvalLink}`,
     '',
+    ...(changeLines.length ? ['What this submission changes:', ...changeLines.map((line) => `- ${line}`), ''] : []),
     'Study details:',
     ...detailRows.map(([label, value]) => `- ${label}: ${value}`),
     '',
@@ -221,11 +270,17 @@ function buildApprovalEmail({
        </p>`
     : ''
 
+  const changesHtml = changeLines.length
+    ? `<h3 style="margin: 16px 0 6px; font-size: 14px;">What this submission changes</h3>
+       ${formatListHtml(changeLines)}`
+    : ''
+
   const html = `
     <div style="font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; font-size: 14px; color: #111; line-height: 1.5;">
       <h2 style="margin: 0 0 8px;">Study submission pending approval</h2>
       <p style="margin: 0 0 12px; color: #444;">
         <strong>Action:</strong> ${escapeHtml(actionLabel)}<br />
+        <strong>Study:</strong> ${escapeHtml(payload.title || 'Untitled')}<br />
         <strong>Submitted by:</strong> ${escapeHtml(submittedByEmail || 'Unknown')}<br />
         <strong>Submitted at:</strong> ${escapeHtml(submittedAtLabel)}<br />
         <strong>Submission ID:</strong> ${escapeHtml(submissionId || 'Unknown')}
@@ -237,7 +292,8 @@ function buildApprovalEmail({
         </a>
         <span style="margin-left: 8px; color: #666;">Valid for ${APPROVAL_SESSION_TTL_HOURS} hours</span>
       </p>
-      <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+      ${changesHtml}
+      <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; margin-top: 12px;">
         <tbody>
           ${htmlRows}
         </tbody>
@@ -261,37 +317,65 @@ function buildApprovalEmail({
   `
 
   return {
-    subject: `Study submission pending approval: ${actionLabel}`,
+    subject: `Study submission pending approval: ${payload.title || 'Untitled study'} (${actionLabel})`,
     text: textLines.join('\n'),
     html,
   }
 }
 
-async function supersedePendingSubmissions({ submissionId, studyId }) {
-  if (!submissionId || !studyId) {
+// Marks every other pending submission for a study superseded, either by a
+// newer submission (supersededBy) or by an admin publishing directly, which
+// would otherwise leave an older submission live to revert the admin's change.
+async function supersedePendingSubmissions({ studyId, submissionId = '', reviewedBy = '' }) {
+  const baseId = sanitizeString(studyId).replace(/^drafts\./, '')
+  if (!baseId) {
     return { count: 0, promise: Promise.resolve() }
   }
-  const pending = await sanityFetch(
+  const pending = await freshFetch(
     `*[_type == "studySubmission" && status == "pending" && studyRef._ref == $studyId && _id != $submissionId] { _id }`,
-    { studyId, submissionId }
+    { studyId: baseId, submissionId: submissionId || '' }
   )
   if (!Array.isArray(pending) || !pending.length) {
     return { count: 0, promise: Promise.resolve() }
   }
   const supersededAt = new Date().toISOString()
+  const fields = submissionId
+    ? { status: 'superseded', supersededAt, supersededBy: { _type: 'reference', _ref: submissionId } }
+    : { status: 'superseded', supersededAt, reviewedAt: supersededAt, reviewedBy: reviewedBy || 'approval admin' }
   const promise = Promise.allSettled(
-    pending.map((item) =>
-      writeClient
-        .patch(item._id)
-        .set({
-          status: 'superseded',
-          supersededAt,
-          supersededBy: { _type: 'reference', _ref: submissionId },
-        })
-        .commit({ returnDocuments: false })
-    )
+    pending.map((item) => writeClient.patch(item._id).set(fields).commit({ returnDocuments: false }))
   )
   return { count: pending.length, promise }
+}
+
+async function latestPendingSubmission(studyId) {
+  const baseId = sanitizeString(studyId).replace(/^drafts\./, '')
+  if (!baseId) return null
+  const pending = await freshFetch(
+    `*[_type == "studySubmission" && status == "pending" && studyRef._ref == $studyId]
+      | order(submittedAt desc)[0]{ _id, submittedAt, "submittedByEmail": submittedBy.email }`,
+    { studyId: baseId }
+  )
+  return pending?._id ? pending : null
+}
+
+function buildConflictMessage(latestPending) {
+  if (!latestPending) {
+    return 'The pending change you built on has already been reviewed. Reload the study and try again.'
+  }
+  return `This study was changed by ${latestPending.submittedByEmail || 'another coordinator'} on ${formatDate(
+    latestPending.submittedAt
+  )} since you opened it. Reload the study to see their changes before submitting.`
+}
+
+async function fetchCurrentStudy(id) {
+  const cleaned = sanitizeString(id)
+  if (!cleaned) return null
+  const baseId = cleaned.replace(/^drafts\./, '')
+  return freshFetch(
+    `*[_type == "trialSummary" && _id in $ids] | order(_id asc)[0]{ ${STUDY_STAFF_PROJECTION} }`,
+    { ids: [baseId, `drafts.${baseId}`] }
+  )
 }
 
 async function findDuplicateNctId({ nctId, excludeId }) {
@@ -330,69 +414,6 @@ async function resolveTrialId(id) {
   return matches[0]?._id || ''
 }
 
-async function resolvePayloadReferences(payload) {
-  const areaIds = Array.isArray(payload?.therapeuticAreaIds)
-    ? payload.therapeuticAreaIds.filter(Boolean)
-    : []
-  const principalInvestigatorId = payload?.principalInvestigatorId || ''
-  const fallbackPiName = sanitizeString(payload?.principalInvestigatorName)
-  const [areas, pi] = await Promise.all([
-    areaIds.length
-      ? sanityFetch(
-          `*[_type == "therapeuticArea" && _id in $ids]{ _id, name, shortLabel }`,
-          { ids: areaIds }
-        )
-      : Promise.resolve([]),
-    principalInvestigatorId
-      ? sanityFetch(
-          `*[_type == "researcher" && _id == $id][0]{ _id, name }`,
-          { id: principalInvestigatorId }
-        )
-      : Promise.resolve(null),
-  ])
-
-  const areaMap = new Map(
-    (areas || []).map((area) => [
-      area._id,
-      area.shortLabel
-        ? `${area.shortLabel} - ${getTherapeuticAreaLabel(area.name)}`
-        : getTherapeuticAreaLabel(area.name),
-    ])
-  )
-
-  return {
-    therapeuticAreaNames: areaIds.map((id) => areaMap.get(id) || id),
-    principalInvestigatorName: pi?.name || fallbackPiName || '',
-  }
-}
-
-function buildTrialSummaryDoc(normalized, slugValue) {
-  return {
-    _type: 'trialSummary',
-    title: normalized.title,
-    slug: { _type: 'slug', current: slugValue },
-    status: normalized.status,
-    nctId: normalized.nctId || undefined,
-    studyType: normalized.studyType || undefined,
-    phase: normalized.phase || undefined,
-    laySummary: normalized.laySummary || null,
-    emailTitle: normalized.emailTitle || null,
-    emailEligibilitySummary: normalized.emailEligibilitySummary || null,
-    inclusionCriteria: normalized.inclusionCriteria || [],
-    exclusionCriteria: normalized.exclusionCriteria || [],
-    sponsorWebsite: normalized.sponsorWebsite || null,
-    featured: normalized.featured,
-    acceptsReferrals: normalized.acceptsReferrals,
-    localContact: normalized.localContact || undefined,
-    therapeuticAreas: buildReferences(normalized.therapeuticAreaIds),
-    principalInvestigatorName: normalized.principalInvestigatorName || undefined,
-    principalInvestigator: normalized.principalInvestigatorId
-      ? { _type: 'reference', _ref: normalized.principalInvestigatorId }
-      : undefined,
-    ctGovData: normalized.ctGovData || undefined,
-  }
-}
-
 async function notifyAdmins({
   action,
   submissionId,
@@ -401,11 +422,12 @@ async function notifyAdmins({
   submittedAt,
   submittedBy,
   supersededCount,
+  meta,
+  changes,
 }) {
   const targets = recipients?.length ? recipients : await getApprovalAdmins()
   if (!targets.length) return
   const submittedByEmail = submittedBy?.email || ''
-  const resolved = await resolvePayloadReferences(payload)
   const results = await Promise.allSettled(
     targets.map(async (to) => {
       const approvalLink = await createApprovalSessionLink(to)
@@ -417,8 +439,8 @@ async function notifyAdmins({
         submittedAt,
         submittedByEmail,
         supersededCount,
-        therapeuticAreaNames: resolved.therapeuticAreaNames,
-        principalInvestigatorName: resolved.principalInvestigatorName,
+        meta,
+        changes,
       })
       return sendEmail({ to, subject, text, html })
     })
@@ -571,57 +593,18 @@ export async function GET(request) {
   }
 
   try {
-    const bypassApprovals = await canBypassApprovals(session)
-    const removeAllowed = await canRemoveStudies(session)
-    const [trialsRaw, areasRaw, researchersRaw] = await Promise.all([
-      sanityFetch(`
-        *[_type == "trialSummary"] | order(status asc, title asc) {
-          _id,
-          nctId,
-          title,
-          "slug": slug.current,
-          status,
-          studyType,
-          phase,
-          laySummary,
-          emailTitle,
-          emailEligibilitySummary,
-          inclusionCriteria,
-          exclusionCriteria,
-          featured,
-          sponsorWebsite,
-          acceptsReferrals,
-          localContact,
-          ctGovData,
-          "therapeuticAreaIds": therapeuticAreas[]._ref,
-          "principalInvestigatorId": principalInvestigator._ref,
-          principalInvestigatorName
-        }
-      `),
-      sanityFetch(`
-        *[_type == "therapeuticArea" && active == true] | order(order asc, name asc) {
-          _id,
-          name,
-          shortLabel
-        }
-      `),
-      sanityFetch(`
-        *[_type == "researcher"] | order(name asc) {
-          _id,
-          name,
-          slug
-        }
-      `),
+    const [bypassApprovals, removeAllowed, trialsRaw, meta] = await Promise.all([
+      canBypassApprovals(session),
+      canRemoveStudies(session),
+      freshFetch(STUDY_LIST_QUERY),
+      loadMeta(),
     ])
 
     return NextResponse.json(
       {
         ok: true,
         trials: trialsRaw || [],
-        meta: {
-          areas: areasRaw || [],
-          researchers: researchersRaw || [],
-        },
+        meta,
         access: {
           canBypassApprovals: bypassApprovals,
           canRemoveStudies: removeAllowed,
@@ -651,15 +634,11 @@ export async function POST(request) {
 
   try {
     const payload = normalizeStudyPayload(await request.json())
-    if (!payload.title) {
+    const meta = await loadMeta()
+    const validationError = validateStudyPayload(payload, meta.sites)
+    if (validationError) {
       return NextResponse.json(
-        { ok: false, error: 'Title is required.' },
-        { status: 400, headers: CORS_HEADERS }
-      )
-    }
-    if (!payload.principalInvestigatorId && !payload.principalInvestigatorName) {
-      return NextResponse.json(
-        { ok: false, error: 'Principal investigator is required.' },
+        { ok: false, error: validationError },
         { status: 400, headers: CORS_HEADERS }
       )
     }
@@ -682,8 +661,8 @@ export async function POST(request) {
         )
       }
       const slugValue = await ensureUniqueSlug({ baseSlug, sanityFetch })
-      const doc = buildTrialSummaryDoc(payload, slugValue)
-      const created = await writeClient.create(doc)
+      const created = await writeClient.create(buildTrialSummaryDoc(payload, slugValue))
+      revalidateStudyPages(slugValue)
       return NextResponse.json(
         { ok: true, studyId: created?._id, directPublish: true },
         { headers: CORS_HEADERS }
@@ -714,7 +693,6 @@ export async function POST(request) {
       payload,
     })
 
-    const supersededCount = 0
     await notifyAdmins({
       action: 'create',
       submissionId: submission?._id,
@@ -722,7 +700,8 @@ export async function POST(request) {
       recipients: admins,
       submittedAt,
       submittedBy,
-      supersededCount,
+      supersededCount: 0,
+      meta,
     })
 
     return NextResponse.json(
@@ -760,15 +739,11 @@ export async function PATCH(request) {
     }
 
     const payload = normalizeStudyPayload(body)
-    if (!payload.title) {
+    const meta = await loadMeta()
+    const validationError = validateStudyPayload(payload, meta.sites)
+    if (validationError) {
       return NextResponse.json(
-        { ok: false, error: 'Title is required.' },
-        { status: 400, headers: CORS_HEADERS }
-      )
-    }
-    if (!payload.principalInvestigatorId && !payload.principalInvestigatorName) {
-      return NextResponse.json(
-        { ok: false, error: 'Principal investigator is required.' },
+        { ok: false, error: validationError },
         { status: 400, headers: CORS_HEADERS }
       )
     }
@@ -797,16 +772,38 @@ export async function PATCH(request) {
           slugValue = await ensureUniqueSlug({ baseSlug, excludeId: resolvedId, sanityFetch })
         }
       }
-      const fields = buildPatchFields(payload, slugValue)
-      const unset = buildUnsetFields(payload)
-      let patch = writeClient.patch(resolvedId).set(fields)
-      if (unset.length) {
-        patch = patch.unset(unset)
-      }
-      await patch.commit({ returnDocuments: false })
+      await applyStudyPatch({
+        writeClient,
+        studyId: resolvedId,
+        fields: buildPatchFields(payload, slugValue),
+        unset: buildUnsetFields(),
+      })
+      // The admin's version already includes any pending change they built on.
+      const { count: supersededCount, promise: supersedePromise } = await supersedePendingSubmissions({
+        studyId: resolvedId,
+        reviewedBy: session?.email,
+      })
+      await supersedePromise
+      revalidateStudyPages(slugValue)
       return NextResponse.json(
-        { ok: true, studyId: resolvedId, directPublish: true },
+        { ok: true, studyId: resolvedId, directPublish: true, supersededCount },
         { headers: CORS_HEADERS }
+      )
+    }
+
+    // A coordinator's form starts from the latest pending change for the study.
+    // If a newer one arrived since, refuse rather than silently supersede it.
+    const basedOnSubmissionId = sanitizeString(body?.basedOnSubmissionId)
+    const latestPending = await latestPendingSubmission(id)
+    if ((latestPending?._id || '') !== basedOnSubmissionId) {
+      return NextResponse.json(
+        {
+          ok: false,
+          conflict: true,
+          error: buildConflictMessage(latestPending),
+          pendingSubmission: latestPending,
+        },
+        { status: 409, headers: CORS_HEADERS }
       )
     }
 
@@ -817,6 +814,11 @@ export async function PATCH(request) {
         { status: 400, headers: CORS_HEADERS }
       )
     }
+
+    const currentStudy = await fetchCurrentStudy(id)
+    const changes = currentStudy
+      ? summarizeStudyChanges(normalizeStudyPayload(currentStudy), payload, { sites: meta.sites })
+      : []
 
     const submittedAt = new Date().toISOString()
     const submittedBy = {
@@ -848,6 +850,8 @@ export async function PATCH(request) {
       submittedAt,
       submittedBy,
       supersededCount,
+      meta,
+      changes,
     })
     await supersedePromise
 
@@ -895,6 +899,7 @@ export async function DELETE(request) {
 
     const publishedDoc = docs.find((doc) => !doc._id.startsWith('drafts.')) || docs[0]
     const result = await removeStudyDocs({ docs, removedByEmail: session?.email })
+    revalidateStudyPages()
 
     return NextResponse.json(
       {

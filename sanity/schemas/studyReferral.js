@@ -32,6 +32,18 @@ const studyReferral = {
       description: 'Denormalized for easy viewing in list'
     },
     {
+      name: 'team',
+      title: 'Study team that received it',
+      type: 'object',
+      readOnly: true,
+      description: 'Set by the referral form from the team the clinician chose.',
+      fields: [
+        { name: 'teamKey', title: 'Team key', type: 'string' },
+        { name: 'siteId', title: 'Site id', type: 'string' },
+        { name: 'siteName', title: 'Site', type: 'string' }
+      ]
+    },
+    {
       name: 'status',
       title: 'Status',
       type: 'string',
@@ -65,9 +77,10 @@ const studyReferral = {
       email: 'providerEmail',
       studyTitle: 'studyTitle',
       status: 'status',
-      submittedAt: 'submittedAt'
+      submittedAt: 'submittedAt',
+      siteName: 'team.siteName'
     },
-    prepare({ email, studyTitle, status, submittedAt }) {
+    prepare({ email, studyTitle, status, submittedAt, siteName }) {
       const statusEmoji = {
         new: '🔵',
         contacted: '🟡',
@@ -76,7 +89,7 @@ const studyReferral = {
       const date = submittedAt ? new Date(submittedAt).toLocaleDateString() : ''
       return {
         title: `${statusEmoji[status] || '⚪'} ${email}`,
-        subtitle: `${studyTitle || 'Unknown study'} • ${date}`
+        subtitle: [studyTitle || 'Unknown study', siteName ? `${siteName} team` : '', date].filter(Boolean).join(' • ')
       }
     }
   },

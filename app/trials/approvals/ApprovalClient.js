@@ -6,6 +6,13 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import AuthButtons from '@/app/components/AuthButtons'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
+import { normalizeStudyPayload } from '@/lib/studySubmissions'
+import {
+  recruitmentSiteLabels,
+  resolvePayloadTeams,
+  summarizePayloadTeam,
+  summarizeStudyChanges,
+} from '@/lib/studyTeams'
 
 const TOKEN_STORAGE_KEY = 'kcru-admin-token'
 const LEGACY_TOKEN_KEYS = ['kcru-approval-token', 'kcru-updates-admin-token']
@@ -51,7 +58,7 @@ export default function ApprovalClient() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [submissions, setSubmissions] = useState([])
-  const [meta, setMeta] = useState({ areas: [], researchers: [] })
+  const [meta, setMeta] = useState({ areas: [], researchers: [], sites: [] })
   const [reviewingId, setReviewingId] = useState('')
   const [reviewingAction, setReviewingAction] = useState('')
   const { data: session, status: sessionStatus } = useSession()
@@ -117,10 +124,6 @@ export default function ApprovalClient() {
     )
   }, [meta.areas])
 
-  const researcherMap = useMemo(() => {
-    return new Map((meta.researchers || []).map((r) => [r._id, r.name]))
-  }, [meta.researchers])
-
   const pendingCount = useMemo(
     () => submissions.filter((submission) => submission.status === 'pending').length,
     [submissions]
@@ -153,7 +156,11 @@ export default function ApprovalClient() {
         throw new Error(data?.error || `Request failed (${res.status})`)
       }
       setSubmissions(data.submissions || [])
-      setMeta(data.meta || { areas: [], researchers: [] })
+      setMeta({
+        areas: data.meta?.areas || [],
+        researchers: data.meta?.researchers || [],
+        sites: data.meta?.sites || [],
+      })
       setAdminEmail(data.adminEmail || '')
     } catch (err) {
       setError(err.message || 'Failed to load submissions.')
@@ -189,7 +196,12 @@ export default function ApprovalClient() {
       if (!res.ok || !data?.ok) {
         throw new Error(data?.error || `Request failed (${res.status})`)
       }
-      setSuccess(`Submission ${decision === 'approve' ? 'approved' : 'rejected'}.`)
+      const reinstatedNote = data?.reinstated
+        ? ` ${data.reinstated.email || 'An earlier coordinator'}'s earlier change from ${formatDate(
+            data.reinstated.submittedAt
+          )} is pending again.`
+        : ''
+      setSuccess(`Submission ${decision === 'approve' ? 'approved' : 'rejected'}.${reinstatedNote}`)
       const nextStatus = decision === 'approve' ? 'approved' : 'rejected'
       setSubmissions((prev) =>
         prev.map((item) => (item._id === submissionId ? { ...item, status: nextStatus } : item))
@@ -283,9 +295,14 @@ export default function ApprovalClient() {
             {submissions.map((submission) => {
               const payload = submission.payload || {}
               const therapeuticNames = (payload.therapeuticAreaIds || []).map((id) => areaMap.get(id) || id)
-              const piName = payload.principalInvestigatorId
-                ? researcherMap.get(payload.principalInvestigatorId) || payload.principalInvestigatorId
-                : payload.principalInvestigatorName || 'None'
+              const teamSummaries = resolvePayloadTeams(payload).map((team, index) => summarizePayloadTeam(team, index, meta))
+              const recruitmentLocations = recruitmentSiteLabels(payload.recruitmentSiteIds, meta.sites)
+              const changes =
+                submission.action === 'update' && submission.study
+                  ? summarizeStudyChanges(normalizeStudyPayload(submission.study), normalizeStudyPayload(payload), {
+                      sites: meta.sites,
+                    })
+                  : null
               const isReviewing = reviewingId === submission._id
               const isPending = submission.status === 'pending'
               return (
@@ -303,6 +320,16 @@ export default function ApprovalClient() {
                         <span className={`text-xs font-semibold px-2 py-1 rounded-full ${statusBadge(submission.status)}`}>
                           {statusLabel(submission.status)}
                         </span>
+                        {teamSummaries.map((team) => (
+                          <span
+                            key={team.key}
+                            className={`text-xs font-medium px-2 py-1 rounded-full ${
+                              team.siteName ? 'bg-gray-100 text-gray-700' : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {team.siteShortName || team.siteName || 'No site'}
+                          </span>
+                        ))}
                       </div>
                       <p className="text-sm text-gray-500">
                         Submitted {formatDate(submission.submittedAt)}
@@ -361,6 +388,21 @@ export default function ApprovalClient() {
                     </div>
                   )}
 
+                  {changes && (
+                    <div className="rounded-lg border border-purple/20 bg-purple/5 p-3 text-sm text-gray-800">
+                      <p className="font-medium text-gray-900">What this submission changes</p>
+                      {changes.length ? (
+                        <ul className="mt-1 list-disc pl-5 space-y-0.5">
+                          {changes.map((line) => (
+                            <li key={line}>{line}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1 text-gray-600">No differences from the current study.</p>
+                      )}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
                     <div>
                       <p className="font-medium text-gray-900">Basics</p>
@@ -371,13 +413,21 @@ export default function ApprovalClient() {
                       <p>Study type: {payload.studyType || 'None'}</p>
                       <p>Phase: {payload.phase || 'None'}</p>
                       <p>Featured: {payload.featured ? 'Yes' : 'No'}</p>
-                      <p>Accepts referrals: {payload.acceptsReferrals ? 'Yes' : 'No'}</p>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Sites and people</p>
                       <p>Therapeutic areas: {formatList(therapeuticNames)}</p>
-                      <p>Principal investigator: {piName}</p>
                       <p>Study website (if available): {payload.sponsorWebsite || 'None'}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="font-medium text-gray-900">Study teams</p>
+                      {teamSummaries.length ? (
+                        teamSummaries.map((team) => (
+                          <p key={team.key}>
+                            <span className="font-medium">{team.label}:</span> {team.summary}
+                          </p>
+                        ))
+                      ) : (
+                        <p>None</p>
+                      )}
+                      <p>Recruitment locations: {formatList(recruitmentLocations)}</p>
                     </div>
                   </div>
 
@@ -423,16 +473,6 @@ export default function ApprovalClient() {
                     </div>
                   </details>
 
-                  <details className="text-sm text-gray-700">
-                    <summary className="cursor-pointer font-medium text-gray-900">Local contact</summary>
-                    <div className="mt-3 space-y-1">
-                      <p>Name: {payload.localContact?.name || 'None'}</p>
-                      <p>Role: {payload.localContact?.role || 'None'}</p>
-                      <p>Email: {payload.localContact?.email || 'None'}</p>
-                      <p>Phone: {payload.localContact?.phone || 'None'}</p>
-                      <p>Display publicly: {payload.localContact?.displayPublicly ? 'Yes' : 'No'}</p>
-                    </div>
-                  </details>
                 </article>
               )
             })}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { urlFor } from '@/lib/sanity'
+import { listTeamInvestigators, resolveStudyTeams } from '@/lib/studyTeams'
 
 export default function FeaturedStudy({ trials = [] }) {
   const router = useRouter()
@@ -32,9 +33,7 @@ export default function FeaturedStudy({ trials = [] }) {
   const slugValue = trial.slug?.current || trial.slug
   const href = slugValue ? `/trials/${slugValue}` : '/trials'
   const title = trial.title || 'Study'
-  const pi = trial.principalInvestigator
-  const piName = pi?.name || trial.principalInvestigatorName
-  const piPhoto = pi?.photo
+  const investigators = listTeamInvestigators(resolveStudyTeams(trial))
 
   const handleClick = () => {
     router.push(href)
@@ -72,13 +71,17 @@ export default function FeaturedStudy({ trials = [] }) {
 
         {/* Bottom row: Investigator chip + Learn more */}
         <div className="mt-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
-          {/* Investigator chip */}
-          {piName && (
-            <span className="inline-flex max-w-full items-center gap-2 rounded-full border border-black/[0.06] bg-white/60 px-3 py-1.5 text-sm font-medium text-purple">
-              <Avatar photo={piPhoto} name={piName} />
-              <span className="truncate">{piName}</span>
+          {/* Investigator chips, one per study team */}
+          {investigators.map((pi) => (
+            <span
+              key={pi.key}
+              className="inline-flex max-w-full items-center gap-2 rounded-full border border-black/[0.06] bg-white/60 px-3 py-1.5 text-sm font-medium text-purple"
+            >
+              <Avatar photo={pi.photo} name={pi.name} />
+              <span className="truncate">{pi.name}</span>
+              {pi.siteName && <span className="truncate font-normal text-[#666]">· {pi.siteName}</span>}
             </span>
-          )}
+          ))}
 
           {/* Learn more link */}
           <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-purple">

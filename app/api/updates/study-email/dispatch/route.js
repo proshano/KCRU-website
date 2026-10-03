@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { sanityFetch, writeClient } from '@/lib/sanity'
+import { sanityFetch, studyTeamsProjection, writeClient } from '@/lib/sanity'
 import { sendEmail } from '@/lib/email'
 import { buildStudyUpdateEmail } from '@/lib/studyUpdateEmailTemplate'
+import { studyAcceptsReferrals } from '@/lib/studyTeams'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import {
   getZonedParts,
@@ -67,9 +68,7 @@ function formatMonthLabel(date) {
 function pickStudiesForSubscriber(studies, subscriber, areas) {
   const eligibleStudies = Array.isArray(studies)
     ? studies.filter(
-        (study) =>
-          String(study?.status || '').toLowerCase() === 'recruiting' &&
-          Boolean(study?.acceptsReferrals)
+        (study) => String(study?.status || '').toLowerCase() === 'recruiting' && studyAcceptsReferrals(study)
       )
     : []
   const rawInterestAreas = Array.isArray(subscriber?.interestAreas) ? subscriber.interestAreas : []
@@ -102,10 +101,7 @@ async function fetchStudies() {
       emailTitle,
       emailEligibilitySummary,
       inclusionCriteria,
-      acceptsReferrals,
-      localContact { email },
-      principalInvestigator-> { name },
-      principalInvestigatorName,
+      ${studyTeamsProjection({ contact: 'full' })},
       "therapeuticAreaIds": therapeuticAreas[]._ref
     }
   `

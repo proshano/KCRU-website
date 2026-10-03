@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
-import { sanityFetch, writeClient } from '@/lib/sanity'
+import { STUDY_STAFF_PROJECTION, sanityFetch, writeClient } from '@/lib/sanity'
+import { fetchSites, resolveSiteIds } from '@/lib/sites'
 import { normalizeStudyPayload, sanitizeString } from '@/lib/studySubmissions'
+import { formatTeamError, recruitingSites, validateSiteTeams } from '@/lib/studyTeams'
 import { getScopedAdminSession } from '@/lib/adminSessions'
 import { getSessionAccess, hasRequiredAccess } from '@/lib/authAccess'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
@@ -40,8 +42,11 @@ export async function GET(request) {
   }
 
   try {
-    const [submission, areasRaw, researchersRaw] = await Promise.all([
-      sanityFetch(
+    const freshFetch = writeClient.config().token
+      ? (query, params) => writeClient.fetch(query, params)
+      : sanityFetch
+    const [submission, areasRaw, researchersRaw, sites] = await Promise.all([
+      freshFetch(
         `*[_type == "studySubmission" && _id == $id][0]{
           _id,
           title,
@@ -49,24 +54,27 @@ export async function GET(request) {
           status,
           submittedAt,
           submittedBy,
-          payload
+          payload,
+          "study": studyRef->{ ${STUDY_STAFF_PROJECTION} }
         }`,
         { id: submissionId }
       ),
-      sanityFetch(`
+      freshFetch(`
         *[_type == "therapeuticArea" && active == true] | order(order asc, name asc) {
           _id,
           name,
           shortLabel
         }
       `),
-      sanityFetch(`
+      freshFetch(`
         *[_type == "researcher"] | order(name asc) {
           _id,
           name,
-          slug
+          slug,
+          "primarySiteId": primarySite._ref
         }
       `),
+      fetchSites(freshFetch),
     ])
 
     if (!submission?._id) {
@@ -91,6 +99,7 @@ export async function GET(request) {
         meta: {
           areas: areasRaw || [],
           researchers: researchersRaw || [],
+          sites,
         },
       },
       { headers: CORS_HEADERS }
@@ -134,12 +143,15 @@ export async function PATCH(request) {
         { status: 400, headers: CORS_HEADERS }
       )
     }
-    if (!payload.principalInvestigatorId && !payload.principalInvestigatorName) {
+    const sites = await fetchSites(writeClient.fetch.bind(writeClient))
+    const teamErrors = validateSiteTeams(payload.siteTeams, { sites })
+    if (teamErrors.length) {
       return NextResponse.json(
-        { ok: false, error: 'Principal investigator is required.' },
+        { ok: false, error: formatTeamError(teamErrors[0], payload.siteTeams, sites) },
         { status: 400, headers: CORS_HEADERS }
       )
     }
+    payload.recruitmentSiteIds = resolveSiteIds(payload.recruitmentSiteIds, recruitingSites(sites))
 
     const submission = await sanityFetch(
       `*[_type == "studySubmission" && _id == $id][0]{ _id, status }`,

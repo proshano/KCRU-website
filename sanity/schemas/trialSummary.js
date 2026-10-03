@@ -8,12 +8,20 @@
  * Key features:
  * - Auto-synced eligibility criteria
  * - LLM-generated clinical summary
- * - Local contact info (always manual)
- * - Site references for filtering
+ * - Study teams: one per coordinating site, each with its own PI, contact and
+ *   referral switch (always manual)
+ * - Recruitment locations, separate from the coordinating sites
+ *
+ * The single principalInvestigator / localContact / acceptsReferrals fields are
+ * legacy. `npm run migrate:site-teams` converts them into one team; the app reads
+ * teams only through resolveStudyTeams() in lib/studyTeams.js, which still
+ * understands the old fields on records the migration has not reached.
  */
 
 import NctIdInput from '../components/NctIdInput'
 import AutoSlugInput from '../components/AutoSlugInput'
+
+const hasSiteTeams = ({ document }) => Array.isArray(document?.siteTeams) && document.siteTeams.length > 0
 
 const trialSummary = {
   name: 'trialSummary',
@@ -162,66 +170,164 @@ const trialSummary = {
     // LOCAL INFO (Always Manual)
     // ============================================
     {
-      name: 'localContact',
-      title: 'Local Study Contact',
-      type: 'object',
+      name: 'siteTeams',
+      title: 'Study Teams',
+      type: 'array',
       group: 'localInfo',
-      description: 'Contact person for inquiries at your site(s). This is NOT synced from ClinicalTrials.gov.',
-      fields: [
+      description:
+        'One team for each site that coordinates this study (its PI, coordinator contact and whether that team takes referrals). Most studies have one team; a study run from both Victoria Hospital and University Hospital has two.',
+      of: [
         {
-          name: 'name',
-          title: 'Contact Name',
-          type: 'string',
-          description: 'e.g., Mikhaela Moore, RN'
-        },
-        {
-          name: 'role',
-          title: 'Role',
-          type: 'string',
-          description: 'e.g., Study Coordinator, Research Nurse'
-        },
-        {
-          name: 'email',
-          title: 'Email',
-          type: 'string',
-          validation: Rule => Rule.email()
-        },
-        {
-          name: 'phone',
-          title: 'Phone',
-          type: 'string'
-        },
-        {
-          name: 'displayPublicly',
-          title: 'Display contact info publicly?',
-          type: 'boolean',
-          initialValue: false,
-          description: 'If false, contact info is used for inquiry routing only'
+          type: 'object',
+          name: 'siteTeam',
+          title: 'Study team',
+          fields: [
+            {
+              name: 'site',
+              title: 'Coordinating site',
+              type: 'reference',
+              to: [{ type: 'site' }],
+              options: { filter: 'coordinatesStudies == true && active == true' },
+              // A warning rather than an error while migrated studies still need a site,
+              // so an unrelated Studio edit is not blocked. Becomes required once the
+              // legacy fields are removed.
+              validation: Rule => Rule.required().warning('Choose the coordinating site for this team.')
+            },
+            {
+              name: 'status',
+              title: 'Team status',
+              type: 'string',
+              options: {
+                list: [
+                  { title: 'Enrolling', value: 'enrolling' },
+                  { title: 'Not yet enrolling (site still in startup)', value: 'not_yet_enrolling' },
+                  { title: 'Closed', value: 'closed' }
+                ],
+                layout: 'radio'
+              },
+              initialValue: 'enrolling',
+              description: 'Each site starts up on its own, so one team can be enrolling while the other is not yet open.'
+            },
+            {
+              name: 'principalInvestigator',
+              title: 'Principal Investigator',
+              type: 'reference',
+              to: [{ type: 'researcher' }],
+              description: 'The PI at this site (linked to a team profile).'
+            },
+            {
+              name: 'principalInvestigatorName',
+              title: 'Principal Investigator (Other)',
+              type: 'string',
+              description: 'Use when the PI is not in the team roster.',
+              validation: Rule =>
+                Rule.custom((value, context) => {
+                  if (value || context?.parent?.principalInvestigator) return true
+                  return 'Choose a principal investigator or enter a name.'
+                }).warning()
+            },
+            {
+              name: 'contact',
+              title: 'Team contact',
+              type: 'object',
+              description: 'The coordinator who answers inquiries and referrals for this team.',
+              fields: [
+                { name: 'name', title: 'Contact Name', type: 'string', description: 'e.g., Mikhaela Moore, RN' },
+                { name: 'role', title: 'Role', type: 'string', description: 'e.g., Study Coordinator, Research Nurse' },
+                { name: 'email', title: 'Email', type: 'string', validation: Rule => Rule.email() },
+                { name: 'phone', title: 'Phone', type: 'string' },
+                {
+                  name: 'displayPublicly',
+                  title: 'Display contact info publicly?',
+                  type: 'boolean',
+                  initialValue: false,
+                  description: 'If false, the contact is used for referral routing only.'
+                }
+              ]
+            },
+            {
+              name: 'acceptsReferrals',
+              title: 'Accepts Referrals',
+              type: 'boolean',
+              initialValue: false,
+              description: 'Offer the "Refer a patient" form for this team. Requires a contact email.'
+            }
+          ],
+          preview: {
+            select: {
+              site: 'site.name',
+              status: 'status',
+              pi: 'principalInvestigator.name',
+              piOther: 'principalInvestigatorName'
+            },
+            prepare({ site, status, pi, piOther }) {
+              return {
+                title: site || 'No coordinating site',
+                subtitle: [pi || piOther, status].filter(Boolean).join(' • ')
+              }
+            }
+          }
         }
+      ],
+      validation: Rule => [
+        Rule.min(1).warning('Add at least one study team.'),
+        Rule.custom((teams = []) => {
+          const siteIds = (teams || []).map((team) => team?.site?._ref).filter(Boolean)
+          return new Set(siteIds).size === siteIds.length ? true : 'Each site can have only one team.'
+        })
       ]
     },
     {
       name: 'recruitmentSites',
-      title: 'Recruitment Sites',
+      title: 'Recruitment Locations',
       type: 'array',
       group: 'localInfo',
       of: [{ type: 'reference', to: [{ type: 'site' }] }],
-      description: 'Which of your sites are recruiting for this study?'
+      options: { filter: 'recruitsPatients == true && active == true' },
+      description: 'Where patients can be seen and enrolled for this study. Separate from the coordinating sites above.'
+    },
+
+    // Legacy single PI and contact. Hidden once a study has teams; removed by
+    // `npm run migrate:site-teams -- --apply --remove-legacy`.
+    {
+      name: 'localContact',
+      title: 'Local Study Contact (legacy)',
+      type: 'object',
+      group: 'localInfo',
+      hidden: hasSiteTeams,
+      description: 'Replaced by the contact on each study team.',
+      fields: [
+        { name: 'name', title: 'Contact Name', type: 'string' },
+        { name: 'role', title: 'Role', type: 'string' },
+        { name: 'email', title: 'Email', type: 'string', validation: Rule => Rule.email() },
+        { name: 'phone', title: 'Phone', type: 'string' },
+        { name: 'displayPublicly', title: 'Display contact info publicly?', type: 'boolean', initialValue: false }
+      ]
     },
     {
       name: 'principalInvestigator',
-      title: 'Principal Investigator',
+      title: 'Principal Investigator (legacy)',
       type: 'reference',
       group: 'localInfo',
+      hidden: hasSiteTeams,
       to: [{ type: 'researcher' }],
-      description: 'Local PI (linked to team profile)'
+      description: 'Replaced by the PI on each study team.'
     },
     {
       name: 'principalInvestigatorName',
-      title: 'Principal Investigator (Other)',
+      title: 'Principal Investigator (Other, legacy)',
       type: 'string',
       group: 'localInfo',
-      description: 'Use when the PI is not in the team roster.'
+      hidden: hasSiteTeams,
+      description: 'Replaced by the PI on each study team.'
+    },
+    {
+      name: 'acceptsReferrals',
+      title: 'Accepts Referrals (legacy)',
+      type: 'boolean',
+      group: 'localInfo',
+      hidden: hasSiteTeams,
+      description: 'Replaced by the referral switch on each study team.'
     },
     {
       name: 'sponsorWebsite',
@@ -229,14 +335,6 @@ const trialSummary = {
       type: 'url',
       group: 'localInfo',
       description: 'Link to the study page (sponsor or registry)'
-    },
-    {
-      name: 'acceptsReferrals',
-      title: 'Accepts Referrals',
-      type: 'boolean',
-      group: 'localInfo',
-      initialValue: false,
-      description: 'Enable the "Refer a Patient" form on this study page. Requires a coordinator email to be set above.'
     },
     {
       name: 'emailTitle',
@@ -323,22 +421,25 @@ const trialSummary = {
       title: 'title',
       status: 'status',
       nctId: 'nctId',
+      team0: 'siteTeams.0.site.shortName',
+      team1: 'siteTeams.1.site.shortName',
       area0: 'therapeuticAreas.0.shortLabel',
       area1: 'therapeuticAreas.1.shortLabel',
       area2: 'therapeuticAreas.2.shortLabel',
       area3: 'therapeuticAreas.3.shortLabel'
     },
-    prepare({ title, status, nctId, area0, area1, area2, area3 }) {
+    prepare({ title, status, nctId, team0, team1, area0, area1, area2, area3 }) {
       const statusEmoji = {
         recruiting: '🟢',
         coming_soon: '🟡',
         active_not_recruiting: '🟣',
         completed: '⚫'
       }
+      const teamTags = [team0, team1].filter(Boolean).join(', ')
       const areaTags = [area0, area1, area2, area3].filter(Boolean).join(', ')
       return {
         title: `${statusEmoji[status] || '⚪'} ${title}`,
-        subtitle: [nctId, areaTags].filter(Boolean).join(' • ')
+        subtitle: [nctId, teamTags, areaTags].filter(Boolean).join(' • ')
       }
     }
   },

@@ -1,153 +1,45 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import AuthButtons from '@/app/components/AuthButtons'
+import StudyTeamsFieldset from '@/app/trials/components/StudyTeamsFieldset'
+import {
+  PHASE_OPTIONS,
+  STATUS_OPTIONS,
+  STUDY_TYPE_OPTIONS,
+  createEmptyForm,
+  formFromRecord,
+  normalizeNctId,
+  serializeForm as serializeDraft,
+  slugify,
+  splitList,
+} from '@/app/trials/components/studyFormModel'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
+import {
+  coordinatingSites,
+  createTeamKey,
+  describePayloadTeam,
+  formatTeamError,
+  isContactEmpty,
+  resolvePayloadTeams,
+  siteShortLabel,
+  validateSiteTeams,
+} from '@/lib/studyTeams'
 
-const STATUS_OPTIONS = [
-  { value: 'recruiting', label: 'Recruiting' },
-  { value: 'coming_soon', label: 'Coming Soon' },
-  { value: 'active_not_recruiting', label: 'Active, Not Recruiting' },
-  { value: 'completed', label: 'Completed' },
-]
-
-const STUDY_TYPE_OPTIONS = [
-  { value: '', label: 'Select study type' },
-  { value: 'interventional', label: 'Interventional' },
-  { value: 'observational', label: 'Observational' },
-]
-
-const PHASE_OPTIONS = [
-  { value: '', label: 'Select phase' },
-  { value: 'phase1', label: 'Phase 1' },
-  { value: 'phase1_2', label: 'Phase 1/2' },
-  { value: 'phase2', label: 'Phase 2' },
-  { value: 'phase2_3', label: 'Phase 2/3' },
-  { value: 'phase3', label: 'Phase 3' },
-  { value: 'phase4', label: 'Phase 4' },
-  { value: 'na', label: 'N/A' },
-]
-
-const PI_OTHER_VALUE = '__other__'
-
-const EMPTY_FORM = {
-  id: '',
-  title: '',
-  slug: '',
-  nctId: '',
-  status: 'recruiting',
-  studyType: '',
-  phase: '',
-  therapeuticAreaIds: [],
-  laySummary: '',
-  emailTitle: '',
-  emailEligibilitySummary: '',
-  inclusionCriteria: [],
-  exclusionCriteria: [],
-  sponsorWebsite: '',
-  acceptsReferrals: false,
-  featured: false,
-  localContact: {
-    name: '',
-    role: '',
-    email: '',
-    phone: '',
-    displayPublicly: false,
-  },
-  principalInvestigatorId: '',
-  principalInvestigatorName: '',
-  ctGovData: null,
-}
+const EMPTY_FORM = createEmptyForm()
 
 const TOKEN_STORAGE_KEY = 'kcru-study-session'
 const ADMIN_TOKEN_STORAGE_KEY = 'kcru-admin-token'
 const DEV_PREVIEW_MODE = process.env.NODE_ENV !== 'production'
 const AUTOSAVE_DEBOUNCE_MS = 10000
 
-function slugify(value) {
-  return String(value || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 96)
-}
-
-function normalizeCriteriaText(value) {
-  return String(value || '')
-    .replace(/\\+([<>^\[\]])/g, '$1')
-    .replace(/&gt;/gi, '>')
-    .replace(/&lt;/gi, '<')
-}
-
-function splitList(value) {
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => normalizeCriteriaText(item).trim())
-      .filter(Boolean)
-  }
-  if (!value) return []
-  return String(value)
-    .split(/[\n,]+/)
-    .map((item) => normalizeCriteriaText(item).trim())
-    .filter(Boolean)
-}
-
-function joinList(items) {
-  if (!Array.isArray(items)) return ''
-  return items.filter(Boolean).join('\n')
-}
-
-function normalizeNctId(value) {
-  return String(value || '').trim().toUpperCase()
-}
-
 function mapTrialToForm(trial) {
-  return {
-    id: trial?._id || '',
-    title: trial?.title || '',
-    slug: trial?.slug || '',
-    nctId: trial?.nctId || '',
-    status: trial?.status || 'recruiting',
-    studyType: trial?.studyType || '',
-    phase: trial?.phase || '',
-    therapeuticAreaIds: trial?.therapeuticAreaIds || [],
-    laySummary: trial?.laySummary || '',
-    emailTitle: trial?.emailTitle || '',
-    emailEligibilitySummary: trial?.emailEligibilitySummary || '',
-    inclusionCriteria: splitList(trial?.inclusionCriteria),
-    exclusionCriteria: splitList(trial?.exclusionCriteria),
-    sponsorWebsite: trial?.sponsorWebsite || '',
-    acceptsReferrals: Boolean(trial?.acceptsReferrals),
-    featured: Boolean(trial?.featured),
-    localContact: {
-      name: trial?.localContact?.name || '',
-      role: trial?.localContact?.role || '',
-      email: trial?.localContact?.email || '',
-      phone: trial?.localContact?.phone || '',
-      displayPublicly: Boolean(trial?.localContact?.displayPublicly),
-    },
-    principalInvestigatorId: trial?.principalInvestigatorId || '',
-    principalInvestigatorName: trial?.principalInvestigatorName || '',
-    ctGovData: trial?.ctGovData || null,
-  }
+  return formFromRecord(trial, { id: trial?._id || '' })
 }
 
 function mergeDraft(data) {
-  const payload = data && typeof data === 'object' ? data : {}
-  return {
-    ...EMPTY_FORM,
-    ...payload,
-    therapeuticAreaIds: splitList(payload.therapeuticAreaIds),
-    inclusionCriteria: splitList(payload.inclusionCriteria),
-    exclusionCriteria: splitList(payload.exclusionCriteria),
-    localContact: {
-      ...EMPTY_FORM.localContact,
-      ...(payload.localContact || {}),
-    },
-  }
+  return formFromRecord(data)
 }
 
 function formatDraftTimestamp(value) {
@@ -155,14 +47,6 @@ function formatDraftTimestamp(value) {
   const time = Date.parse(value)
   if (Number.isNaN(time)) return 'recently'
   return new Date(time).toLocaleString()
-}
-
-function serializeDraft(data) {
-  try {
-    return JSON.stringify(data)
-  } catch (err) {
-    return ''
-  }
 }
 
 function statusBadge(status) {
@@ -190,12 +74,14 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   const [commsLoading, setCommsLoading] = useState(false)
   const [commsError, setCommsError] = useState('')
   const [commsSuccess, setCommsSuccess] = useState('')
-  const [piError, setPiError] = useState('')
+  const [teamErrors, setTeamErrors] = useState([])
+  const [pendingInfo, setPendingInfo] = useState(null)
+  const [conflict, setConflict] = useState(null)
   const [duplicateMatch, setDuplicateMatch] = useState(null)
   const [trials, setTrials] = useState([])
-  const [meta, setMeta] = useState({ areas: [], researchers: [] })
+  const [meta, setMeta] = useState({ areas: [], researchers: [], sites: [] })
   const [form, setForm] = useState(EMPTY_FORM)
-  const [piOtherSelected, setPiOtherSelected] = useState(false)
+  const [siteFilter, setSiteFilter] = useState('all')
   const [baselineSnapshot, setBaselineSnapshot] = useState(() => serializeDraft(EMPTY_FORM))
   const [search, setSearch] = useState('')
   const [draft, setDraft] = useState(null)
@@ -215,7 +101,6 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   const inclusionCriteriaRefs = useRef([])
   const exclusionCriteriaRefs = useRef([])
   const criteriaFocusRef = useRef(null)
-  const piNameInputRef = useRef(null)
   const { data: session, status: sessionStatus } = useSession()
   const hasSessionAccess = Boolean(
     adminMode ? session?.user?.access?.approvals : session?.user?.access?.coordinator
@@ -226,26 +111,29 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   const canSubmit = hasAuth
   const formSnapshot = useMemo(() => serializeDraft(form), [form])
   const hasChanges = formSnapshot !== baselineSnapshot
-  const piSelectionValue =
-    form.principalInvestigatorId || (piOtherSelected || form.principalInvestigatorName ? PI_OTHER_VALUE : '')
+  const siteById = useMemo(() => new Map((meta.sites || []).map((site) => [site._id, site])), [meta.sites])
+  const researcherById = useMemo(
+    () => new Map((meta.researchers || []).map((researcher) => [researcher._id, researcher])),
+    [meta.researchers]
+  )
+  const filterSites = useMemo(() => coordinatingSites(meta.sites), [meta.sites])
+  const duplicateSites = useMemo(
+    () =>
+      resolvePayloadTeams(duplicateMatch).map(
+        (team) => describePayloadTeam(team, meta).siteName || 'a team without a site'
+      ),
+    [duplicateMatch, meta]
+  )
 
-  useEffect(() => {
-    if (piSelectionValue !== PI_OTHER_VALUE) return
-    const timeout = setTimeout(() => {
-      piNameInputRef.current?.focus()
-    }, 0)
-    return () => clearTimeout(timeout)
-  }, [piSelectionValue])
-
-  useEffect(() => {
-    if (form.principalInvestigatorId) {
-      setPiOtherSelected(false)
-      return
-    }
-    if (form.principalInvestigatorName) {
-      setPiOtherSelected(true)
-    }
-  }, [form.principalInvestigatorId, form.principalInvestigatorName])
+  // Site chips for a study row: one per team, amber when the team has no site yet.
+  const trialTeamChips = useCallback(
+    (trial) =>
+      resolvePayloadTeams(trial).map((team) => {
+        const site = siteById.get(team.siteId)
+        return { key: team._key, label: site ? siteShortLabel(site) : 'No site', missing: !site }
+      }),
+    [siteById]
+  )
 
   const handleSignOut = useCallback(() => {
     sessionStorage.removeItem(TOKEN_STORAGE_KEY)
@@ -334,13 +222,26 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
 
   const filteredTrials = useMemo(() => {
     const query = search.trim().toLowerCase()
-    if (!query) return trials
     return trials.filter((trial) => {
-      const title = trial?.title?.toLowerCase() || ''
-      const nct = trial?.nctId?.toLowerCase() || ''
-      return title.includes(query) || nct.includes(query)
+      const teams = resolvePayloadTeams(trial)
+      if (siteFilter === 'none' && !teams.some((team) => !team.siteId)) return false
+      if (siteFilter !== 'all' && siteFilter !== 'none' && !teams.some((team) => team.siteId === siteFilter)) return false
+      if (!query) return true
+      const haystack = [
+        trial?.title,
+        trial?.nctId,
+        ...teams.flatMap((team) => {
+          const site = siteById.get(team.siteId)
+          const researcher = researcherById.get(team.principalInvestigatorId)
+          return [site?.name, site?.shortName, researcher?.name, team.principalInvestigatorName]
+        }),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(query)
     })
-  }, [search, trials])
+  }, [search, trials, siteFilter, siteById, researcherById])
 
   function findDuplicateByNctId(nctId, excludeId) {
     const normalized = normalizeNctId(nctId)
@@ -355,7 +256,9 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
   function showDuplicate(match) {
     if (!match) return
     setDuplicateMatch(match)
-    setError('A study with this NCT ID already exists. Use the existing record instead.')
+    setError(
+      `This NCT ID already belongs to "${match.title || 'an existing study'}". Open that study and add a team at your site instead of creating a second record.`
+    )
     setSuccess('')
     if (match.nctId) {
       setSearch(match.nctId)
@@ -385,6 +288,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
       setMeta({
         areas: data.meta?.areas || [],
         researchers: data.meta?.researchers || [],
+        sites: data.meta?.sites || [],
       })
       setCanBypassApprovals(Boolean(data.access?.canBypassApprovals))
       setCanRemoveStudies(Boolean(data.access?.canRemoveStudies))
@@ -437,7 +341,8 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     setSuccess('')
     setCommsError('')
     setCommsSuccess('')
-    setPiError('')
+    setTeamErrors([])
+    setConflict(null)
     setDuplicateMatch(null)
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current)
@@ -445,7 +350,17 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     }
     autosavePendingRef.current = false
     autosaveSuppressRef.current = true
-    const nextForm = mapTrialToForm(trial)
+    // A change by another coordinator may be awaiting approval. Start from it so
+    // this edit builds on theirs instead of replacing it.
+    const pending = trial?.pendingSubmission
+    const nextForm = pending?.payload
+      ? formFromRecord(pending.payload, { id: trial?._id || '' })
+      : mapTrialToForm(trial)
+    setPendingInfo(
+      pending?._id
+        ? { submissionId: pending._id, email: pending.submittedByEmail || '', submittedAt: pending.submittedAt || '' }
+        : null
+    )
     setBaselineSnapshot(serializeDraft(nextForm))
     setForm(nextForm)
     setFormScrollRequest((count) => count + 1)
@@ -456,7 +371,9 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     setSuccess('')
     setCommsError('')
     setCommsSuccess('')
-    setPiError('')
+    setTeamErrors([])
+    setPendingInfo(null)
+    setConflict(null)
     setDuplicateMatch(null)
     if (autosaveTimeoutRef.current) {
       clearTimeout(autosaveTimeoutRef.current)
@@ -469,6 +386,27 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     setFormScrollRequest((count) => count + 1)
   }
 
+  // The second site joins a registered study by opening the record the first
+  // site created and adding its own team, so the team the coordinator was typing
+  // travels across instead of being retyped.
+  function openExistingStudyWithTeam(existing) {
+    const typedTeam = form.siteTeams?.[0]
+    handleSelectStudy(existing)
+    const hasContent =
+      typedTeam &&
+      (typedTeam.siteId ||
+        typedTeam.principalInvestigatorId ||
+        typedTeam.principalInvestigatorName ||
+        !isContactEmpty(typedTeam.contact))
+    if (!hasContent) return
+    setForm((prev) => {
+      const usedSites = new Set(prev.siteTeams.map((team) => team.siteId).filter(Boolean))
+      if (typedTeam.siteId && usedSites.has(typedTeam.siteId)) return prev
+      return { ...prev, siteTeams: [...prev.siteTeams, { ...typedTeam, _key: createTeamKey() }] }
+    })
+    setSuccess('Opened the existing study. The team you were entering was added as a new team; review it and submit.')
+  }
+
   async function handleDuplicateSelect() {
     if (!duplicateMatch) return
     const matchId = duplicateMatch._id
@@ -479,7 +417,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
         (matchNctId && normalizeNctId(trial?.nctId) === matchNctId)
     )
     if (existing) {
-      handleSelectStudy(existing)
+      openExistingStudyWithTeam(existing)
       return
     }
     const data = await loadData()
@@ -488,6 +426,17 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
         trial?._id === matchId ||
         (matchNctId && normalizeNctId(trial?.nctId) === matchNctId)
     )
+    if (refreshed) {
+      openExistingStudyWithTeam(refreshed)
+    }
+  }
+
+  // After a conflict, reopen the study so the form starts from the newest
+  // pending change. The coordinator's own edits stay in their autosaved draft.
+  async function handleReloadStudy() {
+    const studyId = form.id
+    const data = await loadData()
+    const refreshed = data?.trials?.find((trial) => trial?._id === studyId)
     if (refreshed) {
       handleSelectStudy(refreshed)
     }
@@ -498,37 +447,12 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
       setDuplicateMatch(null)
       setError('')
     }
-    if (key === 'principalInvestigatorName') {
-      setPiError('')
-    }
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  function updatePrincipalInvestigator(value) {
-    setPiError('')
-    if (value === PI_OTHER_VALUE) {
-      setPiOtherSelected(true)
-      setForm((prev) => ({
-        ...prev,
-        principalInvestigatorId: '',
-        principalInvestigatorName: prev.principalInvestigatorName || '',
-      }))
-      return
-    }
-    setPiOtherSelected(false)
-    if (!value) {
-      setForm((prev) => ({
-        ...prev,
-        principalInvestigatorId: '',
-        principalInvestigatorName: '',
-      }))
-      return
-    }
-    setForm((prev) => ({
-      ...prev,
-      principalInvestigatorId: value,
-      principalInvestigatorName: '',
-    }))
+  function updateTeams(nextTeams) {
+    setTeamErrors([])
+    setForm((prev) => ({ ...prev, siteTeams: nextTeams }))
   }
 
   function updateCriteriaItem(key, index, value) {
@@ -598,16 +522,6 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
         return { ...prev, [key]: next }
       })
     }
-  }
-
-  function updateContactField(key, value) {
-    setForm((prev) => ({
-      ...prev,
-      localContact: {
-        ...prev.localContact,
-        [key]: value,
-      },
-    }))
   }
 
   function toggleMultiSelect(key, id) {
@@ -806,11 +720,14 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
     if (!hasChanges) {
       return
     }
-    const piName = form.principalInvestigatorName.trim()
-    if (!form.principalInvestigatorId && !piName) {
-      setPiError('Select a principal investigator or choose Other and enter a name.')
+    const errors = validateSiteTeams(form.siteTeams, { sites: meta.sites })
+    if (errors.length) {
+      setTeamErrors(errors)
+      setError(formatTeamError(errors[0], form.siteTeams, meta.sites))
       return
     }
+    setTeamErrors([])
+    setConflict(null)
     const localDuplicate = findDuplicateByNctId(form.nctId, form.id)
     if (localDuplicate) {
       showDuplicate(localDuplicate)
@@ -833,12 +750,11 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
         inclusionCriteria: splitList(form.inclusionCriteria),
         exclusionCriteria: splitList(form.exclusionCriteria),
         sponsorWebsite: form.sponsorWebsite,
-        acceptsReferrals: form.acceptsReferrals,
         featured: form.featured,
-        localContact: form.localContact,
-        principalInvestigatorId: form.principalInvestigatorId || '',
-        principalInvestigatorName: form.principalInvestigatorName || '',
+        siteTeams: form.siteTeams,
+        recruitmentSiteIds: form.recruitmentSiteIds,
         ctGovData: form.ctGovData || undefined,
+        ...(form.id ? { basedOnSubmissionId: pendingInfo?.submissionId || '' } : {}),
       }
 
       const res = await fetch('/api/trials/manage', {
@@ -851,6 +767,10 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
       })
       const saveResult = await res.json()
       if (!res.ok || !saveResult?.ok) {
+        if (saveResult?.conflict) {
+          setConflict({ message: saveResult.error || 'This study changed since you opened it.' })
+          return
+        }
         if (saveResult?.duplicate) {
           const duplicate =
             trials.find((trial) => trial?._id === saveResult.duplicate?._id) ||
@@ -875,6 +795,13 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
             : 'New study submitted for approval.'
       )
       setDuplicateMatch(null)
+      // Further edits build on the submission just made (or on the published
+      // study after a direct publish).
+      setPendingInfo(
+        !directPublish && saveResult?.submissionId
+          ? { submissionId: saveResult.submissionId, email: session?.user?.email || '', submittedAt: new Date().toISOString() }
+          : null
+      )
       if (saveResult?.studyId && saveResult.studyId !== form.id) {
         const nextForm = { ...form, id: saveResult.studyId }
         setForm(nextForm)
@@ -1184,6 +1111,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
                 <p className="text-sm">{duplicateMatch.title || 'Untitled study'}</p>
                 <p className="text-xs text-amber-900/80">
                   {duplicateMatch.nctId || 'No NCT ID'} - {duplicateMatch.slug || 'no-slug'}
+                  {duplicateSites.length ? ` - coordinated by ${duplicateSites.join(', ')}` : ''}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
@@ -1191,7 +1119,7 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
                     onClick={handleDuplicateSelect}
                     className="inline-flex items-center justify-center border border-amber-300 text-amber-900 px-3 py-1.5 rounded hover:bg-amber-100"
                   >
-                    Open existing study
+                    Open this study and add my team
                   </button>
                 </div>
               </div>
@@ -1224,9 +1152,30 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by title or NCT ID"
+              placeholder="Search by title, NCT ID, site or PI"
               className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple text-sm"
             />
+            {filterSites.length > 0 && (
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by coordinating site">
+                {[
+                  { value: 'all', label: 'All sites' },
+                  ...filterSites.map((site) => ({ value: site._id, label: siteShortLabel(site) })),
+                  { value: 'none', label: 'No site set' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setSiteFilter(option.value)}
+                    aria-pressed={siteFilter === option.value}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                      siteFilter === option.value ? 'bg-purple text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="text-xs text-gray-500">
               {filteredTrials.length} studies loaded
             </div>
@@ -1245,9 +1194,26 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
                     <div className="text-xs text-gray-500">
                       {trial.nctId || 'No NCT ID'} - {trial.slug || 'no-slug'}
                     </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap inline-flex ${statusBadge(trial.status)}`}>
-                      {statusLabel(trial.status)}
-                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap inline-flex ${statusBadge(trial.status)}`}>
+                        {statusLabel(trial.status)}
+                      </span>
+                      {trialTeamChips(trial).map((chip) => (
+                        <span
+                          key={chip.key}
+                          className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap inline-flex ${
+                            chip.missing ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {chip.label}
+                        </span>
+                      ))}
+                      {trial.pendingSubmission && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap inline-flex bg-blue-50 text-blue-800">
+                          Change pending
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </button>
               ))}
@@ -1283,6 +1249,29 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
                   </button>
                 </div>
               </div>
+              {pendingInfo && form.id && (
+                <p className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                  {canBypassApprovals
+                    ? `Publishing will also close ${pendingInfo.email || 'another coordinator'}'s pending change from ${formatDraftTimestamp(
+                        pendingInfo.submittedAt
+                      )}, because your version includes it.`
+                    : `Changes by ${pendingInfo.email || 'another coordinator'} submitted ${formatDraftTimestamp(
+                        pendingInfo.submittedAt
+                      )} are awaiting approval. Your edits build on them.`}
+                </p>
+              )}
+              {conflict && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 flex flex-wrap items-center gap-3">
+                  <span>{conflict.message}</span>
+                  <button
+                    type="button"
+                    onClick={handleReloadStudy}
+                    className="font-medium underline underline-offset-2 hover:text-red-900"
+                  >
+                    Reload study
+                  </button>
+                </div>
+              )}
               {canSubmit && (
                 <div className={`flex flex-wrap items-center gap-2 ${autosaveStatusClass}`}>
                   <span>{autosaveStatus}</span>
@@ -1441,18 +1430,9 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
                   />
                   Feature on homepage
                 </label>
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={form.acceptsReferrals}
-                    onChange={(e) => updateFormField('acceptsReferrals', e.target.checked)}
-                    className="h-4 w-4"
-                  />
-                  Accepts referrals
-                </label>
               </div>
               <p className="text-xs text-gray-500">
-                Featured studies appear on the homepage. The Accepts referrals toggle shows the referral option to visitors.
+                Featured studies appear on the homepage. Each study team below decides whether it accepts referrals.
               </p>
             </div>
 
@@ -1488,118 +1468,16 @@ export default function StudyManagerClient({ adminMode = false } = {}) {
 
           </div>
 
-          <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold">Local Contact & PI</h3>
-              <p className="text-sm text-gray-500">
-                This is the main contact for inquiries and referrals. Only shown publicly if you enable it below.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label htmlFor="study-manager-contact-name" className="text-sm font-medium">Contact name</label>
-                <input
-                  id="study-manager-contact-name"
-                  type="text"
-                  value={form.localContact.name}
-                  onChange={(e) => updateContactField('name', e.target.value)}
-                  placeholder="Jane Doe"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="study-manager-contact-role" className="text-sm font-medium">Contact role</label>
-                <input
-                  id="study-manager-contact-role"
-                  type="text"
-                  value={form.localContact.role}
-                  onChange={(e) => updateContactField('role', e.target.value)}
-                  placeholder="Study coordinator"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="study-manager-contact-email" className="text-sm font-medium">Contact email</label>
-                <input
-                  id="study-manager-contact-email"
-                  type="email"
-                  value={form.localContact.email}
-                  onChange={(e) => updateContactField('email', e.target.value)}
-                  placeholder="contact@lhsc.on.ca"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="study-manager-contact-phone" className="text-sm font-medium">Contact phone</label>
-                <input
-                  id="study-manager-contact-phone"
-                  type="text"
-                  value={form.localContact.phone}
-                  onChange={(e) => updateContactField('phone', e.target.value)}
-                  placeholder="555-555-5555"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                />
-              </div>
-              <label className="flex items-center gap-3 text-sm text-gray-700 md:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={form.localContact.displayPublicly}
-                  onChange={(e) => updateContactField('displayPublicly', e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <span>Display contact info publicly</span>
-              </label>
-              <p className="text-xs text-gray-500 md:col-span-2">
-                When checked, the contact name, role, email, and phone appear on the public study page. This is not
-                required to facilitate referrals; leaving it unchecked keeps the information hidden.
-              </p>
-            </div>
-
-            <div className="space-y-1">
-              <label htmlFor="study-manager-pi" className="text-sm font-medium">Principal investigator</label>
-              <select
-                id="study-manager-pi"
-                value={piSelectionValue}
-                onChange={(e) => updatePrincipalInvestigator(e.target.value)}
-                className={`w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 ${piError ? 'focus:ring-red-500 border-red-300' : 'focus:ring-purple'}`}
-                aria-invalid={piError ? 'true' : 'false'}
-                aria-describedby={piError ? 'study-manager-pi-error' : undefined}
-              >
-                <option value="">Select a PI</option>
-                {(meta.researchers || []).map((researcher) => (
-                  <option key={researcher._id} value={researcher._id}>
-                    {researcher.name}
-                  </option>
-                ))}
-                <option value={PI_OTHER_VALUE}>Other (not listed)</option>
-              </select>
-              {piSelectionValue === PI_OTHER_VALUE && (
-                <div className="space-y-1">
-                  <label htmlFor="study-manager-pi-name" className="text-sm font-medium">PI name</label>
-                  <input
-                    id="study-manager-pi-name"
-                    type="text"
-                    value={form.principalInvestigatorName}
-                    onChange={(e) => updateFormField('principalInvestigatorName', e.target.value)}
-                    placeholder="Enter PI name"
-                    className={`w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 ${piError ? 'focus:ring-red-500 border-red-300' : 'focus:ring-purple'}`}
-                    aria-invalid={piError ? 'true' : 'false'}
-                    aria-describedby={piError ? 'study-manager-pi-error' : undefined}
-                    ref={piNameInputRef}
-                  />
-                  <p className="text-xs text-gray-500">
-                    Use this when the PI is not in the researcher list.
-                  </p>
-                </div>
-              )}
-              {piError && (
-                <p id="study-manager-pi-error" className="text-xs text-red-600">
-                  {piError}
-                </p>
-              )}
-            </div>
-          </div>
+          <StudyTeamsFieldset
+            idPrefix="study-manager"
+            teams={form.siteTeams}
+            onChange={updateTeams}
+            sites={meta.sites}
+            researchers={meta.researchers}
+            errors={teamErrors}
+            recruitmentSiteIds={form.recruitmentSiteIds}
+            onRecruitmentChange={(ids) => updateFormField('recruitmentSiteIds', ids)}
+          />
 
           <div className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
             <div>

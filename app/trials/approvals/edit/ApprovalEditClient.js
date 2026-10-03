@@ -5,117 +5,25 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import AuthButtons from '@/app/components/AuthButtons'
+import StudyTeamsFieldset from '@/app/trials/components/StudyTeamsFieldset'
+import {
+  PHASE_OPTIONS,
+  STATUS_OPTIONS,
+  STUDY_TYPE_OPTIONS,
+  createEmptyForm,
+  formFromRecord,
+  serializeForm as serializeDraft,
+  slugify,
+  splitList,
+} from '@/app/trials/components/studyFormModel'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
+import { normalizeStudyPayload } from '@/lib/studySubmissions'
+import { formatTeamError, summarizeStudyChanges, validateSiteTeams } from '@/lib/studyTeams'
 
 const TOKEN_STORAGE_KEY = 'kcru-admin-token'
 const LEGACY_TOKEN_KEYS = ['kcru-approval-token', 'kcru-updates-admin-token']
 
-const STATUS_OPTIONS = [
-  { value: 'recruiting', label: 'Recruiting' },
-  { value: 'coming_soon', label: 'Coming Soon' },
-  { value: 'active_not_recruiting', label: 'Active, Not Recruiting' },
-  { value: 'completed', label: 'Completed' },
-]
-
-const STUDY_TYPE_OPTIONS = [
-  { value: '', label: 'Select study type' },
-  { value: 'interventional', label: 'Interventional' },
-  { value: 'observational', label: 'Observational' },
-]
-
-const PHASE_OPTIONS = [
-  { value: '', label: 'Select phase' },
-  { value: 'phase1', label: 'Phase 1' },
-  { value: 'phase1_2', label: 'Phase 1/2' },
-  { value: 'phase2', label: 'Phase 2' },
-  { value: 'phase2_3', label: 'Phase 2/3' },
-  { value: 'phase3', label: 'Phase 3' },
-  { value: 'phase4', label: 'Phase 4' },
-  { value: 'na', label: 'N/A' },
-]
-
-const PI_OTHER_VALUE = '__other__'
-
-const EMPTY_FORM = {
-  id: '',
-  title: '',
-  slug: '',
-  nctId: '',
-  status: 'recruiting',
-  studyType: '',
-  phase: '',
-  therapeuticAreaIds: [],
-  laySummary: '',
-  emailTitle: '',
-  emailEligibilitySummary: '',
-  inclusionCriteria: [],
-  exclusionCriteria: [],
-  sponsorWebsite: '',
-  acceptsReferrals: false,
-  featured: false,
-  localContact: {
-    name: '',
-    role: '',
-    email: '',
-    phone: '',
-    displayPublicly: false,
-  },
-  principalInvestigatorId: '',
-  principalInvestigatorName: '',
-  ctGovData: null,
-}
-
-function slugify(value) {
-  return String(value || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 96)
-}
-
-function normalizeCriteriaText(value) {
-  return String(value || '')
-    .replace(/\\+([<>^\[\]])/g, '$1')
-    .replace(/&gt;/gi, '>')
-    .replace(/&lt;/gi, '<')
-}
-
-function splitList(value) {
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => normalizeCriteriaText(item).trim())
-      .filter(Boolean)
-  }
-  if (!value) return []
-  return String(value)
-    .split(/[\n,]+/)
-    .map((item) => normalizeCriteriaText(item).trim())
-    .filter(Boolean)
-}
-
-function mergeDraft(data) {
-  const payload = data && typeof data === 'object' ? data : {}
-  return {
-    ...EMPTY_FORM,
-    ...payload,
-    therapeuticAreaIds: splitList(payload.therapeuticAreaIds),
-    inclusionCriteria: splitList(payload.inclusionCriteria),
-    exclusionCriteria: splitList(payload.exclusionCriteria),
-    localContact: {
-      ...EMPTY_FORM.localContact,
-      ...(payload.localContact || {}),
-    },
-  }
-}
-
-function serializeDraft(data) {
-  try {
-    return JSON.stringify(data)
-  } catch (err) {
-    return ''
-  }
-}
+const EMPTY_FORM = createEmptyForm()
 
 export default function ApprovalEditClient() {
   const searchParams = useSearchParams()
@@ -131,9 +39,9 @@ export default function ApprovalEditClient() {
   const isAuthorized = hasSessionAccess || Boolean(token)
   const isSessionLoading = sessionStatus === 'loading'
   const [submission, setSubmission] = useState(null)
-  const [meta, setMeta] = useState({ areas: [], researchers: [] })
+  const [meta, setMeta] = useState({ areas: [], researchers: [], sites: [] })
   const [form, setForm] = useState(EMPTY_FORM)
-  const [piOtherSelected, setPiOtherSelected] = useState(false)
+  const [teamErrors, setTeamErrors] = useState([])
   const [baselineSnapshot, setBaselineSnapshot] = useState(() => serializeDraft(EMPTY_FORM))
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -143,35 +51,20 @@ export default function ApprovalEditClient() {
   const [commsLoading, setCommsLoading] = useState(false)
   const [commsError, setCommsError] = useState('')
   const [commsSuccess, setCommsSuccess] = useState('')
-  const [piError, setPiError] = useState('')
   const inclusionCriteriaRefs = useRef([])
   const exclusionCriteriaRefs = useRef([])
   const criteriaFocusRef = useRef(null)
-  const piNameInputRef = useRef(null)
 
   const submissionId = searchParams.get('submissionId') || ''
   const formSnapshot = useMemo(() => serializeDraft(form), [form])
   const hasChanges = formSnapshot !== baselineSnapshot
-  const piSelectionValue =
-    form.principalInvestigatorId || (piOtherSelected || form.principalInvestigatorName ? PI_OTHER_VALUE : '')
-
-  useEffect(() => {
-    if (piSelectionValue !== PI_OTHER_VALUE) return
-    const timeout = setTimeout(() => {
-      piNameInputRef.current?.focus()
-    }, 0)
-    return () => clearTimeout(timeout)
-  }, [piSelectionValue])
-
-  useEffect(() => {
-    if (form.principalInvestigatorId) {
-      setPiOtherSelected(false)
-      return
-    }
-    if (form.principalInvestigatorName) {
-      setPiOtherSelected(true)
-    }
-  }, [form.principalInvestigatorId, form.principalInvestigatorName])
+  // What approving this submission, as edited here, would change on the live study.
+  const changes = useMemo(() => {
+    if (submission?.action !== 'update' || !submission?.study) return null
+    return summarizeStudyChanges(normalizeStudyPayload(submission.study), normalizeStudyPayload(form), {
+      sites: meta.sites,
+    })
+  }, [submission, form, meta.sites])
 
   useEffect(() => {
     const queryToken = searchParams.get('token')
@@ -224,11 +117,15 @@ export default function ApprovalEditClient() {
         throw new Error(data?.error || `Request failed (${res.status})`)
       }
       setSubmission(data.submission || null)
-      setMeta(data.meta || { areas: [], researchers: [] })
-      const nextForm = mergeDraft(data.submission?.payload || {})
+      setMeta({
+        areas: data.meta?.areas || [],
+        researchers: data.meta?.researchers || [],
+        sites: data.meta?.sites || [],
+      })
+      const nextForm = formFromRecord(data.submission?.payload || {})
       setForm(nextForm)
       setBaselineSnapshot(serializeDraft(nextForm))
-      setPiError('')
+      setTeamErrors([])
       setCommsError('')
       setCommsSuccess('')
     } catch (err) {
@@ -243,47 +140,12 @@ export default function ApprovalEditClient() {
   }, [token, hasSessionAccess, submissionId, loadSubmission])
 
   function updateFormField(key, value) {
-    if (key === 'principalInvestigatorName') {
-      setPiError('')
-    }
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  function updatePrincipalInvestigator(value) {
-    setPiError('')
-    if (value === PI_OTHER_VALUE) {
-      setPiOtherSelected(true)
-      setForm((prev) => ({
-        ...prev,
-        principalInvestigatorId: '',
-        principalInvestigatorName: prev.principalInvestigatorName || '',
-      }))
-      return
-    }
-    setPiOtherSelected(false)
-    if (!value) {
-      setForm((prev) => ({
-        ...prev,
-        principalInvestigatorId: '',
-        principalInvestigatorName: '',
-      }))
-      return
-    }
-    setForm((prev) => ({
-      ...prev,
-      principalInvestigatorId: value,
-      principalInvestigatorName: '',
-    }))
-  }
-
-  function updateContactField(key, value) {
-    setForm((prev) => ({
-      ...prev,
-      localContact: {
-        ...prev.localContact,
-        [key]: value,
-      },
-    }))
+  function updateTeams(nextTeams) {
+    setTeamErrors([])
+    setForm((prev) => ({ ...prev, siteTeams: nextTeams }))
   }
 
   function toggleMultiSelect(key, id) {
@@ -513,11 +375,13 @@ export default function ApprovalEditClient() {
       setError('Missing submission id.')
       return false
     }
-    const piName = form.principalInvestigatorName.trim()
-    if (!form.principalInvestigatorId && !piName) {
-      setPiError('Select a principal investigator or choose Other and enter a name.')
+    const errors = validateSiteTeams(form.siteTeams, { sites: meta.sites })
+    if (errors.length) {
+      setTeamErrors(errors)
+      setError(formatTeamError(errors[0], form.siteTeams, meta.sites))
       return false
     }
+    setTeamErrors([])
     setSaving(true)
     setError('')
     setSuccess('')
@@ -634,6 +498,20 @@ export default function ApprovalEditClient() {
               </button>
             </div>
             {loading && <p className="text-sm text-gray-500">Loading submission...</p>}
+            {changes && (
+              <div className="rounded-lg border border-purple/20 bg-purple/5 p-3 text-sm text-gray-800">
+                <p className="font-medium text-gray-900">What approving this would change</p>
+                {changes.length ? (
+                  <ul className="mt-1 list-disc pl-5 space-y-0.5">
+                    {changes.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-gray-600">No differences from the current study.</p>
+                )}
+              </div>
+            )}
           </section>
 
           <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
@@ -773,18 +651,9 @@ export default function ApprovalEditClient() {
                 />
                 Feature on homepage
               </label>
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={form.acceptsReferrals}
-                  onChange={(e) => updateFormField('acceptsReferrals', e.target.checked)}
-                  className="h-4 w-4"
-                />
-                Accepts referrals
-              </label>
             </div>
             <p className="text-xs text-gray-500">
-              Featured studies appear on the homepage. The Accepts referrals toggle shows the referral option to visitors.
+              Featured studies appear on the homepage. Each study team below decides whether it accepts referrals.
             </p>
           </section>
 
@@ -819,118 +688,16 @@ export default function ApprovalEditClient() {
             </div>
           </section>
 
-          <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold">Local Contact & PI</h3>
-              <p className="text-sm text-gray-500">
-                This is the main contact for inquiries and referrals. Only shown publicly if you enable it below.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label htmlFor="approval-edit-contact-name" className="text-sm font-medium">Contact name</label>
-                <input
-                  id="approval-edit-contact-name"
-                  type="text"
-                  value={form.localContact.name}
-                  onChange={(e) => updateContactField('name', e.target.value)}
-                  placeholder="Jane Doe"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="approval-edit-contact-role" className="text-sm font-medium">Contact role</label>
-                <input
-                  id="approval-edit-contact-role"
-                  type="text"
-                  value={form.localContact.role}
-                  onChange={(e) => updateContactField('role', e.target.value)}
-                  placeholder="Study coordinator"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="approval-edit-contact-email" className="text-sm font-medium">Contact email</label>
-                <input
-                  id="approval-edit-contact-email"
-                  type="email"
-                  value={form.localContact.email}
-                  onChange={(e) => updateContactField('email', e.target.value)}
-                  placeholder="contact@lhsc.on.ca"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                />
-              </div>
-              <div className="space-y-1">
-                <label htmlFor="approval-edit-contact-phone" className="text-sm font-medium">Contact phone</label>
-                <input
-                  id="approval-edit-contact-phone"
-                  type="text"
-                  value={form.localContact.phone}
-                  onChange={(e) => updateContactField('phone', e.target.value)}
-                  placeholder="555-555-5555"
-                  className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
-                />
-              </div>
-              <label className="flex items-center gap-3 text-sm text-gray-700 md:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={form.localContact.displayPublicly}
-                  onChange={(e) => updateContactField('displayPublicly', e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <span>Display contact info publicly</span>
-              </label>
-              <p className="text-xs text-gray-500 md:col-span-2">
-                When checked, the contact name, role, email, and phone appear on the public study page. This is not
-                required to facilitate referrals; leaving it unchecked keeps the information hidden.
-              </p>
-            </div>
-
-            <div className="space-y-1">
-              <label htmlFor="approval-edit-pi" className="text-sm font-medium">Principal investigator</label>
-              <select
-                id="approval-edit-pi"
-                value={piSelectionValue}
-                onChange={(e) => updatePrincipalInvestigator(e.target.value)}
-                className={`w-full border border-black/10 px-3 py-2 rounded bg-white focus:outline-none focus:ring-2 ${piError ? 'focus:ring-red-500 border-red-300' : 'focus:ring-purple'}`}
-                aria-invalid={piError ? 'true' : 'false'}
-                aria-describedby={piError ? 'approval-edit-pi-error' : undefined}
-              >
-                <option value="">Select a PI</option>
-                {(meta.researchers || []).map((researcher) => (
-                  <option key={researcher._id} value={researcher._id}>
-                    {researcher.name}
-                  </option>
-                ))}
-                <option value={PI_OTHER_VALUE}>Other (not listed)</option>
-              </select>
-              {piSelectionValue === PI_OTHER_VALUE && (
-                <div className="space-y-1">
-                  <label htmlFor="approval-edit-pi-name" className="text-sm font-medium">PI name</label>
-                  <input
-                    id="approval-edit-pi-name"
-                    type="text"
-                    value={form.principalInvestigatorName}
-                    onChange={(e) => updateFormField('principalInvestigatorName', e.target.value)}
-                    placeholder="Enter PI name"
-                    className={`w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 ${piError ? 'focus:ring-red-500 border-red-300' : 'focus:ring-purple'}`}
-                    aria-invalid={piError ? 'true' : 'false'}
-                    aria-describedby={piError ? 'approval-edit-pi-error' : undefined}
-                    ref={piNameInputRef}
-                  />
-                  <p className="text-xs text-gray-500">
-                    Use this when the PI is not in the researcher list.
-                  </p>
-                </div>
-              )}
-              {piError && (
-                <p id="approval-edit-pi-error" className="text-xs text-red-600">
-                  {piError}
-                </p>
-              )}
-            </div>
-          </section>
+          <StudyTeamsFieldset
+            idPrefix="approval-edit"
+            teams={form.siteTeams}
+            onChange={updateTeams}
+            sites={meta.sites}
+            researchers={meta.researchers}
+            errors={teamErrors}
+            recruitmentSiteIds={form.recruitmentSiteIds}
+            onRecruitmentChange={(ids) => updateFormField('recruitmentSiteIds', ids)}
+          />
 
           <section className="bg-white border border-black/5 rounded-xl p-5 md:p-6 shadow-sm space-y-4">
             <div>

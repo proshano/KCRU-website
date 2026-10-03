@@ -4,6 +4,16 @@ import { notFound } from 'next/navigation'
 import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { buildOpenGraph, buildTwitterMetadata, getSiteBaseUrl, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 import JsonLd from '@/app/components/JsonLd'
+import {
+  listTeamInvestigators,
+  publicTeamContact,
+  recruitmentSiteNames,
+  referralOptionLabel,
+  resolveStudyTeams,
+  teamLabel,
+  teamStatusLabel,
+  teamsAcceptingReferrals,
+} from '@/lib/studyTeams'
 import ReferralForm from './ReferralForm'
 
 // Revalidate every 12 hours
@@ -100,7 +110,23 @@ export default async function TrialDetailPage({ params }) {
     280
   )
   const keywords = (trial.therapeuticAreas || []).map(area => area?.name).filter(Boolean)
-  const piName = trial.principalInvestigator?.name || trial.principalInvestigatorName
+  const teams = resolveStudyTeams(trial)
+  const investigators = listTeamInvestigators(teams)
+  const locations = recruitmentSiteNames(trial)
+  // Only the teams that take referrals reach the browser, as a key and a label;
+  // the API resolves the contact email from the key.
+  const referralTeams = teamsAcceptingReferrals(teams).map((team) => ({
+    key: team._key,
+    label: referralOptionLabel(team),
+  }))
+  const teamBlocks = teams
+    .map((team) => ({
+      key: team._key,
+      siteName: teamLabel(team),
+      statusLabel: team.status === 'enrolling' ? '' : teamStatusLabel(team.status),
+      contact: publicTeamContact(team),
+    }))
+    .filter((block) => block.siteName || block.statusLabel || block.contact)
 
   const trialSchema = {
     '@context': 'https://schema.org',
@@ -124,11 +150,14 @@ export default async function TrialDetailPage({ params }) {
       name: trial.ctGovData.sponsor
     }
   }
-  if (piName) {
-    trialSchema.principalInvestigator = {
-      '@type': 'Person',
-      name: piName
-    }
+  if (investigators.length) {
+    const people = investigators.map((pi) => ({ '@type': 'Person', name: pi.name }))
+    trialSchema.principalInvestigator = people.length === 1 ? people[0] : people
+  }
+  if (Array.isArray(trial.recruitmentSites) && trial.recruitmentSites.length) {
+    trialSchema.studyLocation = trial.recruitmentSites
+      .filter((site) => site?.name)
+      .map((site) => ({ '@type': 'Hospital', name: site.name }))
   }
   if (trial.ctGovData?.startDate) trialSchema.startDate = trial.ctGovData.startDate
   if (trial.ctGovData?.completionDate) trialSchema.endDate = trial.ctGovData.completionDate
@@ -169,10 +198,13 @@ export default async function TrialDetailPage({ params }) {
           {trial.ctGovData?.sponsor && (
             <span>Sponsor: {trial.ctGovData.sponsor}</span>
           )}
-          {piName && (
-            <InvestigatorBadge researcher={trial.principalInvestigator} name={piName} />
-          )}
+          {investigators.map((pi) => (
+            <InvestigatorBadge key={pi.key} investigator={pi} />
+          ))}
         </div>
+        {locations.length > 0 && (
+          <p className="mt-3 text-sm text-gray-500">Patients can be seen at: {locations.join(', ')}</p>
+        )}
       </header>
 
       {/* Call-to-action - shown near top for visibility */}
@@ -189,39 +221,48 @@ export default async function TrialDetailPage({ params }) {
             </div>
           </div>
           
-          {trial.localContact?.displayPublicly && trial.localContact?.name && (
-            <div className="mb-4">
-              <p className="font-medium">{trial.localContact.name}</p>
-              {trial.localContact.role && (
-                <p className="text-sm text-gray-600">{trial.localContact.role}</p>
-              )}
-              <div className="flex flex-wrap gap-4 mt-2">
-                {trial.localContact.email && (
-                  <a 
-                    href={`mailto:${trial.localContact.email}`}
-                    className="text-sm text-purple hover:underline"
-                  >
-                    {trial.localContact.email}
-                  </a>
-                )}
-                {trial.localContact.phone && (
-                  <a 
-                    href={`tel:${trial.localContact.phone}`}
-                    className="text-sm text-purple hover:underline"
-                  >
-                    {trial.localContact.phone}
-                  </a>
-                )}
-              </div>
+          {/* One block per study team: the site, whether it is enrolling yet, and its public contact */}
+          {teamBlocks.length > 0 && (
+            <div className="mb-4 grid gap-4 sm:grid-cols-2">
+              {teamBlocks.map((block) => (
+                <div key={block.key} className="text-sm">
+                  {(block.siteName || block.statusLabel) && (
+                    <p className="font-medium text-gray-900">
+                      {block.siteName ? `${block.siteName} team` : 'Study team'}
+                      {block.statusLabel && (
+                        <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+                          {block.statusLabel === 'Not yet enrolling' ? 'Starting soon' : block.statusLabel}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  {block.contact && (
+                    <div className="mt-1">
+                      {block.contact.name && <p className="font-medium">{block.contact.name}</p>}
+                      {block.contact.role && <p className="text-gray-600">{block.contact.role}</p>}
+                      <div className="flex flex-wrap gap-4 mt-1">
+                        {block.contact.email && (
+                          <a href={`mailto:${block.contact.email}`} className="text-purple hover:underline">
+                            {block.contact.email}
+                          </a>
+                        )}
+                        {block.contact.phone && (
+                          <a href={`tel:${block.contact.phone}`} className="text-purple hover:underline">
+                            {block.contact.phone}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
           <div className="flex flex-wrap gap-3 mt-4">
             <ReferralForm
-              acceptsReferrals={trial.acceptsReferrals}
+              teams={referralTeams}
               studySlug={studySlug}
-              studyTitle={trial.title}
-              coordinatorEmail={trial.localContact?.email}
               recaptchaSiteKey={recaptchaSiteKey}
             />
             {ctGovUrl && (
@@ -303,17 +344,14 @@ export default async function TrialDetailPage({ params }) {
   )
 }
 
-function InvestigatorBadge({ researcher, name }) {
-  const slugValue = researcher?.slug?.current || researcher?.slug
-  const href = slugValue ? `/team/${slugValue}` : null
-  const displayName = name || researcher?.name
-
-  if (!displayName) return null
+function InvestigatorBadge({ investigator }) {
+  const href = investigator.slug ? `/team/${investigator.slug}` : null
 
   const content = (
     <>
-      <Avatar photo={researcher?.photo} name={displayName} />
-      <span className="text-purple font-medium text-sm">{displayName}</span>
+      <Avatar photo={investigator.photo} name={investigator.name} />
+      <span className="text-purple font-medium text-sm">{investigator.name}</span>
+      {investigator.siteName && <span className="text-sm text-gray-500">· {investigator.siteName}</span>}
     </>
   )
 

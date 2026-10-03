@@ -4,6 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { urlFor } from '@/lib/sanity'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
+import { listTeamInvestigators, recruitmentSiteNames, resolveStudyTeams } from '@/lib/studyTeams'
 
 const statusConfig = {
   recruiting: { 
@@ -75,10 +76,8 @@ function TrialItem({ trial }) {
   const hasDetailPage = !!slugValue
   const ctGovUrl = trial.nctId ? `https://clinicaltrials.gov/study/${trial.nctId}` : null
   const summaryText = trial.laySummary || ''
-  const pi = trial.principalInvestigator
-  const piName = pi?.name || trial.principalInvestigatorName
-  const piSlug = pi?.slug?.current || pi?.slug
-  const piHref = piSlug ? `/team/${piSlug}` : null
+  const investigators = listTeamInvestigators(resolveStudyTeams(trial))
+  const locations = recruitmentSiteNames(trial)
   const therapeuticLabels =
     trial.therapeuticAreas?.map((area) => getTherapeuticAreaLabel(area?.name)).filter(Boolean) || []
 
@@ -116,25 +115,17 @@ function TrialItem({ trial }) {
         <div className="flex items-center gap-3 flex-wrap" />
       </div>
 
-      {/* PI badge */}
-      {piName && (
+      {/* One badge per study team: the investigator and the site that coordinates it */}
+      {investigators.length > 0 && (
         <div className="flex flex-wrap gap-2 text-sm">
-          {piHref ? (
-            <Link
-              href={piHref}
-              prefetch={false}
-              className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors"
-            >
-              <Avatar photo={pi?.photo} name={piName} />
-              <span className="text-purple font-medium">{piName}</span>
-            </Link>
-          ) : (
-            <span className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 text-purple font-medium">
-              <Avatar photo={pi?.photo} name={piName} />
-              {piName}
-            </span>
-          )}
+          {investigators.map((pi) => (
+            <InvestigatorBadge key={pi.key} investigator={pi} />
+          ))}
         </div>
+      )}
+
+      {locations.length > 0 && (
+        <p className="text-sm text-[#666]">Patients can be seen at: {locations.join(', ')}</p>
       )}
 
       {/* Summary */}
@@ -191,6 +182,30 @@ export function TrialCardCompact({ trial }) {
         </a>
       )}
     </article>
+  )
+}
+
+export function InvestigatorBadge({ investigator }) {
+  const href = investigator.slug ? `/team/${investigator.slug}` : null
+  const startingSoon = investigator.status === 'not_yet_enrolling'
+  const content = (
+    <>
+      <Avatar photo={investigator.photo} name={investigator.name} />
+      <span className="text-purple font-medium">{investigator.name}</span>
+      {investigator.siteName && <span className="text-[#666]">· {investigator.siteName}</span>}
+      {startingSoon && <span className="text-xs text-amber-700">starting soon</span>}
+    </>
+  )
+  return href ? (
+    <Link
+      href={href}
+      prefetch={false}
+      className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors"
+    >
+      {content}
+    </Link>
+  ) : (
+    <span className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5">{content}</span>
   )
 }
 
