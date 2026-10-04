@@ -1,0 +1,57 @@
+name: Migrate Study Teams
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+# Runs `npm run migrate:site-teams` against the live dataset. The dry run prints
+# one line per study (which coordinating site it inferred, or why it could not)
+# without writing anything; "apply" writes the teams; "apply-and-remove-legacy"
+# also unsets the old single PI and contact fields once every study has a team
+# with a PI. See "Studies and Site Teams" in AGENTS.md.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "What to do"
+        required: true
+        type: choice
+        default: dry-run
+        options:
+          - dry-run
+          - apply
+          - apply-and-remove-legacy
+
+concurrency:
+  group: site-teams-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run the study teams migration
+        env:
+          NEXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_SANITY_PROJECT_ID }}
+          NEXT_PUBLIC_SANITY_DATASET: ${{ secrets.NEXT_PUBLIC_SANITY_DATASET }}
+          SANITY_API_TOKEN: ${{ secrets.SANITY_API_TOKEN }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          case "$MODE" in
+            dry-run) npm run migrate:site-teams ;;
+            apply) npm run migrate:site-teams -- --apply ;;
+            apply-and-remove-legacy) npm run migrate:site-teams -- --apply --remove-legacy ;;
+            *) echo "Unknown mode: $MODE"; exit 1 ;;
+          esac
