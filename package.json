@@ -21,7 +21,8 @@
     "audit:publication-attribution": "node --import ./scripts/_preload-env.js scripts/audit-publication-attribution.js",
     "migrate:publication-attribution": "node --import ./scripts/_preload-env.js scripts/migrate-publication-attribution-reviews.js",
     "migrate:social-posts": "node --import ./scripts/_preload-env.js scripts/migrate-social-posts-to-available.js",
-    "migrate:site-teams": "node --import ./scripts/_preload-env.js scripts/migrate-site-teams.js"
+    "migrate:site-teams": "node --import ./scripts/_preload-env.js scripts/migrate-site-teams.js",
+    "sites": "node --import ./scripts/_preload-env.js scripts/sites.js"
   },
   "keywords": [],
   "author": "",

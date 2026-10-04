@@ -1,0 +1,90 @@
+name: Research Sites Admin
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+# Lists, creates, renames or flags a Research Site document with the
+# repository's Sanity token (scripts/sites.js), for when Studio is not at hand.
+# Leave "apply" off to see the change without writing it.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "What to do"
+        required: true
+        type: choice
+        default: list
+        options:
+          - list
+          - create
+          - rename
+          - set
+      target:
+        description: "Site to change (id, short name or name) for rename and set"
+        required: false
+        type: string
+        default: ""
+      name:
+        description: "New or full site name (create, rename)"
+        required: false
+        type: string
+        default: ""
+      short_name:
+        description: "Short name (create, rename)"
+        required: false
+        type: string
+        default: ""
+      coordinates_studies:
+        description: "Coordinates studies (create, set)"
+        required: false
+        type: choice
+        default: unchanged
+        options:
+          - unchanged
+          - "true"
+          - "false"
+      recruits_patients:
+        description: "Patients can be enrolled here (create, set)"
+        required: false
+        type: choice
+        default: unchanged
+        options:
+          - unchanged
+          - "true"
+          - "false"
+      apply:
+        description: "Write the change (off = dry run)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  sites:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run the site change
+        env:
+          NEXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_SANITY_PROJECT_ID }}
+          NEXT_PUBLIC_SANITY_DATASET: ${{ secrets.NEXT_PUBLIC_SANITY_DATASET }}
+          SANITY_API_TOKEN: ${{ secrets.SANITY_API_TOKEN }}
+          SITE_ACTION: ${{ inputs.action }}
+          SITE_TARGET: ${{ inputs.target }}
+          SITE_NAME: ${{ inputs.name }}
+          SITE_SHORT_NAME: ${{ inputs.short_name }}
+          SITE_COORDINATES: ${{ inputs.coordinates_studies == 'unchanged' && '' || inputs.coordinates_studies }}
+          SITE_RECRUITS: ${{ inputs.recruits_patients == 'unchanged' && '' || inputs.recruits_patients }}
+          SITE_APPLY: ${{ inputs.apply }}
+        run: npm run sites
