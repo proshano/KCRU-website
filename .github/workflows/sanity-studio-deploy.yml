@@ -1,0 +1,56 @@
+name: Deploy Sanity Studio
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+# Publishes the hosted Studio from the current commit so new schema fields show
+# up for staff. Run it from the Actions tab after a schema change; nothing runs
+# on a schedule or on push.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: sanity-studio-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The lockfile was generated on another platform and leaves out Rollup's
+      # Linux binary, which the Studio build needs (npm/cli#4828). Installing it
+      # without saving keeps package.json and the lockfile untouched.
+      - name: Add the Rollup binary for Linux
+        run: npm install --no-save --no-audit --no-fund @rollup/rollup-linux-x64-gnu
+
+      - name: Deploy Sanity Studio
+        env:
+          SANITY_STUDIO_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_SANITY_PROJECT_ID }}
+          SANITY_STUDIO_DATASET: ${{ secrets.NEXT_PUBLIC_SANITY_DATASET }}
+          # A token with the "Deploy Studio" permission. Falls back to the content
+          # token the other workflows use, which works when that token's role may
+          # deploy the Studio.
+          SANITY_AUTH_TOKEN: ${{ secrets.SANITY_DEPLOY_TOKEN || secrets.SANITY_API_TOKEN }}
+        run: |
+          if [ -z "$SANITY_STUDIO_PROJECT_ID" ] || [ -z "$SANITY_STUDIO_DATASET" ]; then
+            echo "NEXT_PUBLIC_SANITY_PROJECT_ID and NEXT_PUBLIC_SANITY_DATASET secrets are required."
+            exit 1
+          fi
+          if [ -z "$SANITY_AUTH_TOKEN" ]; then
+            echo "Add a SANITY_DEPLOY_TOKEN secret (Sanity token with the Deploy Studio permission)."
+            exit 1
+          fi
+          npx sanity deploy --yes
