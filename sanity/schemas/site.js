@@ -8,13 +8,13 @@ const site = {
       title: 'Site Name',
       type: 'string',
       validation: Rule => Rule.required(),
-      description: 'e.g., "London Health Sciences Centre - University Hospital"'
+      description: 'e.g., "University Hospital"'
     },
     {
       name: 'shortName',
       title: 'Short Name',
       type: 'string',
-      description: 'e.g., "LHSC-UH"'
+      description: 'e.g., "UH"'
     },
     {
       name: 'type',

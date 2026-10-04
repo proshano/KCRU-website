@@ -20,7 +20,8 @@
  *
  * Usage:
  *   SITE_ACTION=list npm run sites
- *   SITE_ACTION=rename SITE_TARGET="LHSC-UH" SITE_NAME="University Hospital" SITE_APPLY=true npm run sites
+ *   SITE_ACTION=rename SITE_TARGET="UH" SITE_NAME="New name" SITE_APPLY=true npm run sites
+ *   SITE_ACTION=create SITE_NAME="St. Joseph's Health Care" SITE_SHORT_NAME="SJHC" SITE_COORDINATES=true SITE_RECRUITS=true SITE_APPLY=true npm run sites
  */
 
 import { pathToFileURL } from 'node:url'

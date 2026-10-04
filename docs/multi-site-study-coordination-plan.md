@@ -1,10 +1,10 @@
 # Multi-site study coordination
 
-Status: implemented in code on 2026-10-03; waiting on the Studio redeploy and the data migration below. This page started as the plan and now describes what was built and how to roll it out.
+Status: implemented in code on 2026-10-03; Studio redeployed and the migration applied on 2026-10-04 (69 studies got one team each; TREAT-COVID still needs a site and PI, and the legacy fields stay until the remove-legacy step). This page started as the plan and now describes what was built and how it was rolled out.
 
 ## The problem
 
-Studies are coordinated out of two separate sites, Victoria Hospital and University Hospital. Each site has its own principal investigators and coordinators and collects its own startup fees. Most studies belong to one site. Some have a PI and a coordinator team at both sites, and those teams do not necessarily collaborate. Referring clinicians know which site they are sending a patient to, because there is financial competition between the sites.
+Studies are coordinated out of separate sites: Victoria Hospital, University Hospital and St. Joseph's Health Care. Each site has its own principal investigators and coordinators and collects its own startup fees. Most studies belong to one site. Some have a PI and a coordinator team at more than one site, and those teams do not necessarily collaborate. Referring clinicians know which site they are sending a patient to, because there is financial competition between the sites.
 
 Where a study recruits is a separate matter. A University Hospital study can enrol patients at University Hospital, Victoria Hospital or Westmount (the Kidney Care Centre).
 
@@ -12,7 +12,7 @@ Where a study recruits is a separate matter. A University Hospital study can enr
 
 - **Study team.** One per coordinating site, on `trialSummary.siteTeams`: the site, the team's enrolment status (enrolling, not yet enrolling, closed), its principal investigator (team roster or free text), its coordinator contact with a "display publicly" switch, and whether the team takes referrals. Each site starts up on its own, so one team can be enrolling while the other is still contracting.
 - **Recruitment locations.** `trialSummary.recruitmentSites`: where patients can be seen and enrolled. Independent of the teams.
-- **Sites.** The existing `site` documents gained two switches: "Coordinates studies" (Victoria Hospital, University Hospital) and "Patients can be enrolled here" (both hospitals, Westmount). The subscriber "Location of practice" list and the capabilities page are unchanged.
+- **Sites.** The existing `site` documents gained two switches: "Coordinates studies" (Victoria Hospital, University Hospital, St. Joseph's Health Care) and "Patients can be enrolled here" (the hospitals, Westmount). The subscriber "Location of practice" list and the capabilities page are unchanged.
 - **Researchers.** Optional "Primary study site", used only as the default site when an investigator is chosen as a team's PI, and by the migration.
 - **Referrals.** Each `studyReferral` records the team that received it.
 
@@ -37,9 +37,9 @@ The single PI, local contact and "accepts referrals" fields are legacy. The app 
 
 1. Deploy the app. Everything falls back to the legacy fields until the migration runs, so nothing changes for existing studies yet.
 2. Redeploy Sanity Studio so the new fields appear.
-3. In Studio, mark Victoria Hospital and University Hospital as "Coordinates studies" and every enrolment place (both hospitals, Westmount / KCC) as "Patients can be enrolled here". Confirm the site names and short names; the public pages use the full name, the staff tools the short name.
+3. In Studio, mark each coordinating site (Victoria Hospital, University Hospital, St. Joseph's Health Care) as "Coordinates studies" and every enrolment place (the hospitals, Westmount / KCC) as "Patients can be enrolled here". Confirm the site names and short names; the public pages use the full name, the staff tools the short name. The Research Sites Admin workflow (`.github/workflows/site-admin.yml`, `npm run sites`) can list, create, rename or flag a site with the repository's Sanity token when Studio is not at hand.
 4. In Studio, set "Primary study site" on each clinical investigator and publish.
-5. Run `npm run migrate:site-teams`. It prints one line per study: the site it inferred and from whom, or why it could not. Fix what the lines point at (an unpublished researcher draft, a PI outside the roster), rerun, then `npm run migrate:site-teams -- --apply`.
+5. Run `npm run migrate:site-teams` (or the Migrate Study Teams workflow from the Actions tab). It prints one line per study: the site it inferred and from whom, or why it could not. Fix what the lines point at (an unpublished researcher draft; a PI outside the roster is placed with `SITE_TEAMS_PI_SITES` / the workflow's `pi_sites` input, "PI name = site" pairs), rerun, then `npm run migrate:site-teams -- --apply`.
 6. Studies that still have no coordinating site show an amber chip in the Study Manager; a coordinator picks the site on their next edit. Approval admins can also set it in Studio.
 7. Once every study has a team with a PI, run `npm run migrate:site-teams -- --apply --remove-legacy`. Later, remove the legacy fields from `sanity/schemas/trialSummary.js` and the legacy branches from `studyTeamsProjection` and `lib/studyTeams.js`.
 
