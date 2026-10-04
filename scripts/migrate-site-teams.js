@@ -9,6 +9,11 @@
  * left without a site and the study is listed under "needs a coordinating site"
  * for a coordinator to fix in the Study Manager.
  *
+ * A PI who is not a researcher record (or has no primary site) can be placed by
+ * name with SITE_TEAMS_PI_SITES, one "PI name = site" pair per line or separated
+ * by semicolons, where the site is a coordinating site's name, short name or id:
+ *   SITE_TEAMS_PI_SITES="Kristin Clemens = St. Joseph's Health Care; Alp Sener = UH"
+ *
  * Submissions and drafts are not rewritten: normalizeStudyPayload builds the team
  * from a legacy payload every time one is read.
  *
@@ -59,6 +64,40 @@ const RESEARCHER_QUERY = `
 
 const SITE_QUERY = `*[_type == "site"] { _id, name, shortName, coordinatesStudies }`
 
+function normalizePersonName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/^\s*dr\.?\s+/, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+// "PI name = site" pairs, separated by newlines or semicolons.
+export function parsePiSiteOverrides(text) {
+  return String(text || '')
+    .split(/[\n;]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry && !entry.startsWith('#'))
+    .map((entry) => {
+      const index = entry.indexOf('=')
+      if (index === -1) throw new Error(`PI site override "${entry}" must look like "PI name = site".`)
+      const pi = entry.slice(0, index).trim()
+      const site = entry.slice(index + 1).trim()
+      if (!pi || !site) throw new Error(`PI site override "${entry}" must look like "PI name = site".`)
+      return { pi, site }
+    })
+}
+
+function findCoordinatingSite(label, coordinating) {
+  const wanted = String(label || '').trim().toLowerCase()
+  return (
+    coordinating.find((site) => site._id === label) ||
+    coordinating.find((site) => String(site.shortName || '').trim().toLowerCase() === wanted) ||
+    coordinating.find((site) => String(site.name || '').trim().toLowerCase() === wanted) ||
+    null
+  )
+}
+
 function hasLegacyFields(study) {
   return LEGACY_STUDY_FIELDS.some((field) => {
     if (field === 'principalInvestigator') return Boolean(study.principalInvestigatorId)
@@ -70,9 +109,22 @@ function hasLegacyFields(study) {
  * Pure planning step, exported for tests. Returns the patches to write and a
  * report with one line per study.
  */
-export function planSiteTeamMigration({ studies = [], researchers = [], sites = [] } = {}) {
-  const coordinating = new Map(coordinatingSites(sites).map((site) => [site._id, site]))
+export function planSiteTeamMigration({ studies = [], researchers = [], sites = [], piSites = [] } = {}) {
+  const coordinatingList = coordinatingSites(sites)
+  const coordinating = new Map(coordinatingList.map((site) => [site._id, site]))
   const researcherById = new Map(researchers.map((researcher) => [researcher._id, researcher]))
+
+  const errors = []
+  const overrides = new Map()
+  for (const override of piSites) {
+    const site = findCoordinatingSite(override.site, coordinatingList)
+    if (!site) {
+      const available = coordinatingList.map((candidate) => siteLabel(candidate)).join(', ') || 'none'
+      errors.push(`No coordinating site matches "${override.site}" (for PI "${override.pi}"). Coordinating sites: ${available}.`)
+      continue
+    }
+    overrides.set(normalizePersonName(override.pi), { pi: override.pi, site, used: 0 })
+  }
 
   const patches = []
   const lines = []
@@ -81,6 +133,7 @@ export function planSiteTeamMigration({ studies = [], researchers = [], sites = 
     alreadyMigrated: 0,
     converted: 0,
     siteInferred: 0,
+    siteFromOverride: 0,
     needsSite: 0,
     noLegacyData: 0,
   }
@@ -100,11 +153,19 @@ export function planSiteTeamMigration({ studies = [], researchers = [], sites = 
 
     const researcher = researcherById.get(team.principalInvestigatorId)
     const inferredSite = researcher?.primarySiteId ? coordinating.get(researcher.primarySiteId) : null
+    const piName = researcher?.name || team.principalInvestigatorName
+    const override = overrides.get(normalizePersonName(piName))
     if (inferredSite) {
       team.siteId = inferredSite._id
       team._key = `site-${inferredSite._id}`
       counts.siteInferred += 1
       lines.push(`${label} -> ${siteLabel(inferredSite)} (from ${researcher.name}'s primary site)`)
+    } else if (override) {
+      team.siteId = override.site._id
+      team._key = `site-${override.site._id}`
+      override.used += 1
+      counts.siteFromOverride += 1
+      lines.push(`${label} -> ${siteLabel(override.site)} (from the PI site override for "${override.pi}")`)
     } else {
       counts.needsSite += 1
       const reason = !researcher
@@ -123,7 +184,11 @@ export function planSiteTeamMigration({ studies = [], researchers = [], sites = 
     patches.push({ id: study._id, rev: study._rev, set: { siteTeams: payloadTeamsToSanity([team]) } })
   }
 
-  return { patches, lines, counts }
+  for (const override of overrides.values()) {
+    if (!override.used) lines.push(`PI site override for "${override.pi}" matched no study.`)
+  }
+
+  return { patches, lines, counts, errors }
 }
 
 /**
@@ -191,9 +256,16 @@ async function main() {
     writeClient.fetch(SITE_QUERY),
   ])
 
-  const plan = planSiteTeamMigration({ studies, researchers, sites })
+  const piSites = parsePiSiteOverrides(process.env.SITE_TEAMS_PI_SITES)
+  const plan = planSiteTeamMigration({ studies, researchers, sites, piSites })
   for (const line of plan.lines) console.log(line)
-  console.log(JSON.stringify({ ...plan.counts, applied: apply }, null, 2))
+  for (const error of plan.errors) console.error(`Error: ${error}`)
+  console.log(JSON.stringify({ ...plan.counts, applied: apply && !plan.errors.length }, null, 2))
+
+  if (plan.errors.length) {
+    console.error('Fix the PI site overrides above and rerun.')
+    process.exit(1)
+  }
 
   if (apply && plan.patches.length) {
     await commitPatches(writeClient, plan.patches)

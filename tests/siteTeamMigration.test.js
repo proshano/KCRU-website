@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { planLegacyRemoval, planSiteTeamMigration } from '../scripts/migrate-site-teams.js'
+import { parsePiSiteOverrides, planLegacyRemoval, planSiteTeamMigration } from '../scripts/migrate-site-teams.js'
 
 const SITES = [
   { _id: 'site-uh', name: 'University Hospital', shortName: 'UH', coordinatesStudies: true },
@@ -30,8 +30,10 @@ test('planSiteTeamMigration converts legacy studies, infers the site from a publ
     converted: 4,
     siteInferred: 1,
     needsSite: 3,
+    siteFromOverride: 0,
     noLegacyData: 1,
   })
+  assert.deepEqual(plan.errors, [])
   assert.equal(plan.patches.length, 4)
 
   const inferred = plan.patches.find((patch) => patch.id === 's1')
@@ -79,4 +81,47 @@ test('planLegacyRemoval refuses while a study lacks a team with a PI, then unset
   assert.deepEqual(ready.patches, [
     { id: 's1', rev: 'r1', unset: ['localContact', 'principalInvestigator', 'principalInvestigatorName', 'acceptsReferrals'] },
   ])
+})
+
+test('PI site overrides place studies whose PI is not a researcher record, by site name, short name or id', () => {
+  const sites = [
+    ...SITES,
+    { _id: 'site-sjhc', name: "St. Joseph's Health Care", shortName: 'SJHC', coordinatesStudies: true },
+  ]
+  const studies = [
+    { _id: 's1', _rev: 'r1', title: 'REBUILD', status: 'recruiting', principalInvestigatorName: 'Kristin Clemens' },
+    { _id: 's2', _rev: 'r2', title: 'RSV', status: 'recruiting', principalInvestigatorName: 'Dr. Sarah Shalhoub' },
+    { _id: 's3', _rev: 'r3', title: 'KTAP', status: 'recruiting', principalInvestigatorName: 'Ephraim Tang' },
+    { _id: 's4', _rev: 'r4', title: 'No site PI', status: 'recruiting', principalInvestigatorId: 'r-draft' },
+  ]
+  const piSites = parsePiSiteOverrides(
+    "Kristin Clemens = st. joseph's health care; Sarah Shalhoub=UH\n Ephraim Tang = site-uh ; Draft Only = University Hospital"
+  )
+  assert.equal(piSites.length, 4)
+
+  const plan = planSiteTeamMigration({ studies, researchers: RESEARCHERS, sites, piSites })
+  assert.deepEqual(plan.errors, [])
+  assert.equal(plan.counts.siteFromOverride, 4)
+  assert.equal(plan.counts.needsSite, 0)
+  assert.equal(plan.patches.find((patch) => patch.id === 's1').set.siteTeams[0].site._ref, 'site-sjhc')
+  assert.equal(plan.patches.find((patch) => patch.id === 's2').set.siteTeams[0].site._ref, 'site-uh')
+  assert.equal(plan.patches.find((patch) => patch.id === 's3').set.siteTeams[0].site._ref, 'site-uh')
+  // A researcher record without a primary site is matched on the researcher's name.
+  assert.equal(plan.patches.find((patch) => patch.id === 's4').set.siteTeams[0].site._ref, 'site-uh')
+  assert.ok(plan.lines.some((line) => line.includes('RSV [s2] -> University Hospital (from the PI site override for "Sarah Shalhoub")')))
+})
+
+test('an override naming an unknown or non-coordinating site is an error and an unused one is reported', () => {
+  const studies = [{ _id: 's1', _rev: 'r1', title: 'X', status: 'recruiting', principalInvestigatorName: 'Someone' }]
+  const plan = planSiteTeamMigration({
+    studies,
+    researchers: RESEARCHERS,
+    sites: SITES,
+    piSites: parsePiSiteOverrides('Someone = Westmount; Nobody = University Hospital'),
+  })
+  assert.equal(plan.errors.length, 1)
+  assert.match(plan.errors[0], /No coordinating site matches "Westmount"/)
+  assert.ok(plan.lines.some((line) => line === 'PI site override for "Nobody" matched no study.'))
+  assert.throws(() => parsePiSiteOverrides('just a name'), /must look like/)
+  assert.deepEqual(parsePiSiteOverrides(''), [])
 })
