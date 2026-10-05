@@ -1,6 +1,6 @@
 # Multi-site study coordination
 
-Status: implemented in code on 2026-10-03; Studio redeployed and the migration applied on 2026-10-04 (69 studies got one team each; TREAT-COVID still needs a site and PI, and the legacy fields stay until the remove-legacy step). This page started as the plan and now describes what was built and how it was rolled out.
+Status: implemented in code on 2026-10-03; Studio redeployed and the migration applied on 2026-10-04 (69 studies got one team each); TREAT-COVID deleted and the legacy fields removed from all 68 remaining studies on 2026-10-05. The schema still declares the legacy fields and the app still falls back to them for older submissions and drafts; removing those is the remaining cleanup (step 7). This page started as the plan and now describes what was built and how it was rolled out.
 
 ## The problem
 
@@ -41,7 +41,7 @@ The single PI, local contact and "accepts referrals" fields are legacy. The app 
 4. In Studio, set "Primary study site" on each clinical investigator and publish.
 5. Run `npm run migrate:site-teams` (or the Migrate Study Teams workflow from the Actions tab). It prints one line per study: the site it inferred and from whom, or why it could not. Fix what the lines point at (an unpublished researcher draft; a PI outside the roster is placed with `SITE_TEAMS_PI_SITES` / the workflow's `pi_sites` input, "PI name = site" pairs), rerun, then `npm run migrate:site-teams -- --apply`.
 6. Studies that still have no coordinating site show an amber chip in the Study Manager; a coordinator picks the site on their next edit. Approval admins can also set it in Studio.
-7. Once every study has a team with a PI, run `npm run migrate:site-teams -- --apply --remove-legacy`. Later, remove the legacy fields from `sanity/schemas/trialSummary.js` and the legacy branches from `studyTeamsProjection` and `lib/studyTeams.js`.
+7. Once every study has a team with a PI, run `npm run migrate:site-teams -- --apply --remove-legacy` (done on 2026-10-05; its guard reads teams through the same projection the Study Manager uses, and a groq-js test keeps the query and the guard in step). Later, remove the legacy fields from `sanity/schemas/trialSummary.js` and the legacy branches from `studyTeamsProjection` and `lib/studyTeams.js`, once old submissions and drafts no longer matter.
 
 ## Verification
 
