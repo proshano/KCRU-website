@@ -42,10 +42,9 @@ export async function generateMetadata() {
   }
 }
 
-export default async function TrialsPage({ searchParams }) {
-  // In Next.js 15+, searchParams is a Promise
-  const params = await searchParams
-  
+// The ?area= filter is read in the browser (AreaParamSync in TrialsClient) so this page
+// stays prerendered; reading searchParams here would render it on every request.
+export default async function TrialsPage() {
   const [trialsRaw, areasRaw, pageContentRaw, settingsRaw] = await Promise.all([
     sanityFetch(queries.trialSummaries),
     sanityFetch(queries.therapeuticAreas),
@@ -58,9 +57,6 @@ export default async function TrialsPage({ searchParams }) {
   const content = JSON.parse(JSON.stringify(pageContentRaw || {}))
   const settings = JSON.parse(JSON.stringify(settingsRaw || {}))
   const isTrialMatchingEnabled = isTrialMatchingAssistantEnabled(settings)
-
-  // Get selected area filter from URL
-  const selectedArea = params?.area || null
 
   // Page content with fallbacks
   const eyebrowRaw = Object.prototype.hasOwnProperty.call(content, 'studiesEyebrow')
@@ -107,10 +103,9 @@ export default async function TrialsPage({ searchParams }) {
       </header>
 
       {/* Client-side interactive content with search */}
-      <TrialsClient 
-        allTrials={allTrials} 
-        areas={areas} 
-        selectedArea={selectedArea} 
+      <TrialsClient
+        allTrials={allTrials}
+        areas={areas}
       />
     </main>
   )

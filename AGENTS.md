@@ -35,6 +35,15 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - Prefer `lib/sanity.js` for general reads/writes; `lib/sanity/client.js` is a no-CDN client for maintenance checks.
 - Public navigation and dense link collections intentionally use `prefetch={false}` in several places to limit background requests and Vercel invocation noise; do not re-enable broad automatic prefetching without checking production impact.
 
+## Page Performance
+
+- Public pages are prerendered and revalidated (ISR). Reading `searchParams`, `cookies()` or `headers()` in a page makes it render on every request; `/trials` reads its `?area=` filter in the browser instead (`AreaParamSync` in `app/trials/TrialsClient.js`, inside its own Suspense boundary) so the page stays static. Someone who lands directly on `/trials?area=…` sees the full list for an instant before the filter applies; links to those URLs come only from the page itself.
+- `app/trials/[slug]`, `app/team/[slug]` and `app/news/[slug]` export `generateStaticParams` built from the sitemap slug queries (`toSlugParams` in `lib/sanity.js`), so every study, profile and article is rendered at deploy time rather than by its first visitor; unknown slugs still render on demand. The news article page is cached for an hour like the news list.
+- `sanityFetch` memoizes with React `cache()` for the duration of one server render, keyed by query plus JSON-serialized params: `generateMetadata`, the root layout and the page share a single site-settings request. Outside a render (API routes, scripts) it is a plain call and reads fresh data.
+- Client components get projections, not Sanity documents or cache records. The publications browser receives `toPublicationBrowserRecord` records and a `pickProvenanceForPublications` map (`lib/publicationUtils.js`), so abstracts and attribution bookkeeping never reach the browser; the home page's featured-study card gets `buildFeaturedTrials` (slug, status, title, resolved investigators). Add a field to the projection before reading it in the component.
+- Plus Jakarta Sans is self-hosted through `next/font/google` in `app/layout.js`, which defines `--font-plus-jakarta-sans` on `<html>`; `app/globals.css` and `tailwind.config.js` read the family from that variable. Do not reintroduce a Google Fonts `@import`.
+- React preloads every non-lazy `<img>` rendered in the shell, so below-the-fold images such as the home page affiliation logos carry `loading="lazy"`, the upload's pixel size as `width`/`height` (parsed from the asset reference) and a display-sized Sanity CDN URL rather than the original upload.
+
 ## Maintenance Mode
 
 - Settings live in Sanity (`siteSettings.maintenanceMode`) and are read via `lib/sanity/client.js`.
@@ -43,6 +52,7 @@ A clinical research team website built with Next.js (App Router), Sanity CMS, an
 - During maintenance, allowlisted paths still resolve: `/llms.txt`, `/sitemap.xml`, `/robots.txt`, and markdown endpoints (`/markdown/*` and `*.md`).
 - `proxy.js` intentionally excludes API/static asset requests from the matcher to reduce Vercel middleware invocations; keep the matcher tight if you add new public asset types.
 - The proxy's maintenance fetch is hardened for non-OK and non-JSON responses, especially on preview deployments; preserve that defensive behavior if you refactor it.
+- `proxy.js` keeps the last successful maintenance answer for 60 seconds per instance (`MAINTENANCE_CACHE_MS`), so cached page views do not pay an extra round trip to `/api/maintenance`. Failed checks are not cached and let the request through as before. With the route's own 60-second cache, toggling maintenance mode takes effect within about two minutes.
 
 ## Contact & Email
 

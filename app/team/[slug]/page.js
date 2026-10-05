@@ -2,10 +2,11 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { buildOutboundRedirectUrl } from '@/lib/outboundLinks'
-import { sanityFetch, queries, urlFor } from '@/lib/sanity'
+import { sanityFetch, queries, toSlugParams, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
 import { isPublicationExcluded } from '@/lib/publicationExclusions'
 import { getProvenanceIds } from '@/lib/publicationIdentity'
+import { pickProvenanceForPublications, toPublicationBrowserRecord } from '@/lib/publicationUtils'
 import PublicationsBrowser from '@/app/publications/PublicationsBrowser'
 import { buildOpenGraph, buildTwitterMetadata, getSiteBaseUrl, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 import JsonLd from '@/app/components/JsonLd'
@@ -13,6 +14,13 @@ import JsonLd from '@/app/components/JsonLd'
 // Short revalidate window so a bad render can recover quickly. The scheduled
 // PubMed refresh also calls /api/pubmed/revalidate to bust team layout caches.
 export const revalidate = 3600 // 1 hour
+
+// Every profile is prerendered at deploy time (each one reads the whole publication
+// cache, so the first visitor should not be the one who waits). New researchers still
+// render on demand.
+export async function generateStaticParams() {
+  return toSlugParams(await sanityFetch(queries.sitemapResearchers))
+}
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params
@@ -159,7 +167,8 @@ export default async function TeamMemberPage({ params }) {
       const display = buildDisplayFromPublications(filteredPubs)
       publicationsBundle = {
         ...display,
-        provenance: fullBundle?.provenance || {},
+        // Only this researcher's papers are shown, so only their provenance entries travel.
+        provenance: pickProvenanceForPublications(display.publications, fullBundle?.provenance || {}),
         meta: fullBundle?.meta || {},
       }
     } catch (err) {
@@ -335,7 +344,7 @@ function PublicationsSection({ publicationsBundle, hasQuery, researchers, altmet
 
       {total > 0 && (
         <PublicationsBrowser
-          publications={publications}
+          publications={publications.map(toPublicationBrowserRecord)}
           researchers={researchers}
           provenance={provenance}
           altmetricEnabled={altmetricEnabled}

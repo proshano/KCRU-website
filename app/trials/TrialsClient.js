@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { TrialSection } from './TrialCards'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 import { listTeamInvestigators, recruitmentSiteNames, resolveStudyTeams } from '@/lib/studyTeams'
@@ -27,10 +28,29 @@ function matchesAllWords(text, searchWords) {
 }
 
 /**
+ * Reports the ?area= query parameter. It lives in its own Suspense boundary because the
+ * page is prerendered: useSearchParams() would otherwise turn the whole list into
+ * client-side rendering, and the prerender does not know the query string anyway.
+ */
+function AreaParamSync({ onChange }) {
+  const searchParams = useSearchParams()
+  const area = searchParams.get('area') || null
+
+  useEffect(() => {
+    onChange(area)
+  }, [area, onChange])
+
+  return null
+}
+
+/**
  * Client component for trials page with search functionality
  */
-export default function TrialsClient({ allTrials, areas, selectedArea }) {
+export default function TrialsClient({ allTrials, areas }) {
   const [searchQuery, setSearchQuery] = useState('')
+  // The prerendered page shows the full list; the area filter arrives from the URL
+  // after hydration, so a plain /trials visit renders the same before and after.
+  const [selectedArea, setSelectedArea] = useState(null)
 
   // Filter by therapeutic area first (from URL param)
   const areaFilteredTrials = useMemo(() => {
@@ -89,6 +109,10 @@ export default function TrialsClient({ allTrials, areas, selectedArea }) {
 
   return (
     <>
+      <Suspense fallback={null}>
+        <AreaParamSync onChange={setSelectedArea} />
+      </Suspense>
+
       {/* Quick stats + Search bar row */}
       <div className="flex flex-col md:flex-row md:items-center gap-4 mb-8">
         {/* Stats */}

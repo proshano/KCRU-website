@@ -5,9 +5,36 @@ import { sanityFetch, queries, urlFor } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
 import { getProvenanceIds, getPublicationKey } from '@/lib/publicationIdentity'
 import { isPublicationExcluded } from '@/lib/publicationExclusions'
+import { listTeamInvestigators, resolveStudyTeams } from '@/lib/studyTeams'
 import FeaturedStudy from './components/FeaturedStudy'
 
 export const revalidate = 600
+
+// The featured-study card is a client component, so only what it renders crosses to
+// the browser: the lay summaries and full team objects stay out of the page payload.
+function buildFeaturedTrials(trials) {
+  return trials.map((trial) => ({
+    _id: trial._id,
+    slug: trial.slug,
+    status: trial.status,
+    title: trial.title,
+    investigators: listTeamInvestigators(resolveStudyTeams(trial)).map(({ key, name, siteName, photo }) => ({
+      key,
+      name,
+      siteName,
+      photo,
+    })),
+  }))
+}
+
+// Sanity asset references carry the upload's pixel size: image-{id}-{width}x{height}-{format}.
+function parseAssetDimensions(dimensions) {
+  const match = /^(\d+)x(\d+)$/.exec(String(dimensions || ''))
+  if (!match) return null
+  const width = Number(match[1])
+  const height = Number(match[2])
+  return width > 0 && height > 0 ? { width, height } : null
+}
 
 export default async function HomePage() {
   const [settingsRaw, trialsRaw = [], researchersRaw = [], newsRaw = []] = await Promise.all([
@@ -67,7 +94,8 @@ export default async function HomePage() {
 
   // Filter trials by status
   const recruitingTrials = trials.filter(t => t.status === 'recruiting')
-  const activeTrials = trials.filter(t => 
+  const featuredTrials = buildFeaturedTrials(recruitingTrials)
+  const activeTrials = trials.filter(t =>
     t.status === 'recruiting' || 
     t.status === 'coming_soon' || 
     t.status === 'active_not_recruiting' ||
@@ -199,8 +227,8 @@ export default async function HomePage() {
             </div>
 
             {/* Featured Study Card */}
-            {recruitingTrials.length > 0 && (
-              <FeaturedStudy trials={recruitingTrials} />
+            {featuredTrials.length > 0 && (
+              <FeaturedStudy trials={featuredTrials} />
             )}
 
             {/* Inline stats below featured study */}
@@ -298,25 +326,36 @@ export default async function HomePage() {
                     const ref = affiliation.logo.asset._ref
                     const [, id, dimensions, format] = ref.split('-')
                     const isSvg = format === 'svg'
-                    
+                    const logoSize = parseAssetDimensions(dimensions)
+
                     let logoUrl
                     if (isSvg) {
                       // For SVGs, construct the CDN URL directly
                       logoUrl = `https://cdn.sanity.io/images/${process.env.NEXT_PUBLIC_SANITY_PROJECT_ID}/${process.env.NEXT_PUBLIC_SANITY_DATASET}/${id}-${dimensions}.${format}`
                     } else {
                       try {
-                        logoUrl = urlFor(affiliation.logo).url()
+                        // The logo shows at most 140×60 CSS pixels, so ask the image CDN for a copy
+                        // that fits 420×180 (3× density, never upscaled) in the browser's best format
+                        // rather than the original upload.
+                        logoUrl = urlFor(affiliation.logo).width(420).height(180).fit('max').auto('format').url()
                       } catch (e) {
                         console.error('Failed to generate logo URL for:', affiliation.name, e)
                         return null
                       }
                     }
-                    
+
+                    // The upload's pixel size reserves the box before the file arrives; the CSS
+                    // max sizes still decide the rendered size. Lazy loading keeps the logos out
+                    // of the preload list React builds from the shell's images.
                     const logoImage = (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={logoUrl}
                         alt={affiliation.name || 'Affiliation'}
+                        width={logoSize?.width}
+                        height={logoSize?.height}
+                        loading="lazy"
+                        decoding="async"
                         style={{ objectFit: 'contain', width: 'auto', height: 'auto', maxWidth: 140, maxHeight: 60 }}
                       />
                     )

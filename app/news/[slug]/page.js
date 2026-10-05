@@ -1,13 +1,18 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { sanityFetch, queries, urlFor } from '@/lib/sanity'
+import { sanityFetch, queries, toSlugParams, urlFor } from '@/lib/sanity'
 import { PortableText } from '@portabletext/react'
 import { buildOpenGraph, buildTwitterMetadata, getSiteBaseUrl, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 import JsonLd from '@/app/components/JsonLd'
 
-export const revalidate = 0
-export const dynamic = 'force-dynamic'
+// Cached like the news list (app/news/page.js): a new post renders on its first visit,
+// and edits to a published post show within the hour.
+export const revalidate = 3600
+
+export async function generateStaticParams() {
+  return toSlugParams(await sanityFetch(queries.sitemapNews))
+}
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params

@@ -14,7 +14,7 @@ const config = {
         background: '#FAFAF8',
       },
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-plus-jakarta-sans)', 'system-ui', 'sans-serif'],
       },
     },
   },

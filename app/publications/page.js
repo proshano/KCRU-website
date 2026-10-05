@@ -1,6 +1,7 @@
 import { sanityFetch, queries } from '@/lib/sanity'
 import { getCachedPublicationsDisplay, getPublicationsSinceYear } from '@/lib/publications'
 import { isPublicationExcluded } from '@/lib/publicationExclusions'
+import { pickProvenanceForPublications, toPublicationBrowserRecord } from '@/lib/publicationUtils'
 import PublicationsBrowser from './PublicationsBrowser'
 import { buildOpenGraph, buildTwitterMetadata, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 
@@ -138,9 +139,9 @@ export default async function PublicationsPage() {
 
       {publications.length > 0 && (
         <PublicationsBrowser
-          publications={publications}
+          publications={publications.map(toPublicationBrowserRecord)}
           researchers={researcherChips}
-          provenance={provenance}
+          provenance={pickProvenanceForPublications(publications, provenance)}
           altmetricEnabled={altmetricEnabled}
         />
       )}

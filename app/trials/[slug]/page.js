@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
-import { sanityFetch, queries, urlFor } from '@/lib/sanity'
+import { sanityFetch, queries, toSlugParams, urlFor } from '@/lib/sanity'
 import { buildOpenGraph, buildTwitterMetadata, getSiteBaseUrl, normalizeDescription, resolveSiteTitle } from '@/lib/seo'
 import JsonLd from '@/app/components/JsonLd'
 import {
@@ -18,6 +18,12 @@ import ReferralForm from './ReferralForm'
 
 // Revalidate every 12 hours
 export const revalidate = 43200
+
+// Every study page is prerendered at deploy time, so a deploy does not leave the first
+// visitor to each study waiting for the render. New studies still render on demand.
+export async function generateStaticParams() {
+  return toSlugParams(await sanityFetch(queries.sitemapTrials))
+}
 
 export async function generateMetadata({ params }) {
   const { slug } = await params

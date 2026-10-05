@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { urlFor } from '@/lib/sanity'
-import { listTeamInvestigators, resolveStudyTeams } from '@/lib/studyTeams'
 
+// `trials` carry only what the card shows (buildFeaturedTrials in app/page.js): slug,
+// status, title and the investigators already resolved from the study teams.
 export default function FeaturedStudy({ trials = [] }) {
   const router = useRouter()
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -33,7 +34,7 @@ export default function FeaturedStudy({ trials = [] }) {
   const slugValue = trial.slug?.current || trial.slug
   const href = slugValue ? `/trials/${slugValue}` : '/trials'
   const title = trial.title || 'Study'
-  const investigators = listTeamInvestigators(resolveStudyTeams(trial))
+  const investigators = trial.investigators || []
 
   const handleClick = () => {
     router.push(href)

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Plus_Jakarta_Sans } from 'next/font/google'
 import { sanityFetch, queries } from '@/lib/sanity'
 import { buildOpenGraph, buildOpenGraphImage, buildTwitterMetadata, getMetadataBase, getSiteBaseUrl, normalizeDescription, resolveSiteDescription, resolveSiteTitle } from '@/lib/seo'
 import { Analytics } from '@vercel/analytics/next'
@@ -9,6 +10,17 @@ import TrialAssistantWidget from './components/TrialAssistantWidget'
 import './globals.css'
 import { isResearchDigestPublicEnabled } from '@/lib/researchDigestPublic'
 import { isTrialMatchingAssistantEnabled } from '@/lib/trialMatchingSettings'
+
+// Self-hosted through next/font: the font files are served from this origin with a
+// preload hint instead of a render-blocking @import chain through Google Fonts. The
+// weights are the ones the stylesheet used to request; globals.css and tailwind.config.js
+// read the family from the CSS variable.
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-plus-jakarta-sans',
+})
 
 function collectTopicKeywords(settings) {
   const baseTopics = Array.isArray(settings?.seo?.llmTopics) ? settings.seo.llmTopics : []
@@ -136,7 +148,7 @@ export default async function RootLayout({ children }) {
   if (topicKeywords.length) websiteSchema.keywords = topicKeywords
 
   return (
-    <html lang="en">
+    <html lang="en" className={plusJakartaSans.variable}>
       <body>
         {altmetricEnabled && <AltmetricScript />}
         <JsonLd data={organizationSchema} />
