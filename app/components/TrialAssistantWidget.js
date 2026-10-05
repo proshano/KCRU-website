@@ -147,6 +147,8 @@ export default function TrialAssistantWidget() {
   const [results, setResults] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  // 'chat' while the conversation turn runs, 'ranking' while the studies are being ranked.
+  const [loadingStage, setLoadingStage] = useState('')
   const [conversationComplete, setConversationComplete] = useState(false)
   const [isExpanded, setIsExpanded] = useState(shouldAutoOpenInitially)
   const [hasAutoOpened, setHasAutoOpened] = useState(shouldAutoOpenInitially)
@@ -392,6 +394,7 @@ export default function TrialAssistantWidget() {
     setConversationComplete(false)
     setError('')
     setLoading(false)
+    setLoadingStage('')
     setInputFocused(false)
     setIsExpanded(true)
     setShouldFocusInput(true)
@@ -434,6 +437,19 @@ export default function TrialAssistantWidget() {
     setIsExpanded(false)
   }
 
+  async function postAssistantJson(path, payload) {
+    const response = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const data = await response.json()
+    if (!response.ok || !data?.ok) {
+      throw new Error(data?.error || 'Unable to continue the chat right now.')
+    }
+    return data
+  }
+
   async function handleSubmit(event) {
     event.preventDefault()
     const trimmed = input.trim()
@@ -452,21 +468,13 @@ export default function TrialAssistantWidget() {
     setInput('')
     setError('')
     setLoading(true)
+    setLoadingStage('chat')
 
     try {
-      const response = await fetch('/api/trials/match/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: nextMessages,
-          profile,
-        }),
+      const data = await postAssistantJson('/api/trials/match/chat', {
+        messages: nextMessages,
+        profile,
       })
-
-      const data = await response.json()
-      if (!response.ok || !data?.ok) {
-        throw new Error(data?.error || 'Unable to continue the chat right now.')
-      }
 
       const assistantMessage = {
         role: 'assistant',
@@ -474,18 +482,52 @@ export default function TrialAssistantWidget() {
           data.reply ||
           'Share the diagnosis and the eGFR, or just say the patient is on dialysis.',
       }
+      const transcript = [...nextMessages, assistantMessage]
+      const nextProfile = data.profile || {}
+
+      if (!data.rankingPending) {
+        autoScrollTargetRef.current =
+          Array.isArray(data.results) && data.results.length > 0 ? 'results' : 'response'
+        setMessages(transcript)
+        setProfile(nextProfile)
+        setResults(Array.isArray(data.results) ? data.results : [])
+        setConversationComplete(Boolean(data.conversationComplete))
+        setIsExpanded(true)
+        return
+      }
+
+      // The profile is ready for matching. Show the conversation turn's reply now and rank the
+      // studies in a second request, so the wait for the ranking is spent with the reply on
+      // screen rather than in silence.
+      autoScrollTargetRef.current = 'loading'
+      setMessages(transcript)
+      setProfile(nextProfile)
+      setResults([])
+      setIsExpanded(true)
+      setLoadingStage('ranking')
+
+      const ranked = await postAssistantJson('/api/trials/match/rank', {
+        messages: transcript,
+        profile: nextProfile,
+      })
+      const resultsMessage = {
+        role: 'assistant',
+        content:
+          ranked.reply ||
+          'See the potential studies below. A coordinator would confirm final eligibility.',
+      }
 
       autoScrollTargetRef.current =
-        Array.isArray(data.results) && data.results.length > 0 ? 'results' : 'response'
-      setMessages([...nextMessages, assistantMessage])
-      setProfile(data.profile || {})
-      setResults(Array.isArray(data.results) ? data.results : [])
-      setConversationComplete(Boolean(data.conversationComplete))
-      setIsExpanded(true)
+        Array.isArray(ranked.results) && ranked.results.length > 0 ? 'results' : 'response'
+      setMessages([...transcript, resultsMessage])
+      setProfile(ranked.profile || nextProfile)
+      setResults(Array.isArray(ranked.results) ? ranked.results : [])
+      setConversationComplete(Boolean(ranked.conversationComplete))
     } catch (err) {
       setError(err.message || 'Unable to continue the chat right now.')
     } finally {
       setLoading(false)
+      setLoadingStage('')
     }
   }
 
@@ -602,7 +644,9 @@ export default function TrialAssistantWidget() {
               <div ref={loadingMessageRef} className="flex justify-start">
                 <div className="rounded-2xl border border-black/5 bg-gray-50 px-4 py-3 text-sm text-gray-500">
                   <span className="inline-flex items-center gap-2">
-                    <span className="animate-pulse">Looking for studies</span>
+                    <span className="animate-pulse">
+                      {loadingStage === 'ranking' ? 'Ranking the recruiting studies' : 'Reading the details'}
+                    </span>
                     <span className="inline-flex gap-1" aria-hidden="true">
                       <span className="h-1 w-1 rounded-full bg-gray-400 animate-bounce [animation-delay:0ms]" />
                       <span className="h-1 w-1 rounded-full bg-gray-400 animate-bounce [animation-delay:150ms]" />

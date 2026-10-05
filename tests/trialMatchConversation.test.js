@@ -26,8 +26,10 @@ test('the patient-facing chat turn asks for the lowest reasoning effort', () => 
 
 test('each trial matching turn gets its own reasoning effort', () => {
   // Three distinct levels, cheapest where it is felt most: chat turns run on every patient
-  // message, ranking runs once per session, batch work has nobody waiting on it.
-  assert.deepEqual(TRIAL_MATCH_RANKING_REASONING, { effort: 'medium', exclude: true })
+  // message, ranking runs once per session with the person waiting on it, batch work has
+  // nobody waiting on it. Ranking is low rather than medium: measured on GPT-6 Luna, medium
+  // took 10-17.5 s per ranking and low 7-9.5 s with the same studies surfacing.
+  assert.deepEqual(TRIAL_MATCH_RANKING_REASONING, { effort: 'low', exclude: true })
   assert.equal(TRIAL_MATCH_CHAT_REASONING.effort, 'minimal')
   assert.equal(OPENROUTER_REASONING.effort, 'max')
 
