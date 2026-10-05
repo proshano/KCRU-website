@@ -18,6 +18,9 @@
  * Writes are revision-guarded and also reach an unpublished Studio draft of the
  * site, so publishing the draft later cannot undo the change. The app lists only
  * sites whose `active` is true, so a site without the field counts as inactive.
+ * A created site gets an id derived from its name and is written with
+ * createIfNotExists, so running the same create twice (or in parallel) adds
+ * nothing the second time.
  *
  * Usage:
  *   SITE_ACTION=list npm run sites
@@ -72,6 +75,17 @@ function describe(site) {
   return `${site.name || '(unnamed)'}${site.shortName ? ` (${site.shortName})` : ''} [${site._id}]${flags.length ? ` - ${flags.join(', ')}` : ''}`
 }
 
+// Deterministic id for a new site, e.g. "Goderich satellite" -> site-goderich-satellite.
+export function siteIdFromName(name) {
+  const slug = clean(name)
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return `site-${slug}`
+}
+
 function isDraft(site) {
   return String(site._id || '').startsWith('drafts.')
 }
@@ -111,12 +125,17 @@ export function planSiteAction({ action, sites = [], input = {} }) {
     const type = clean(input.type) || 'academic_hospital'
     if (!name) errors.push('SITE_NAME is required to create a site.')
     if (!SITE_TYPES.has(type)) errors.push(`SITE_TYPE "${type}" is not one of ${[...SITE_TYPES].join(', ')}.`)
-    const duplicate = published.find((site) => clean(site.name).toLowerCase() === name.toLowerCase())
-    if (name && duplicate) errors.push(`A site named "${duplicate.name}" already exists [${duplicate._id}].`)
     if (errors.length) return { mutations, lines, errors }
+    const id = siteIdFromName(name)
+    const duplicate = published.find((site) => site._id === id || clean(site.name).toLowerCase() === name.toLowerCase())
+    if (duplicate) {
+      lines.push(`${describe(duplicate)}: already exists, nothing to create.`)
+      return { mutations, lines, errors }
+    }
 
     const maxOrder = published.reduce((max, site) => (Number.isFinite(site.order) ? Math.max(max, site.order) : max), 0)
     const doc = {
+      _id: id,
       _type: 'site',
       name,
       shortName: clean(input.shortName) || undefined,
@@ -128,8 +147,8 @@ export function planSiteAction({ action, sites = [], input = {} }) {
       active: true,
       order: maxOrder + 1,
     }
-    mutations.push({ create: doc })
-    lines.push(`Create ${describe({ ...doc, _id: 'new' })}`)
+    mutations.push({ createIfNotExists: doc })
+    lines.push(`Create ${describe(doc)}`)
     return { mutations, lines, errors }
   }
 
@@ -190,8 +209,8 @@ function doc(site) {
 async function commit(client, mutations) {
   let transaction = client.transaction()
   for (const mutation of mutations) {
-    if (mutation.create) {
-      transaction = transaction.create(mutation.create)
+    if (mutation.createIfNotExists) {
+      transaction = transaction.createIfNotExists(mutation.createIfNotExists)
     } else {
       transaction = transaction.patch(mutation.patch.id, (builder) =>
         builder.ifRevisionId(mutation.patch.rev).set(mutation.patch.set)

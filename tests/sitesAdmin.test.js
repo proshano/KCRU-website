@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { planSiteAction } from '../scripts/sites.js'
+import { planSiteAction, siteIdFromName } from '../scripts/sites.js'
 
 const SITES = [
   { _id: 'site-uh', _rev: 'a', name: 'London Health Sciences Centre - University Hospital', shortName: 'LHSC-UH', coordinatesStudies: true, recruitsPatients: true, active: true, order: 1 },
@@ -40,9 +40,13 @@ test('rename matches the site by short name and patches its Studio draft too', (
   assert.match(missing.errors[0], /No site matches "Nowhere"/)
 })
 
-test('create refuses a duplicate name and otherwise builds an active site after the last one', () => {
+test('create is a no-op for an existing name or id and otherwise builds an active site after the last one', () => {
   const duplicate = planSiteAction({ action: 'create', sites: SITES, input: { name: 'westmount' } })
-  assert.match(duplicate.errors[0], /already exists/)
+  assert.deepEqual(duplicate.errors, [])
+  assert.deepEqual(duplicate.mutations, [])
+  assert.match(duplicate.lines[0], /Westmount \(KCC\) \[site-kcc\].*already exists, nothing to create/)
+  assert.equal(siteIdFromName("St. Joseph's Health Care"), 'site-st-joseph-s-health-care')
+  assert.equal(siteIdFromName('Goderich satellite'), 'site-goderich-satellite')
 
   const plan = planSiteAction({
     action: 'create',
@@ -52,7 +56,8 @@ test('create refuses a duplicate name and otherwise builds an active site after 
   assert.deepEqual(plan.errors, [])
   assert.deepEqual(plan.mutations, [
     {
-      create: {
+      createIfNotExists: {
+        _id: 'site-st-joseph-s-health-care',
         _type: 'site',
         name: "St. Joseph's Health Care",
         shortName: 'SJHC',
@@ -67,6 +72,9 @@ test('create refuses a duplicate name and otherwise builds an active site after 
     },
   ])
   assert.match(planSiteAction({ action: 'create', sites: SITES, input: { name: 'X', type: 'spaceport' } }).errors[0], /SITE_TYPE/)
+  // A second run of the same create, after the first was written, adds nothing.
+  const written = [...SITES, plan.mutations[0].createIfNotExists]
+  assert.deepEqual(planSiteAction({ action: 'create', sites: written, input: { name: "St. Joseph's Health Care" } }).mutations, [])
 })
 
 test('set changes only the flags given and reports an empty request', () => {
