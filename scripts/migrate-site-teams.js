@@ -37,13 +37,24 @@ import {
   siteLabel,
 } from '../lib/studyTeams.js'
 
-const STUDY_QUERY = `
+// Teams are projected in the payload shape (siteId, principalInvestigatorId)
+// that lib/studyTeams.js resolvePayloadTeams reads; the raw document shape
+// (site._ref, principalInvestigator._ref) would make every team look PI-less.
+export const STUDY_QUERY = `
   *[_type == "trialSummary"] | order(title asc) {
     _id,
     _rev,
     title,
     status,
-    siteTeams,
+    "siteTeams": siteTeams[] {
+      _key,
+      status,
+      "siteId": site._ref,
+      "principalInvestigatorId": principalInvestigator._ref,
+      principalInvestigatorName,
+      contact,
+      acceptsReferrals
+    },
     "principalInvestigatorId": principalInvestigator._ref,
     principalInvestigatorName,
     localContact,

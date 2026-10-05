@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { parsePiSiteOverrides, planLegacyRemoval, planSiteTeamMigration } from '../scripts/migrate-site-teams.js'
+import { evaluate, parse } from 'groq-js'
+
+import { STUDY_QUERY, parsePiSiteOverrides, planLegacyRemoval, planSiteTeamMigration } from '../scripts/migrate-site-teams.js'
 
 const SITES = [
   { _id: 'site-uh', name: 'University Hospital', shortName: 'UH', coordinatesStudies: true },
@@ -79,6 +81,31 @@ test('planLegacyRemoval refuses while a study lacks a team with a PI, then unset
   })
   assert.equal(ready.ok, true)
   assert.deepEqual(ready.patches, [
+    { id: 's1', rev: 'r1', unset: ['localContact', 'principalInvestigator', 'principalInvestigatorName', 'acceptsReferrals'] },
+  ])
+})
+
+test('the study query feeds planLegacyRemoval teams in the shape it reads, so a migrated study is not blocking', async () => {
+  // On 2026-10-05 the query returned raw siteTeams (site._ref, principalInvestigator._ref)
+  // and the guard, which reads siteId / principalInvestigatorId, refused every study.
+  const dataset = [
+    {
+      _id: 's1', _type: 'trialSummary', _rev: 'r1', title: 'Migrated', status: 'recruiting',
+      siteTeams: [{ _key: 'a', status: 'enrolling', site: { _ref: 'site-uh' }, principalInvestigator: { _ref: 'r-garg' }, acceptsReferrals: true }],
+      principalInvestigator: { _ref: 'r-garg' }, acceptsReferrals: true,
+    },
+    {
+      _id: 's2', _type: 'trialSummary', _rev: 'r2', title: 'Named PI', status: 'recruiting',
+      siteTeams: [{ _key: 'b', site: { _ref: 'site-uh' }, principalInvestigatorName: 'Someone Else' }],
+    },
+  ]
+  const studies = await evaluate(parse(STUDY_QUERY), { dataset }).then((value) => value.get())
+  assert.equal(studies[0].siteTeams[0].principalInvestigatorId, 'r-garg')
+  assert.equal(studies[0].siteTeams[0].siteId, 'site-uh')
+
+  const removal = planLegacyRemoval({ studies })
+  assert.equal(removal.ok, true)
+  assert.deepEqual(removal.patches, [
     { id: 's1', rev: 'r1', unset: ['localContact', 'principalInvestigator', 'principalInvestigatorName', 'acceptsReferrals'] },
   ])
 })
