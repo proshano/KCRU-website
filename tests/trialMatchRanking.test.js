@@ -183,3 +183,53 @@ test('a one-field profile such as dialysis status alone is still rankable', () =
   assert.equal(hasRankableProfile({}), false)
   assert.equal(hasRankableProfile(null), false)
 })
+
+test('aliases are matched case- and whitespace-insensitively, and weak-then-strong still shows', async () => {
+  const studies = [buildStudy(1), buildStudy(2)]
+  const results = await withStubbedFetch(
+    async () =>
+      openRouterResponse([
+        { study_id: 's1', relevance: 'weak', one_line_reason: 'First listed as weak.' },
+        { study_id: ' S1 ', relevance: 'strong', one_line_reason: 'Then listed as strong.' },
+        { study_id: 's2', relevance: 'possible', one_line_reason: 'Lowercase alias.' },
+      ]),
+    () =>
+      generateTrialMatchStudyRanking(
+        { profile: { diagnosis: 'IgA nephropathy', egfr: 45 }, studies },
+        { provider: 'openrouter', model: 'openai/gpt-6-luna', apiKey: 'test-key' }
+      )
+  )
+  assert.deepEqual(
+    results.map((row) => [row._id, row.decision, row.matchedReasons[0]]),
+    [
+      ['study-1', 'match', 'Then listed as strong.'],
+      ['study-2', 'possible', 'Lowercase alias.'],
+    ]
+  )
+})
+
+test('an empty rankings array from the model falls back to the rule-based list', async () => {
+  const studies = [
+    buildStudy(1, { title: 'IgA nephropathy study', inclusionCriteria: ['Biopsy-proven IgA nephropathy'] }),
+    buildStudy(2, { title: 'Dialysis study', inclusionCriteria: ['Receiving maintenance hemodialysis'] }),
+  ]
+  const results = await withStubbedFetch(
+    async () => openRouterResponse([]),
+    () =>
+      rankStudiesForProfile({
+        studies,
+        profile: { diagnosis: 'IgA nephropathy', egfr: 45, dialysisStatus: 'not_on_dialysis' },
+        messages: [{ role: 'user', content: 'IgA nephropathy, eGFR 45' }],
+        llmOptions: { provider: 'openrouter', model: 'openai/gpt-6-luna', apiKey: 'test-key' },
+      })
+  )
+  assert.ok(results.length >= 1)
+  assert.equal(results[0]._id, 'study-1')
+})
+
+test('the interim reply does not restate a status as a population tag', () => {
+  assert.equal(
+    buildRankingPendingReply({ populationTags: ['dialysis'], dialysisStatus: 'hemodialysis', hasDiabetes: true }),
+    'Checking the recruiting studies for: Hemodialysis, Diabetes: Yes.'
+  )
+})

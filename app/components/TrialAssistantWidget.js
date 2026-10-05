@@ -8,6 +8,65 @@ const INITIAL_ASSISTANT_MESSAGE =
   "Start with the diagnosis and share the eGFR, or just say the patient is on dialysis. I'll narrow down the recruiting studies from there."
 
 const MAX_INPUT_LENGTH = 600
+/** Each request gives up after this long, so a hung provider ends in an error rather than a spinner. */
+const REQUEST_TIMEOUT_MS = 90_000
+/**
+ * The per-origin rate limit refuses two requests that land in the same 500 ms bucket. The ranking
+ * request normally follows a chat turn of several seconds, but after a fast chat failure it keeps
+ * clear of that bucket by waiting out the remainder of this gap.
+ */
+const MIN_GAP_BEFORE_RANKING_MS = 600
+const CHAT_FALLBACK_REPLY = 'Share the diagnosis and the eGFR, or just say the patient is on dialysis.'
+const RESULTS_FALLBACK_REPLY = 'See the potential studies below. A coordinator would confirm final eligibility.'
+const NO_RESULTS_FALLBACK_REPLY = 'I could not shortlist any studies from that information alone.'
+
+function buildTimeoutSignal(ms) {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(ms)
+  }
+  return undefined
+}
+
+function waitForRateLimitGap(startedAt) {
+  const remaining = MIN_GAP_BEFORE_RANKING_MS - (Date.now() - startedAt)
+  if (remaining <= 0) return Promise.resolve()
+  return new Promise((resolve) => setTimeout(resolve, remaining))
+}
+
+/** Posts to an assistant route and returns its JSON body, turning every failure into a readable message. */
+async function postAssistantJson(path, payload) {
+  let response
+  try {
+    response = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: buildTimeoutSignal(REQUEST_TIMEOUT_MS),
+    })
+  } catch (err) {
+    if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+      throw new Error('The assistant took too long to respond. Please try again.')
+    }
+    throw new Error('Unable to reach the assistant right now. Check your connection and try again.')
+  }
+
+  // A timeout or error page from the host is HTML, not JSON; read it defensively.
+  let data = null
+  try {
+    data = await response.json()
+  } catch {
+    data = null
+  }
+  if (!response.ok || !data?.ok) {
+    throw new Error(
+      data?.error ||
+        (response.status === 429
+          ? 'Too many requests. Please wait a few minutes before trying again.'
+          : 'Unable to continue the chat right now.')
+    )
+  }
+  return data
+}
 
 function getSpeechRecognitionConstructor() {
   if (typeof window === 'undefined') return null
@@ -141,6 +200,13 @@ export default function TrialAssistantWidget() {
   const recognitionRef = useRef(null)
   const voiceBaseRef = useRef('')
   const voiceSessionFinalRef = useRef('')
+  // Bumped by every submit, retry and reset. A response whose request is no longer current
+  // (the person pressed Reset while it was in flight) is ignored instead of overwriting the
+  // next patient's conversation.
+  const requestSeqRef = useRef(0)
+  // The transcript and profile of a ranking that failed, so it can be retried without
+  // another chat turn.
+  const pendingRankingRef = useRef(null)
   const [messages, setMessages] = useState(() => createInitialMessages())
   const [input, setInput] = useState('')
   const [profile, setProfile] = useState({})
@@ -149,6 +215,7 @@ export default function TrialAssistantWidget() {
   const [loading, setLoading] = useState(false)
   // 'chat' while the conversation turn runs, 'ranking' while the studies are being ranked.
   const [loadingStage, setLoadingStage] = useState('')
+  const [rankingRetryAvailable, setRankingRetryAvailable] = useState(false)
   const [conversationComplete, setConversationComplete] = useState(false)
   const [isExpanded, setIsExpanded] = useState(shouldAutoOpenInitially)
   const [hasAutoOpened, setHasAutoOpened] = useState(shouldAutoOpenInitially)
@@ -383,9 +450,17 @@ export default function TrialAssistantWidget() {
     })
   }
 
+  function beginRequest() {
+    requestSeqRef.current += 1
+    pendingRankingRef.current = null
+    setRankingRetryAvailable(false)
+    return requestSeqRef.current
+  }
+
   function resetAssistant() {
     blurAssistantInput()
     stopVoiceRecognition()
+    beginRequest()
     autoScrollTargetRef.current = 'response'
     setMessages(createInitialMessages())
     setInput('')
@@ -437,17 +512,30 @@ export default function TrialAssistantWidget() {
     setIsExpanded(false)
   }
 
-  async function postAssistantJson(path, payload) {
-    const response = await fetch(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+  /** Second half of a results turn: posts the transcript and profile, then shows the studies. */
+  async function runRanking(transcript, nextProfile, seq) {
+    const ranked = await postAssistantJson('/api/trials/match/rank', {
+      messages: transcript,
+      profile: nextProfile,
     })
-    const data = await response.json()
-    if (!response.ok || !data?.ok) {
-      throw new Error(data?.error || 'Unable to continue the chat right now.')
+    if (requestSeqRef.current !== seq) return
+
+    const rankedResults = Array.isArray(ranked.results) ? ranked.results : []
+    const resultsMessage = {
+      role: 'assistant',
+      content: ranked.reply || (rankedResults.length ? RESULTS_FALLBACK_REPLY : NO_RESULTS_FALLBACK_REPLY),
     }
-    return data
+    autoScrollTargetRef.current = rankedResults.length > 0 ? 'results' : 'response'
+    setMessages([...transcript, resultsMessage])
+    setProfile(ranked.profile || nextProfile)
+    setResults(rankedResults)
+    setConversationComplete(Boolean(ranked.conversationComplete))
+  }
+
+  function finishRequest(seq) {
+    if (requestSeqRef.current !== seq) return
+    setLoading(false)
+    setLoadingStage('')
   }
 
   async function handleSubmit(event) {
@@ -462,6 +550,8 @@ export default function TrialAssistantWidget() {
 
     const userMessage = { role: 'user', content: trimmed }
     const nextMessages = [...messages, userMessage]
+    const seq = beginRequest()
+    const startedAt = Date.now()
 
     autoScrollTargetRef.current = 'loading'
     setMessages(nextMessages)
@@ -470,20 +560,18 @@ export default function TrialAssistantWidget() {
     setLoading(true)
     setLoadingStage('chat')
 
+    let transcript = nextMessages
+    let nextProfile = profile
+    let stage = 'chat'
     try {
       const data = await postAssistantJson('/api/trials/match/chat', {
         messages: nextMessages,
         profile,
       })
+      if (requestSeqRef.current !== seq) return
 
-      const assistantMessage = {
-        role: 'assistant',
-        content:
-          data.reply ||
-          'Share the diagnosis and the eGFR, or just say the patient is on dialysis.',
-      }
-      const transcript = [...nextMessages, assistantMessage]
-      const nextProfile = data.profile || {}
+      transcript = [...nextMessages, { role: 'assistant', content: data.reply || CHAT_FALLBACK_REPLY }]
+      nextProfile = data.profile || {}
 
       if (!data.rankingPending) {
         autoScrollTargetRef.current =
@@ -505,29 +593,43 @@ export default function TrialAssistantWidget() {
       setResults([])
       setIsExpanded(true)
       setLoadingStage('ranking')
+      stage = 'ranking'
 
-      const ranked = await postAssistantJson('/api/trials/match/rank', {
-        messages: transcript,
-        profile: nextProfile,
-      })
-      const resultsMessage = {
-        role: 'assistant',
-        content:
-          ranked.reply ||
-          'See the potential studies below. A coordinator would confirm final eligibility.',
-      }
-
-      autoScrollTargetRef.current =
-        Array.isArray(ranked.results) && ranked.results.length > 0 ? 'results' : 'response'
-      setMessages([...transcript, resultsMessage])
-      setProfile(ranked.profile || nextProfile)
-      setResults(Array.isArray(ranked.results) ? ranked.results : [])
-      setConversationComplete(Boolean(ranked.conversationComplete))
+      await waitForRateLimitGap(startedAt)
+      if (requestSeqRef.current !== seq) return
+      await runRanking(transcript, nextProfile, seq)
     } catch (err) {
+      if (requestSeqRef.current !== seq) return
+      if (stage === 'ranking') {
+        pendingRankingRef.current = { transcript, profile: nextProfile }
+        setRankingRetryAvailable(true)
+      }
       setError(err.message || 'Unable to continue the chat right now.')
     } finally {
-      setLoading(false)
-      setLoadingStage('')
+      finishRequest(seq)
+    }
+  }
+
+  /** Retries only the ranking after it failed, without spending another chat turn. */
+  async function retryRanking() {
+    const pending = pendingRankingRef.current
+    if (!pending || loading) return
+    const seq = beginRequest()
+
+    autoScrollTargetRef.current = 'loading'
+    setError('')
+    setLoading(true)
+    setLoadingStage('ranking')
+
+    try {
+      await runRanking(pending.transcript, pending.profile, seq)
+    } catch (err) {
+      if (requestSeqRef.current !== seq) return
+      pendingRankingRef.current = pending
+      setRankingRetryAvailable(true)
+      setError(err.message || 'Unable to rank the studies right now.')
+    } finally {
+      finishRequest(seq)
     }
   }
 
@@ -614,7 +716,7 @@ export default function TrialAssistantWidget() {
             role="log"
             aria-live="polite"
             aria-relevant="additions text"
-            aria-busy={loading}
+            aria-busy={loading && loadingStage === 'chat'}
             className={`flex-1 overflow-y-auto overscroll-y-contain ${isMobileSheet ? 'space-y-3 px-4 py-4' : 'space-y-3 px-3 py-3 sm:space-y-4 sm:px-4 sm:py-4'}`}
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
@@ -716,9 +818,20 @@ export default function TrialAssistantWidget() {
             style={isMobileSheet ? { paddingBottom: 'max(0.875rem, env(safe-area-inset-bottom))' } : undefined}
           >
             {error && (
-              <p id={ERROR_ID} role="alert" className="text-sm font-medium text-red-700">
-                {error}
-              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p id={ERROR_ID} role="alert" className="text-sm font-medium text-red-700">
+                  {error}
+                </p>
+                {rankingRetryAvailable && !loading ? (
+                  <button
+                    type="button"
+                    onClick={retryRanking}
+                    className="min-h-9 shrink-0 touch-manipulation rounded-lg border border-black/10 bg-white px-3 text-[13px] font-medium text-gray-700 transition active:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple/30 sm:text-sm"
+                  >
+                    Try the ranking again
+                  </button>
+                ) : null}
+              </div>
             )}
             {chatLocked ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
