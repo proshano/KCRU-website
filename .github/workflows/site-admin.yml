@@ -87,7 +87,10 @@ on:
 jobs:
   sites:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Time spent waiting for a hosted runner counts toward this limit. On
+    # 2026-10-05 jobs waited over fifteen minutes for a runner and were dropped,
+    # so the limit is generous; the job itself takes about two minutes.
+    timeout-minutes: 90
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
