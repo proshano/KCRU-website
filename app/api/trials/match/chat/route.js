@@ -1,4 +1,4 @@
-import { hasMeaningfulPatientProfile, mergePatientProfiles, sanitizePatientProfile } from '@/lib/patientProfileSchema'
+import { mergePatientProfiles, sanitizePatientProfile } from '@/lib/patientProfileSchema'
 import {
   isConversationAlreadyComplete,
   isOffTopicConversation,
@@ -19,6 +19,7 @@ import {
   buildLlmRankingShortlist,
   buildRankingPendingReply,
   getLastUserMessage,
+  hasRankableProfile,
 } from '@/lib/trialMatchRanking'
 import { sanitizeTrialMatchMessages } from '@/lib/trialMatchRequest'
 import { buildTrialCatalogForPrompt, rankTrialMatches } from '@/lib/trialMatcher'
@@ -208,7 +209,8 @@ export async function POST(request) {
       // The ranking is the slow half of a results turn (a second LLM call at higher reasoning
       // effort), so it does not run here. The widget shows this reply, then posts the transcript
       // and profile to /api/trials/match/rank and shows the studies when they arrive.
-      if (!hasMeaningfulPatientProfile(enrichedProfile)) {
+      // Only `requestMatches: true` can get here with an empty profile; there is nothing to rank.
+      if (!hasRankableProfile(enrichedProfile)) {
         return buildReply({ reply: NO_RESULTS_REPLY, profile: enrichedProfile })
       }
       return buildReply({

@@ -9,6 +9,7 @@ import {
   buildLlmRankingShortlist,
   buildRankingPendingReply,
   describeRankingOutcome,
+  hasRankableProfile,
   rankStudiesForProfile,
   sliceRankedTrialMatches,
 } from '../lib/trialMatchRanking.js'
@@ -172,4 +173,13 @@ test('ranking falls back to the rule-based list when the LLM call fails', async 
   assert.ok(results.length >= 1)
   assert.equal(results[0]._id, 'study-1')
   assert.ok(results.every((row) => row.decision !== 'unlikely' || row._id !== 'study-1'))
+})
+
+test('a one-field profile such as dialysis status alone is still rankable', () => {
+  // hasSingleTurnMatchReadyProfile treats dialysis status on its own as ready for a first-turn
+  // ranking, so the handover and the rank route must not demand a second field.
+  assert.equal(hasRankableProfile({ dialysisStatus: 'hemodialysis' }), true)
+  assert.equal(hasRankableProfile({ diagnosis: 'IgA nephropathy' }), true)
+  assert.equal(hasRankableProfile({}), false)
+  assert.equal(hasRankableProfile(null), false)
 })

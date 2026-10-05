@@ -1,4 +1,4 @@
-import { hasMeaningfulPatientProfile, sanitizePatientProfile } from '@/lib/patientProfileSchema'
+import { sanitizePatientProfile } from '@/lib/patientProfileSchema'
 import {
   MAX_MESSAGES,
   MAX_MESSAGE_LENGTH,
@@ -6,7 +6,7 @@ import {
   buildTrialMatchResponse,
   prepareTrialMatchRequest,
 } from '@/lib/trialMatchApi'
-import { describeRankingOutcome, rankStudiesForProfile } from '@/lib/trialMatchRanking'
+import { describeRankingOutcome, hasRankableProfile, rankStudiesForProfile } from '@/lib/trialMatchRanking'
 import { sanitizeTrialMatchMessages } from '@/lib/trialMatchRequest'
 
 /**
@@ -21,7 +21,7 @@ export async function POST(request) {
   const { body, context } = prepared
 
   const profile = sanitizePatientProfile(body?.profile)
-  if (!hasMeaningfulPatientProfile(profile)) {
+  if (!hasRankableProfile(profile)) {
     return buildTrialMatchResponse({ ok: false, error: 'Provide a patient profile before ranking studies.' }, 400)
   }
   const messages = sanitizeTrialMatchMessages(body?.messages, {
