@@ -34,6 +34,23 @@ on:
         required: false
         type: string
         default: ""
+      type:
+        description: "Kind of site (create)"
+        required: false
+        type: choice
+        default: academic_hospital
+        options:
+          - academic_hospital
+          - community_hospital
+          - dialysis_centre
+          - private_clinic
+          - university
+          - research_institute
+      city:
+        description: "City (create; London when empty)"
+        required: false
+        type: string
+        default: ""
       coordinates_studies:
         description: "Coordinates studies (create, set)"
         required: false
@@ -45,6 +62,15 @@ on:
           - "false"
       recruits_patients:
         description: "Patients can be enrolled here (create, set)"
+        required: false
+        type: choice
+        default: unchanged
+        options:
+          - unchanged
+          - "true"
+          - "false"
+      active:
+        description: "Active (set); an inactive site is hidden everywhere"
         required: false
         type: choice
         default: unchanged
@@ -84,7 +110,10 @@ jobs:
           SITE_TARGET: ${{ inputs.target }}
           SITE_NAME: ${{ inputs.name }}
           SITE_SHORT_NAME: ${{ inputs.short_name }}
+          SITE_TYPE: ${{ inputs.type }}
+          SITE_CITY: ${{ inputs.city }}
           SITE_COORDINATES: ${{ inputs.coordinates_studies == 'unchanged' && '' || inputs.coordinates_studies }}
           SITE_RECRUITS: ${{ inputs.recruits_patients == 'unchanged' && '' || inputs.recruits_patients }}
+          SITE_ACTIVE: ${{ inputs.active == 'unchanged' && '' || inputs.active }}
           SITE_APPLY: ${{ inputs.apply }}
         run: npm run sites

@@ -16,7 +16,8 @@
  *   SITE_APPLY        true to write; anything else prints the plan only
  *
  * Writes are revision-guarded and also reach an unpublished Studio draft of the
- * site, so publishing the draft later cannot undo the change.
+ * site, so publishing the draft later cannot undo the change. The app lists only
+ * sites whose `active` is true, so a site without the field counts as inactive.
  *
  * Usage:
  *   SITE_ACTION=list npm run sites
@@ -66,7 +67,7 @@ function describe(site) {
   const flags = [
     site.coordinatesStudies ? 'coordinates studies' : '',
     site.recruitsPatients ? 'enrols patients' : '',
-    site.active === false ? 'inactive' : '',
+    site.active === true ? '' : 'inactive (hidden from the site until active is set)',
   ].filter(Boolean)
   return `${site.name || '(unnamed)'}${site.shortName ? ` (${site.shortName})` : ''} [${site._id}]${flags.length ? ` - ${flags.join(', ')}` : ''}`
 }
@@ -152,7 +153,7 @@ export function planSiteAction({ action, sites = [], input = {} }) {
       const active = parseFlag(input.active)
       if (coordinates !== undefined && coordinates !== Boolean(target.coordinatesStudies)) set.coordinatesStudies = coordinates
       if (recruits !== undefined && recruits !== Boolean(target.recruitsPatients)) set.recruitsPatients = recruits
-      if (active !== undefined && active !== (target.active !== false)) set.active = active
+      if (active !== undefined && active !== (target.active === true)) set.active = active
       if (coordinates === undefined && recruits === undefined && active === undefined) {
         errors.push('Set at least one of SITE_COORDINATES, SITE_RECRUITS or SITE_ACTIVE to true or false.')
       }
@@ -182,7 +183,7 @@ function doc(site) {
     shortName: site.shortName,
     coordinatesStudies: Boolean(site.coordinatesStudies),
     recruitsPatients: Boolean(site.recruitsPatients),
-    active: site.active !== false,
+    active: site.active === true,
   }
 }
 
