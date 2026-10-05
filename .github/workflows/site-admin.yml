@@ -87,10 +87,11 @@ on:
 jobs:
   sites:
     runs-on: ubuntu-latest
-    # Time spent waiting for a hosted runner counts toward this limit. On
-    # 2026-10-05 jobs waited over fifteen minutes for a runner and were dropped,
-    # so the limit is generous; the job itself takes about two minutes.
-    timeout-minutes: 90
+    # The job itself takes about two minutes. On 2026-10-05 GitHub dropped
+    # jobs that had waited about fifteen minutes for a hosted runner, whatever
+    # this limit was set to, so a stuck run is re-dispatched rather than waited
+    # on; a create is safe to repeat (see scripts/sites.js).
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
