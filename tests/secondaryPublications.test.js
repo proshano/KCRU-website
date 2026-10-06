@@ -60,6 +60,54 @@ test('Crossref discovery keeps an ORCID-matched DOI even when its abstract is ab
   assert.ok(requestedUrls.some((url) => url.includes('query.author=Jane+Smith')))
 })
 
+test('Crossref name discovery ranks by relevance, not date, so the window is not filled by unrelated papers', async () => {
+  const requestedUrls = []
+  const fetchFn = async (url) => {
+    requestedUrls.push(new URL(String(url)))
+    return new Response(JSON.stringify({ message: { items: [] } }), { status: 200 })
+  }
+
+  await fetchCrossrefPublications({ name: 'Jane Smith', orcid: '0000-0001-2345-6789' }, { fetchFn, sinceYear: 2025 })
+
+  const nameRequest = requestedUrls.find((url) => url.searchParams.get('query.author') === 'Jane Smith')
+  const orcidRequest = requestedUrls.find((url) => url.searchParams.get('filter')?.includes('orcid:'))
+  assert.ok(nameRequest)
+  assert.ok(orcidRequest)
+  // Sorted by date, the fuzzy author query returned 100 unrelated works published after
+  // the researcher's latest paper, and the name check discarded every one of them.
+  assert.equal(nameRequest.searchParams.get('sort'), null)
+  assert.equal(nameRequest.searchParams.get('order'), null)
+  assert.equal(orcidRequest.searchParams.get('sort'), 'published')
+})
+
+test('OpenAlex discovery includes review-typed works and records them as reviews', async () => {
+  const requestedUrls = []
+  const review = {
+    doi: 'https://doi.org/10.1136/bmjsurg-2026-000011',
+    type: 'review',
+    publication_date: '2026-09-01',
+    publication_year: 2026,
+    display_name: 'Outcome selection in clinical trials of pharmacologic haemostatic agents in surgery: systematic review',
+    authorships: [{ author: { display_name: 'Jane Smith', orcid: 'https://orcid.org/0000-0001-2345-6789' } }],
+    primary_location: { source: { type: 'journal', display_name: 'BMJ Surgery' } },
+  }
+  const fetchFn = async (url) => {
+    requestedUrls.push(new URL(String(url)))
+    return new Response(JSON.stringify({ results: [review] }), { status: 200 })
+  }
+
+  const publications = await fetchOpenAlexPublications(
+    { name: 'Jane Smith', orcid: '0000-0001-2345-6789' },
+    { fetchFn, sinceYear: 2025 }
+  )
+
+  // OpenAlex types systematic reviews `review`; filtering on `article` alone dropped them.
+  assert.ok(requestedUrls[0].searchParams.get('filter').includes('type:article|review'))
+  assert.equal(publications.length, 1)
+  assert.equal(publications[0].doi, '10.1136/bmjsurg-2026-000011')
+  assert.deepEqual(publications[0].publicationTypes, ['Journal Article', 'Review'])
+})
+
 test('OpenAlex requests use the field:direction sort syntax the API accepts', async () => {
   const requestedUrls = []
   const fetchFn = async (url) => {
