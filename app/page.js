@@ -334,10 +334,11 @@ export default async function HomePage() {
                       logoUrl = `https://cdn.sanity.io/images/${process.env.NEXT_PUBLIC_SANITY_PROJECT_ID}/${process.env.NEXT_PUBLIC_SANITY_DATASET}/${id}-${dimensions}.${format}`
                     } else {
                       try {
-                        // The logo shows at most 140×60 CSS pixels, so ask the image CDN for a copy
-                        // that fits 420×180 (3× density, never upscaled) in the browser's best format
-                        // rather than the original upload.
-                        logoUrl = urlFor(affiliation.logo).width(420).height(180).fit('max').auto('format').url()
+                        // The logo shows at most 140 CSS pixels wide, so ask the image CDN for a
+                        // 420-pixel-wide copy (3× density, never upscaled) in the browser's best
+                        // format rather than the original upload. Width only: given a width and a
+                        // height, the URL builder crops to that aspect ratio around the hotspot.
+                        logoUrl = urlFor(affiliation.logo).width(420).fit('max').auto('format').url()
                       } catch (e) {
                         console.error('Failed to generate logo URL for:', affiliation.name, e)
                         return null
