@@ -197,19 +197,36 @@ export default async function TrialDetailPage({ params }) {
         
 
         {/* Meta info */}
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-gray-500">
-          {trial.nctId && (
-            <span className="font-mono">{trial.nctId}</span>
-          )}
-          {trial.ctGovData?.sponsor && (
-            <span>Sponsor: {trial.ctGovData.sponsor}</span>
-          )}
-          {investigators.map((pi) => (
-            <InvestigatorBadge key={pi.key} investigator={pi} />
-          ))}
-        </div>
+        {(trial.nctId || trial.ctGovData?.sponsor) && (
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-500">
+            {trial.nctId && (
+              <span className="font-mono">{trial.nctId}</span>
+            )}
+            {trial.ctGovData?.sponsor && (
+              <span>Sponsor: {trial.ctGovData.sponsor}</span>
+            )}
+          </div>
+        )}
+
+        {/* One card per study team: its principal investigator over the site the team
+            coordinates from, so a study with several teams reads as matched pairs on
+            one row rather than chips scattered among the registry details. */}
+        {investigators.length > 0 && (
+          <div className="mt-5">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#888]">
+              {investigators.length === 1 ? 'Principal investigator' : 'Principal investigators'}
+            </p>
+            <ul className="flex flex-wrap gap-3">
+              {investigators.map((pi) => (
+                <li key={pi.key} className="flex">
+                  <InvestigatorBadge investigator={pi} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {locations.length > 0 && (
-          <p className="mt-3 text-sm text-gray-500">Patients can be seen at: {locations.join(', ')}</p>
+          <p className="mt-4 text-sm text-gray-500">Patients can be seen at: {locations.join(', ')}</p>
         )}
       </header>
 
@@ -350,46 +367,46 @@ export default async function TrialDetailPage({ params }) {
   )
 }
 
+// The investigator's name sits over the site whose team they lead, so each card
+// is one unambiguous pair and cards of different lengths still line up in a row.
 function InvestigatorBadge({ investigator }) {
   const href = investigator.slug ? `/team/${investigator.slug}` : null
+  const cardClass = 'flex items-center gap-3 rounded border border-black/[0.08] bg-white px-3 py-2'
 
   const content = (
     <>
       <Avatar photo={investigator.photo} name={investigator.name} />
-      <span className="text-purple font-medium text-sm">{investigator.name}</span>
-      {investigator.siteName && <span className="text-sm text-gray-500">· {investigator.siteName}</span>}
+      <span className="flex flex-col leading-tight">
+        <span className="text-sm font-medium text-purple">{investigator.name}</span>
+        {investigator.siteName && <span className="text-xs text-gray-500">{investigator.siteName}</span>}
+      </span>
     </>
   )
 
   return href ? (
-    <Link
-      href={href}
-      className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 hover:border-purple transition-colors bg-white rounded"
-    >
+    <Link href={href} className={`${cardClass} transition-colors hover:border-purple`}>
       {content}
     </Link>
   ) : (
-    <span className="inline-flex items-center gap-2 border border-black/[0.08] px-3 py-1.5 bg-white rounded">
-      {content}
-    </span>
+    <span className={cardClass}>{content}</span>
   )
 }
 
 function Avatar({ photo, name }) {
   if (photo) {
-    const src = urlFor(photo).width(64).height(64).fit('crop').url()
+    const src = urlFor(photo).width(80).height(80).fit('crop').url()
     return (
       <Image
         src={src}
         alt={name || ''}
-        width={24}
-        height={24}
-        className="h-6 w-6 rounded-full object-cover"
+        width={32}
+        height={32}
+        className="h-8 w-8 flex-shrink-0 rounded-full object-cover"
       />
     )
   }
   return (
-    <span className="h-6 w-6 rounded-full bg-[#E8E5E0] text-xs flex items-center justify-center text-[#888] font-semibold">
+    <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#E8E5E0] text-sm font-semibold text-[#888]">
       {name?.slice(0, 1)?.toUpperCase() || '?'}
     </span>
   )
