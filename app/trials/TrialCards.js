@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { urlFor } from '@/lib/sanity'
 import { getTherapeuticAreaLabel } from '@/lib/communicationOptions'
 import { listTeamInvestigators, recruitmentSiteNames, resolveStudyTeams } from '@/lib/studyTeams'
+import { formatStudyAddedDate } from '@/lib/studyListing'
 
 const statusConfig = {
   recruiting: { 
@@ -80,6 +81,7 @@ function TrialItem({ trial }) {
   const locations = recruitmentSiteNames(trial)
   const therapeuticLabels =
     trial.therapeuticAreas?.map((area) => getTherapeuticAreaLabel(area?.name)).filter(Boolean) || []
+  const addedLabel = formatStudyAddedDate(trial._createdAt)
 
   return (
     <article className="p-6 space-y-3 hover:bg-[#fafafa] transition-colors">
@@ -111,8 +113,12 @@ function TrialItem({ trial }) {
           )}
         </div>
 
-        {/* Right side (intentionally empty; title is the link) */}
-        <div className="flex items-center gap-3 flex-wrap" />
+        {/* The list runs newest first within each section; the date makes that order visible */}
+        {addedLabel && (
+          <p className="ml-auto whitespace-nowrap text-xs text-[#888] sm:pt-1.5">
+            Added {addedLabel}
+          </p>
+        )}
       </div>
 
       {/* One badge per study team: the investigator and the site that coordinates it */}

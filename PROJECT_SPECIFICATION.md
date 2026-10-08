@@ -1464,7 +1464,7 @@ export const queries = {
   newsPostBySlug: `*[_type == "newsPost" && slug.current == $slug][0] { ... }`,
   capabilities: `*[_type == "capabilities"][0] { ... }`,
   referralInfo: `*[_type == "referralInfo"][0] { ... }`,
-  trialSummaries: `*[_type == "trialSummary"] | order(status asc, title asc) { ... }`,
+  trialSummaries: `*[_type == "trialSummary"] | order(_createdAt desc, title asc) { ... }`,
   recruitingTrials: `*[_type == "trialSummary" && status == "recruiting"] { ... }`,
   trialBySlug: `*[_type == "trialSummary" && slug.current == $slug][0] { ... }`,
   trialCoordinator: `*[_type == "trialSummary" && slug.current == $slug][0] { coordinatorEmail, title }`,
