@@ -99,6 +99,14 @@ export default async function TrialDetailPage({ params }) {
   const isRecruiting = trial.status === 'recruiting'
   const showStatusBanner = !isRecruiting
   const ctGovUrl = trial.ctGovData?.url || (trial.nctId ? `https://clinicaltrials.gov/study/${trial.nctId}` : null)
+  // The registry entry and the study's own website sit together in the status card,
+  // as matching buttons, rather than the website trailing below the eligibility criteria.
+  // The website field may itself hold the registry link, which would repeat the button.
+  const studyWebsite = trial.sponsorWebsite && trial.sponsorWebsite !== ctGovUrl ? trial.sponsorWebsite : null
+  const externalLinks = [
+    ctGovUrl && { href: ctGovUrl, label: 'View on ClinicalTrials.gov' },
+    studyWebsite && { href: studyWebsite, label: 'Study website' },
+  ].filter(Boolean)
   const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ''
   const studySlug = trial.slug?.current || trial.slug
   const baseUrl = getSiteBaseUrl()
@@ -186,6 +194,13 @@ export default async function TrialDetailPage({ params }) {
             <span className="font-semibold">{config.label}</span>
           </div>
           <p className="text-sm mt-1 opacity-80">{config.message}</p>
+          {externalLinks.length > 0 && (
+            <div className="flex flex-wrap gap-3 mt-4">
+              {externalLinks.map((link) => (
+                <ExternalLinkButton key={link.href} {...link} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -288,16 +303,9 @@ export default async function TrialDetailPage({ params }) {
               studySlug={studySlug}
               recaptchaSiteKey={recaptchaSiteKey}
             />
-            {ctGovUrl && (
-              <a
-                href={ctGovUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition"
-              >
-                View on ClinicalTrials.gov ↗
-              </a>
-            )}
+            {externalLinks.map((link) => (
+              <ExternalLinkButton key={link.href} {...link} />
+            ))}
           </div>
         </section>
       )}
@@ -349,21 +357,20 @@ export default async function TrialDetailPage({ params }) {
           )}
         </div>
       </section>
-
-      {/* External links (study website; CT.gov already linked above) */}
-      {trial.sponsorWebsite && (
-        <section className="flex flex-wrap gap-4 text-sm">
-          <a
-            href={trial.sponsorWebsite}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gray-500 hover:text-purple transition"
-          >
-            Study website ↗
-          </a>
-        </section>
-      )}
     </main>
+  )
+}
+
+function ExternalLinkButton({ href, label }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition"
+    >
+      {label} ↗
+    </a>
   )
 }
 
