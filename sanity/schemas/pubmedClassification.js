@@ -7,8 +7,14 @@ const pubmedClassification = {
       name: 'pmid',
       title: 'PMID',
       type: 'string',
-      description: 'PubMed ID',
-      validation: (Rule) => Rule.required(),
+      description: 'PubMed ID (empty for a paper known only by its DOI)',
+    },
+    {
+      name: 'publicationKey',
+      title: 'Publication Key',
+      type: 'string',
+      description: 'The paper\'s identity in the publication cache (doi:… or pmid:…); how a DOI-only paper is matched',
+      readOnly: true,
     },
     {
       name: 'title',
@@ -102,15 +108,16 @@ const pubmedClassification = {
   preview: {
     select: {
       pmid: 'pmid',
+      publicationKey: 'publicationKey',
       pubTitle: 'title',
       runAt: 'runAt',
       topics: 'topics',
     },
-    prepare({ pmid, pubTitle, runAt, topics }) {
+    prepare({ pmid, publicationKey, pubTitle, runAt, topics }) {
       const topicStr = topics?.length ? topics.slice(0, 2).join(', ') : ''
       const date = runAt ? new Date(runAt).toLocaleDateString() : ''
       return {
-        title: pubTitle || `PMID: ${pmid}`,
+        title: pubTitle || (pmid ? `PMID: ${pmid}` : publicationKey || 'Classification'),
         subtitle: [topicStr, date].filter(Boolean).join(' • '),
       }
     },

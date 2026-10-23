@@ -273,8 +273,8 @@ export default function ReclassifyPage() {
                 </summary>
                 <div className="mt-2 space-y-1 text-xs text-gray-700">
                   {response.selection.targetPreview.slice(0, 10).map((t) => (
-                    <div key={t.pmid}>
-                      {t.pmid} · {t.year || 'n/a'} · {t.title}
+                    <div key={t.id || t.pmid}>
+                      {t.id || t.pmid} · {t.year || 'n/a'} · {t.title}
                     </div>
                   ))}
                   {response.selection.targetPreview.length > 10 && <div>…truncated preview</div>}
