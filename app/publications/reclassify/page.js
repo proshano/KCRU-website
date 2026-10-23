@@ -23,6 +23,7 @@ export default function ReclassifyPage() {
   const [model, setModel] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [clearExisting, setClearExisting] = useState(false)
+  const [useBuiltInPrompt, setUseBuiltInPrompt] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [response, setResponse] = useState(null)
@@ -57,6 +58,7 @@ export default function ReclassifyPage() {
           match: match.trim() || undefined,
           clear: clearExisting,
           prompt: prompt.trim() || undefined,
+          useBuiltInPrompt,
           provider: provider || undefined,
           model: model.trim() || undefined,
           apiKey: apiKey.trim() || undefined,
@@ -195,6 +197,15 @@ export default function ReclassifyPage() {
             placeholder="Leave blank to use current setting; paste a test prompt here to override."
             className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono text-sm"
           />
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={useBuiltInPrompt}
+              onChange={(e) => setUseBuiltInPrompt(e.target.checked)}
+              className="h-4 w-4"
+            />
+            Use the built-in prompt even when Site Settings stores a copy (a stored copy can predate newer tags)
+          </label>
           <details className="text-xs text-gray-600">
             <summary className="cursor-pointer text-purple font-medium">Show default prompt</summary>
             <pre className="whitespace-pre-wrap mt-2 p-3 bg-gray-50 border border-black/5 rounded">
@@ -221,6 +232,14 @@ export default function ReclassifyPage() {
             <div>Provider: {response.provider || 'default (settings)'}</div>
             <div>Model: {response.model || 'default (settings)'}</div>
             <div>Items classified: {response.count}</div>
+            {response.prompt && (
+              <div>
+                Prompt: {response.prompt.source}
+                {response.prompt.missingTags?.length > 0 && (
+                  <span className="text-red-600"> · no criteria row for: {response.prompt.missingTags.join(', ')}</span>
+                )}
+              </div>
+            )}
             {response.selection && (
               <>
                 <div>

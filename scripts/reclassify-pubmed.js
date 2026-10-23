@@ -24,6 +24,10 @@ async function parseArgs(argv = []) {
       options.dryRun = true
       continue
     }
+    if (arg === '--built-in-prompt') {
+      options.useBuiltInPrompt = true
+      continue
+    }
     if (arg.startsWith('--count=')) {
       options.count = Number(arg.slice('--count='.length))
       continue

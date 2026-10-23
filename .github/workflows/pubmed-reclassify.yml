@@ -44,6 +44,14 @@ on:
         required: false
         type: boolean
         default: false
+      prompt:
+        description: "Classification prompt: the built-in one in lib/classificationPrompt.js, or the copy stored in Site Settings (which can predate newer tags)"
+        required: false
+        type: choice
+        default: built-in
+        options:
+          - built-in
+          - site-settings
       backend:
         description: "Classifier"
         required: false
@@ -95,6 +103,7 @@ jobs:
           COUNT: ${{ inputs.count }}
           ALL: ${{ inputs.all }}
           BACKEND: ${{ inputs.backend }}
+          PROMPT: ${{ inputs.prompt }}
         run: |
           ARGS=()
           [ "$MODE" = "dry-run" ] && ARGS+=("--dry-run")
@@ -104,6 +113,7 @@ jobs:
           [ -n "$COUNT" ] && ARGS+=("--count=$COUNT")
           [ "$ALL" = "true" ] && ARGS+=("--all")
           [ "$BACKEND" != "settings" ] && ARGS+=("--backend=$BACKEND")
+          [ "$PROMPT" != "site-settings" ] && ARGS+=("--built-in-prompt")
           echo "Running: npm run reclassify:pubmed -- ${ARGS[*]}"
           npm run reclassify:pubmed -- "${ARGS[@]}" | tee reclassify-output.json
           # The script reports failures in its JSON rather than its exit code.
@@ -116,6 +126,9 @@ jobs:
             if (!result.ok) { console.error("Reclassification failed"); process.exit(1) }
             const s = result.selection || {}
             console.log(`Selected ${s.selectedCount ?? 0} of ${s.totalAvailable ?? 0} cached papers; classified ${result.count ?? 0}.`)
+            const p = result.prompt || {}
+            console.log(`Prompt: ${p.source || "unknown"}; backend: ${result.backend || s.backend || "unknown"}.`)
+            if (p.missingTags?.length) console.log(`::warning::The prompt has no criteria row for: ${p.missingTags.join(", ")}`)
           '
 
       - name: Revalidate publication pages

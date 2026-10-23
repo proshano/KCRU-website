@@ -70,3 +70,23 @@ test('a match pattern that selects nothing or does not parse is an error', async
   await assert.rejects(() => run({ match: 'glomerulonephritis' }), /No publications selected/)
   await assert.rejects(() => run({ match: '(' }), /Invalid match pattern/)
 })
+
+test('a stored Site Settings prompt is used by default and its missing tag rows are reported', async () => {
+  const stale = '| **Kidney Transplantation** | Transplant: donor/recipient outcomes |'
+  const stored = await run({ match: 'donor', settings: { llmClassificationPrompt: stale } })
+  assert.equal(stored.usedPrompt, stale)
+  assert.equal(stored.prompt.source, 'site-settings')
+  assert.ok(stored.prompt.missingTags.includes('Living Kidney Donation'))
+  assert.ok(!stored.prompt.missingTags.includes('Kidney Transplantation'))
+})
+
+test('useBuiltInPrompt ignores the stored prompt, and an explicit override wins over both', async () => {
+  const stale = '| **Kidney Transplantation** | Transplant: donor/recipient outcomes |'
+  const builtIn = await run({ match: 'donor', settings: { llmClassificationPrompt: stale }, useBuiltInPrompt: true })
+  assert.equal(builtIn.prompt.source, 'built-in')
+  assert.deepEqual(builtIn.prompt.missingTags, [])
+  assert.match(builtIn.usedPrompt, /\| \*\*Living Kidney Donation\*\* \|/)
+  const override = await run({ match: 'donor', settings: { llmClassificationPrompt: stale }, useBuiltInPrompt: true, prompt: '| **Hypertension** | x |' })
+  assert.equal(override.prompt.source, 'override')
+  assert.equal(override.usedPrompt, '| **Hypertension** | x |')
+})
