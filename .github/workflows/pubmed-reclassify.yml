@@ -1,0 +1,138 @@
+name: Reclassify Publications
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+# Runs `npm run reclassify:pubmed` against the live dataset with the repository's
+# Sanity and LLM secrets, so a new or reworded tag can reach the papers it concerns
+# without a local checkout. The dry run lists the selected papers without calling the
+# classifier or writing anything; "apply" writes one pubmedClassification document per
+# paper and then revalidates the public pages. See "Data Refresh" in AGENTS.md.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "What to do"
+        required: true
+        type: choice
+        default: dry-run
+        options:
+          - dry-run
+          - apply
+      match:
+        description: "Select papers whose title, abstract or lay summary matches this case-insensitive regular expression (already classified or not)"
+        required: false
+        type: string
+        default: ""
+      pmids:
+        description: "Select these PMIDs (comma or space separated)"
+        required: false
+        type: string
+        default: ""
+      year:
+        description: "Only papers from this year"
+        required: false
+        type: string
+        default: ""
+      count:
+        description: "How many unclassified papers to take when no match or PMIDs are given (default 10)"
+        required: false
+        type: string
+        default: ""
+      all:
+        description: "Re-run every selected paper even when it is already classified, ignoring count (needed with year alone; match and PMIDs already do this)"
+        required: false
+        type: boolean
+        default: false
+      backend:
+        description: "Classifier"
+        required: false
+        type: choice
+        default: settings
+        options:
+          - settings
+          - chat
+          - jev
+
+concurrency:
+  group: pubmed-reclassify
+  cancel-in-progress: false
+
+jobs:
+  reclassify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Reclassify publications
+        id: reclassify
+        env:
+          NEXT_PUBLIC_SANITY_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_SANITY_PROJECT_ID }}
+          NEXT_PUBLIC_SANITY_DATASET: ${{ secrets.NEXT_PUBLIC_SANITY_DATASET }}
+          SANITY_API_TOKEN: ${{ secrets.SANITY_API_TOKEN }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+          MODE: ${{ inputs.mode }}
+          MATCH: ${{ inputs.match }}
+          PMIDS: ${{ inputs.pmids }}
+          YEAR: ${{ inputs.year }}
+          COUNT: ${{ inputs.count }}
+          ALL: ${{ inputs.all }}
+          BACKEND: ${{ inputs.backend }}
+        run: |
+          ARGS=()
+          [ "$MODE" = "dry-run" ] && ARGS+=("--dry-run")
+          [ -n "$MATCH" ] && ARGS+=("--match=$MATCH")
+          [ -n "$PMIDS" ] && ARGS+=("--pmids=$PMIDS")
+          [ -n "$YEAR" ] && ARGS+=("--year=$YEAR")
+          [ -n "$COUNT" ] && ARGS+=("--count=$COUNT")
+          [ "$ALL" = "true" ] && ARGS+=("--all")
+          [ "$BACKEND" != "settings" ] && ARGS+=("--backend=$BACKEND")
+          echo "Running: npm run reclassify:pubmed -- ${ARGS[*]}"
+          npm run reclassify:pubmed -- "${ARGS[@]}" | tee reclassify-output.json
+          # The script reports failures in its JSON rather than its exit code.
+          node -e '
+            const fs = require("fs")
+            const text = fs.readFileSync("reclassify-output.json", "utf8")
+            const start = text.indexOf("{")
+            if (start === -1) { console.error("No JSON in the script output"); process.exit(1) }
+            const result = JSON.parse(text.slice(start))
+            if (!result.ok) { console.error("Reclassification failed"); process.exit(1) }
+            const s = result.selection || {}
+            console.log(`Selected ${s.selectedCount ?? 0} of ${s.totalAvailable ?? 0} cached papers; classified ${result.count ?? 0}.`)
+          '
+
+      - name: Revalidate publication pages
+        if: ${{ inputs.mode == 'apply' }}
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$SITE_URL" ]; then
+            echo "SITE_URL secret is not set."
+            exit 1
+          fi
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET secret is not set."
+            exit 1
+          fi
+          SITE_URL="${SITE_URL%/}"
+          curl -f -sS -X POST "$SITE_URL/api/pubmed/revalidate" \
+            -H "Authorization: Bearer $CRON_SECRET"
+          echo ""
