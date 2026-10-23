@@ -19,6 +19,15 @@ test('classification prompt includes the CRT estimands example with intended tag
   )
 })
 
+test('classification prompt reserves Living Kidney Donation for living donors\' own outcomes', () => {
+  assert.match(DEFAULT_CLASSIFICATION_PROMPT, /^\| \*\*Living Kidney Donation\*\* \| Living kidney donors \(or donor candidates\) as the study population/m)
+  assert.match(DEFAULT_CLASSIFICATION_PROMPT, /\*\*Do NOT use\*\* for recipient or graft outcomes, deceased donation/)
+  assert.doesNotMatch(DEFAULT_CLASSIFICATION_PROMPT, /\*\*Kidney Transplantation\*\* \| Transplant: donor\/recipient outcomes/)
+  assert.match(DEFAULT_CLASSIFICATION_PROMPT, /\*\*Living Donors vs\. Transplantation\*\*/)
+  assert.match(DEFAULT_CLASSIFICATION_PROMPT, /### Example 14: Living Donor Outcomes \(Not Transplantation\)/)
+  assert.match(DEFAULT_CLASSIFICATION_PROMPT, /"topics": \["Living Kidney Donation", "Hypertension"\]/)
+})
+
 test('classification prompt does not use commentary as the fallback for missing abstracts', () => {
   assert.match(DEFAULT_CLASSIFICATION_PROMPT, /\*\*Do NOT use\*\* merely because PubMed has no abstract/i)
   assert.match(DEFAULT_CLASSIFICATION_PROMPT, /Use an empty `study_design` array when no study-design tag fits/)

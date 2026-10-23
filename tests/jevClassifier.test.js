@@ -69,6 +69,8 @@ test('buildJevQuestions asks one noul question per tag plus the exclude question
   }
   assert.deepEqual(index.exclude, { axis: 'exclude', tag: 'exclude' })
   assert.deepEqual(index.m_machine_learning_ai, { axis: 'methodologicalFocus', tag: 'Machine Learning / AI' })
+  assert.deepEqual(index.t_living_kidney_donation, { axis: 'topics', tag: 'Living Kidney Donation' })
+  assert.match(questions.t_living_kidney_donation.criteria.true, /Do NOT use for recipient or graft outcomes/)
   assert.match(questions.t_chronic_kidney_disease.criteria.true, /Do NOT use if the study focuses on a specific cause/)
 })
 

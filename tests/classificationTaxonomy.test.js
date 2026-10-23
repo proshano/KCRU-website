@@ -17,6 +17,18 @@ test('taxonomy axes expose every canonical tag exactly once', () => {
   assert.deepEqual(CLASSIFICATION_AXES.map((axis) => axis.key), ['topics', 'studyDesign', 'methodologicalFocus'])
 })
 
+test('living kidney donation is a topic tag beside kidney transplantation', () => {
+  assert.ok(TOPIC_TAGS.has('Living Kidney Donation'))
+  const topics = [...TOPIC_TAGS]
+  assert.equal(topics.indexOf('Living Kidney Donation'), topics.indexOf('Kidney Transplantation') + 1)
+  const cleaned = enforceCanonicalCategories({
+    topics: ['Living Kidney Donation', 'Hypertension'],
+    studyDesign: ['Observational Study'],
+    methodologicalFocus: ['Administrative Data'],
+  })
+  assert.deepEqual(cleaned.topics, ['Living Kidney Donation', 'Hypertension'])
+})
+
 test('enforceCanonicalCategories moves misplaced tags and drops unknown ones', () => {
   const cleaned = enforceCanonicalCategories({
     topics: ['Observational Study', 'Hemodialysis', 'Made Up'],

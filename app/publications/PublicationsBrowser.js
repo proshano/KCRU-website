@@ -9,67 +9,14 @@ import { urlFor } from '@/lib/sanity'
 import { comparePublicationsByDisplayDate, findResearchersForPublication } from '@/lib/publicationUtils'
 import { isPublicationExcluded } from '@/lib/publicationExclusions'
 import { getPublicationAnchorId, getPublicationKey, revealLinkedPublication } from '@/lib/publicationIdentity'
+import { METHODOLOGICAL_FOCUS_TAGS, STUDY_DESIGN_TAGS, TOPIC_TAGS } from '@/lib/classificationTaxonomy'
 
 const DEFAULT_VISIBLE_TAGS = 5
 const METHODS_VISIBLE_TAGS = 4
 
-// Canonical category assignments - each tag belongs to exactly one category
-const TOPIC_TAGS = new Set([
-  'Perioperative and Surgery',
-  'Hemodialysis',
-  'Dialysis Vascular Access',
-  'Peritoneal Dialysis',
-  'Genetic Kidney Disease',
-  'Kidney Transplantation',
-  'Drug Safety',
-  'Drug Dosing and Metabolism',
-  'Acute Kidney Injury',
-  'Glomerular Disease',
-  'Diabetes and Metabolism',
-  'Chronic Kidney Disease',
-  'Obesity',
-  'Hypertension',
-  'Cardiovascular Disease',
-  'Bone Health',
-  'Kidney Disease in Cancer',
-  'Health Systems',
-  'Remote Monitoring and Care',
-  'Clinical Decision Support',
-  'Education',
-  'Research Ethics',
-])
-
-const STUDY_DESIGN_TAGS = new Set([
-  'Interventional Study',
-  'Observational Study',
-  'Systematic Evidence Synthesis',
-  'Narrative Review',
-  'Clinical Practice Guideline',
-  'Qualitative Study',
-  'Case Report / Case Series',
-  'Commentary / Editorial',
-])
-
-const METHODOLOGICAL_FOCUS_TAGS = new Set([
-  'Pragmatic Trial',
-  'Innovation in Study Design or Analysis',
-  'Research Automation',
-  'Health Economics',
-  'Biomarker Development or Validation',
-  'Diagnostic Accuracy',
-  'Advanced Imaging',
-  'Genomics / Genetic Testing',
-  'Machine Learning / AI',
-  'Administrative Data',
-  'Survey Research',
-  'Consensus Methods',
-  'Patient-Reported Outcomes',
-  'Risk Estimation and Prognosis',
-  'Preclinical',
-])
-
 /**
- * Normalize a publication's tags to their canonical categories
+ * Normalize a publication's tags to their canonical categories. The tag sets come from
+ * lib/classificationTaxonomy.js, so a tag added there shows up here without a second list.
  */
 function normalizePublicationTags(pub) {
   const allTags = [

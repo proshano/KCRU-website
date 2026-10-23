@@ -36,6 +36,10 @@ async function parseArgs(argv = []) {
       options.pmids = parsePmids(arg.slice('--pmids='.length))
       continue
     }
+    if (arg.startsWith('--match=')) {
+      options.match = arg.slice('--match='.length)
+      continue
+    }
     if (arg.startsWith('--batch-size=')) {
       options.batchSize = Number(arg.slice('--batch-size='.length))
       continue

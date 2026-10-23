@@ -18,6 +18,7 @@ export default function ReclassifyPage() {
   const [prompt, setPrompt] = useState('')
   const [count, setCount] = useState(20)
   const [pmids, setPmids] = useState('')
+  const [match, setMatch] = useState('')
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('')
   const [apiKey, setApiKey] = useState('')
@@ -53,6 +54,7 @@ export default function ReclassifyPage() {
         body: JSON.stringify({
           count,
           pmids: pmidsList.length ? pmidsList : undefined,
+          match: match.trim() || undefined,
           clear: clearExisting,
           prompt: prompt.trim() || undefined,
           provider: provider || undefined,
@@ -98,7 +100,7 @@ export default function ReclassifyPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
-            <label className="text-sm font-medium">Count (1–200, ignored if PMIDs provided)</label>
+            <label className="text-sm font-medium">Count (1–200, ignored if PMIDs or a match pattern are provided)</label>
             <input
               type="number"
               min={1}
@@ -108,7 +110,7 @@ export default function ReclassifyPage() {
               className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
             />
             <p className="text-xs text-gray-500">
-              By default, only unclassified publications are selected; provide PMIDs or enable &ldquo;Clear existing&rdquo; to re-run classified items.
+              By default, only unclassified publications are selected; provide PMIDs, a match pattern, or enable &ldquo;Clear existing&rdquo; to re-run classified items.
             </p>
           </div>
 
@@ -147,6 +149,21 @@ export default function ReclassifyPage() {
             placeholder="If provided, overrides site settings/env"
             className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple"
           />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Title/abstract match (optional, case-insensitive regular expression)</label>
+          <input
+            type="text"
+            value={match}
+            onChange={(e) => setMatch(e.target.value)}
+            placeholder="e.g. living (kidney )?don|donor nephrectomy"
+            className="w-full border border-black/10 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-purple font-mono text-sm"
+          />
+          <p className="text-xs text-gray-500">
+            Selects every cached publication whose title, abstract or lay summary matches, already classified or not, so a
+            new tag can be applied to the papers it concerns. Combine with PMIDs to narrow further.
+          </p>
         </div>
 
         <div className="space-y-2">
