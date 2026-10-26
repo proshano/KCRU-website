@@ -1,4 +1,5 @@
 import { DEFAULT_CLASSIFICATION_PROMPT } from '../../lib/classificationPrompt.js'
+import { DECISION_MODELS, DEFAULT_DECISION_MODEL } from '../../lib/decisionModels.js'
 import {
   DEFAULT_SYSTEM_PROMPT,
   TRIAL_SUMMARY_SYSTEM_PROMPT,
@@ -374,7 +375,7 @@ const siteSettings = {
       title: 'Publication Classification',
       type: 'object',
       description:
-        'Which system assigns topic, study design and methodological focus tags to publications, and the Jev probability thresholds. Tune thresholds at /admin/classification-eval.',
+        'Which system assigns topic, study design and methodological focus tags to publications, which decision model it uses, and the probability thresholds. Compare models and tune thresholds at /admin/classification-eval.',
       options: { collapsible: true, collapsed: false },
       fields: [
         {
@@ -386,10 +387,21 @@ const siteSettings = {
             layout: 'radio',
             list: [
               { title: 'Chat model (uses the LLM Provider/Model (classification) settings above)', value: 'chat' },
-              { title: 'Jev decision model (one yes/no question per tag, with probabilities)', value: 'jev' }
+              { title: 'Decision model (one yes/no question per tag, with probabilities)', value: 'jev' }
             ]
           },
-          description: 'Takes effect on the next PubMed refresh or reclassification. If Jev fails for a paper, the chat model classifies it instead.'
+          description: 'Takes effect on the next PubMed refresh or reclassification. If the decision model fails for a paper, the chat model classifies it instead.'
+        },
+        {
+          name: 'decisionModel',
+          title: 'Decision model',
+          type: 'string',
+          initialValue: DEFAULT_DECISION_MODEL,
+          options: {
+            layout: 'radio',
+            list: DECISION_MODELS.map((entry) => ({ title: entry.label, value: entry.key }))
+          },
+          description: 'Used when the classifier is the decision model. Blank means Jev. Compare the models at /admin/classification-eval before switching: thresholds tuned on one model do not carry over to the other.'
         },
         {
           name: 'backendUpdatedAt',
@@ -402,32 +414,32 @@ const siteSettings = {
           title: 'Classifier changed by',
           type: 'string',
           readOnly: true,
-          description: 'Filled in when the classifier is switched from /admin/classification-eval.'
+          description: 'Filled in when the classifier or decision model is switched from /admin/classification-eval.'
         },
         {
           name: 'jevThresholdTopics',
-          title: 'Jev threshold: Topics',
+          title: 'Decision model threshold: Topics',
           type: 'number',
-          description: '0 to 1. A topic tag is applied when Jev\'s probability reaches this value. Blank means 0.5.',
+          description: '0 to 1. A topic tag is applied when the decision model\'s probability reaches this value. Blank means 0.5.',
           validation: (Rule) => Rule.min(0).max(1)
         },
         {
           name: 'jevThresholdStudyDesign',
-          title: 'Jev threshold: Study design',
+          title: 'Decision model threshold: Study design',
           type: 'number',
           description: '0 to 1. Blank means 0.5.',
           validation: (Rule) => Rule.min(0).max(1)
         },
         {
           name: 'jevThresholdMethodologicalFocus',
-          title: 'Jev threshold: Methodological focus',
+          title: 'Decision model threshold: Methodological focus',
           type: 'number',
           description: '0 to 1. Blank means 0.5.',
           validation: (Rule) => Rule.min(0).max(1)
         },
         {
           name: 'jevThresholdExclude',
-          title: 'Jev threshold: Exclude (corrections and errata)',
+          title: 'Decision model threshold: Exclude (corrections and errata)',
           type: 'number',
           description: '0 to 1. Blank means 0.5.',
           validation: (Rule) => Rule.min(0).max(1)
@@ -438,6 +450,16 @@ const siteSettings = {
           type: 'string',
           readOnly: true,
           description: 'Filled in when thresholds are applied from an evaluation run.'
+        },
+        {
+          name: 'thresholdsDecisionModel',
+          title: 'Thresholds tuned on',
+          type: 'string',
+          readOnly: true,
+          options: {
+            list: DECISION_MODELS.map((entry) => ({ title: entry.label, value: entry.key }))
+          },
+          description: 'The decision model of the evaluation run the thresholds came from.'
         },
         {
           name: 'thresholdsUpdatedAt',

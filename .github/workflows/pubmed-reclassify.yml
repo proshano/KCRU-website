@@ -53,7 +53,7 @@ on:
           - built-in
           - site-settings
       backend:
-        description: "Classifier"
+        description: "Classifier (jev runs the decision model chosen in Site Settings)"
         required: false
         type: choice
         default: settings
@@ -127,7 +127,8 @@ jobs:
             const s = result.selection || {}
             console.log(`Selected ${s.selectedCount ?? 0} of ${s.totalAvailable ?? 0} cached papers; classified ${result.count ?? 0}.`)
             const p = result.prompt || {}
-            console.log(`Prompt: ${p.source || "unknown"}; backend: ${result.backend || s.backend || "unknown"}.`)
+            const d = result.decisionModel || s.decisionModel
+            console.log(`Prompt: ${p.source || "unknown"}; backend: ${result.backend || s.backend || "unknown"}${d ? ` (${d})` : ""}.`)
             if (p.missingTags?.length) console.log(`::warning::The prompt has no criteria row for: ${p.missingTags.join(", ")}`)
           '
 

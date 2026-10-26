@@ -8,7 +8,7 @@ import ClassificationEvalClient from './ClassificationEvalClient'
 
 export const metadata = {
   title: 'Classification Evaluation | KCRU',
-  description: 'Compare the Jev decision model against the current publication classifier.',
+  description: 'Compare decision models (Jev, GPT-6 Luna Decisions) against the current publication classifier.',
 }
 
 export default async function ClassificationEvalPage() {

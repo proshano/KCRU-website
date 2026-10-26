@@ -65,7 +65,11 @@ test('computeEvalMetrics scores axes, tags and usage and responds to thresholds'
     }),
     paper('3', { topics: [] }, [], { error: 'boom' }),
   ]
-  const at50 = computeEvalMetrics(papers, { topics: 0.5, studyDesign: 0.5, methodologicalFocus: 0.5, exclude: 0.5 })
+  const at50 = computeEvalMetrics(
+    papers,
+    { topics: 0.5, studyDesign: 0.5, methodologicalFocus: 0.5, exclude: 0.5 },
+    { usdPerMillionInputTokens: 0.1 }
+  )
   assert.equal(at50.papers, 3)
   assert.equal(at50.scored, 2)
   assert.equal(at50.errors, 1)
@@ -78,7 +82,8 @@ test('computeEvalMetrics scores axes, tags and usage and responds to thresholds'
   assert.equal(at50.axes.studyDesign.precision, 0.5)
   assert.equal(at50.axes.studyDesign.recall, 0.5)
   assert.equal(at50.usage.inputTokens, 3000)
-  assert.ok(at50.usage.estimatedUsd > 0)
+  assert.equal(at50.usage.usdPerMillionInputTokens, 0.1)
+  assert.ok(Math.abs(at50.usage.estimatedUsd - 0.0003) < 1e-12)
   assert.equal(at50.latency.meanMs, 300)
   const worst = at50.tags[0]
   assert.equal(worst.disagreements, 1)
@@ -88,6 +93,9 @@ test('computeEvalMetrics scores axes, tags and usage and responds to thresholds'
   const at40 = computeEvalMetrics(papers, { studyDesign: 0.4 })
   assert.equal(at40.axes.studyDesign.baselineOnly, 0)
   assert.equal(at40.axes.studyDesign.recall, 1)
+  // Without a price for the run's model there is no cost estimate, not a guessed one.
+  assert.equal(at40.usage.estimatedUsd, null)
+  assert.equal(at40.usage.usdPerMillionInputTokens, null)
 })
 
 test('seededShuffle is deterministic for a seed and differs across seeds', () => {
@@ -181,6 +189,9 @@ test('runClassificationEval classifies the sample, records both sides and stores
     assert.equal(run.requestedBy, 'a@b.c')
     assert.equal(run.model, 'jev-1.13')
     assert.equal(run.transport, 'typesafe')
+    assert.equal(run.decisionModel, 'jev')
+    assert.equal(run.usdPerMillionInputTokens, 0.042)
+    assert.ok(Math.abs(run.summary.estimatedUsd - (2100 / 1_000_000) * 0.042) < 1e-12)
     assert.equal(run.status, 'ok')
     assert.equal(run.papers.length, 3)
     assert.equal(run.summary.papers, 3)
@@ -248,6 +259,7 @@ test('runClassificationEval starts from the production thresholds stored in Sani
   process.env.TYPESAFE_API_KEY = 'k'
   try {
     const result = await runClassificationEval({ cache, client, fetch: fetchImpl, count: 1, seed: 1 })
+    assert.equal(result.run.label, 'Jev vs stored classification (1 papers, seed 1)')
     assert.equal(result.run.thresholds.topics, 0.8)
     assert.equal(result.run.thresholds.studyDesign, 0.5)
     // 0.7 is below the production topics threshold of 0.8, so Jev applies no topic.
@@ -257,6 +269,70 @@ test('runClassificationEval starts from the production thresholds stored in Sani
   } finally {
     if (saved === undefined) delete process.env.TYPESAFE_API_KEY
     else process.env.TYPESAFE_API_KEY = saved
+  }
+})
+
+test('runClassificationEval runs the chosen decision model, defaulting to the production choice', async () => {
+  const { index } = buildJevQuestions()
+  const requests = []
+  const fetchImpl = async (url, init) => {
+    const body = JSON.parse(init.body)
+    requests.push({ url, body })
+    const answers = {}
+    for (const name of Object.keys(body.questions)) {
+      answers[name] = { type: 'noul', noul: index[name].tag === 'Hemodialysis' ? 0.7 : 0.1 }
+    }
+    const model = body.model.startsWith('openai/') ? 'openai/gpt-6-luna-decisions-20261006' : body.model
+    return new Response(JSON.stringify({ model, answers, usage: { input_tokens: 9000, output_tokens: 0 } }), { status: 200 })
+  }
+  const cache = {
+    publications: [
+      { pmid: '30', title: 'Dialysis', year: 2026, abstract: 'x'.repeat(100), topics: ['Hemodialysis'], studyDesign: [], methodologicalFocus: [] },
+    ],
+  }
+  const lunaSettings = { publicationClassification: { backend: 'jev', decisionModel: 'gpt-6-luna-decisions' } }
+  const saved = { TYPESAFE_API_KEY: process.env.TYPESAFE_API_KEY, OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY, JEV_TRANSPORT: process.env.JEV_TRANSPORT, JEV_MODEL: process.env.JEV_MODEL }
+  process.env.TYPESAFE_API_KEY = 'ts'
+  process.env.OPENROUTER_API_KEY = 'or'
+  delete process.env.JEV_TRANSPORT
+  delete process.env.JEV_MODEL
+  try {
+    const common = { cache, client: { fetch: async () => [] }, fetch: fetchImpl, count: 1, seed: 1, persist: false }
+    const luna = await runClassificationEval({ ...common, settings: lunaSettings })
+    assert.equal(requests[0].url, 'https://openrouter.ai/api/alpha/decisions')
+    assert.equal(requests[0].body.model, 'openai/gpt-6-luna-decisions')
+    assert.equal(Object.values(requests[0].body.questions).some((question) => 'criteria' in question), false)
+    assert.equal(luna.run.decisionModel, 'gpt-6-luna-decisions')
+    assert.equal(luna.run.model, 'openai/gpt-6-luna-decisions-20261006')
+    assert.equal(luna.run.transport, 'openrouter')
+    assert.equal(luna.run.usdPerMillionInputTokens, 0.1)
+    assert.equal(luna.run.label, 'GPT-6 Luna vs stored classification (1 papers, seed 1)')
+    assert.deepEqual(luna.run.papers[0].jev.topics, ['Hemodialysis'])
+
+    // The run's own choice beats production's: Jev keeps its configured route and criteria.
+    const jev = await runClassificationEval({ ...common, settings: lunaSettings, decisionModel: 'jev' })
+    assert.equal(requests[1].url, 'https://api.typesafe.ai/v1/systemone')
+    assert.equal(requests[1].body.model, 'jev-latest')
+    assert.ok(Object.values(requests[1].body.questions).every((question) => question.criteria))
+    assert.equal(jev.run.decisionModel, 'jev')
+    assert.equal(jev.run.usdPerMillionInputTokens, 0.042)
+
+    // A raw model outside the table still runs, but has no price.
+    const raw = await runClassificationEval({ ...common, settings: {}, transport: 'openrouter', model: 'microsoft/microsoft-decision-1' })
+    assert.equal(requests[2].body.model, 'microsoft/microsoft-decision-1')
+    assert.equal(raw.run.decisionModel, null)
+    assert.equal(raw.run.usdPerMillionInputTokens, null)
+    assert.equal(raw.run.summary.estimatedUsd, null)
+
+    await assert.rejects(
+      runClassificationEval({ ...common, settings: {}, decisionModel: 'gpt-7' }),
+      /Unknown decision model "gpt-7"/
+    )
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
   }
 })
 

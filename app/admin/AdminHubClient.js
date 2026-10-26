@@ -39,7 +39,7 @@ const MODULES = [
     key: 'classificationEval',
     accessKey: 'approvals',
     title: 'Classification evaluation',
-    description: 'Compare the Jev decision model against the current publication classifier on a sample of papers.',
+    description: 'Compare decision models (Jev, GPT-6 Luna Decisions) against the current publication classifier on a sample of papers, and choose which one classifies publications.',
     href: '/admin/classification-eval',
     actionLabel: 'Open evaluation',
   },

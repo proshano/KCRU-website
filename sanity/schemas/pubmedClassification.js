@@ -80,7 +80,7 @@ const pubmedClassification = {
       name: 'backend',
       title: 'Classifier',
       type: 'string',
-      description: 'chat (LLM prompt) or jev (decision model); "chat" with a fallback note means Jev failed for this paper.',
+      description: 'chat (LLM prompt) or jev (decision model: Jev or GPT-6 Luna Decisions, named in LLM Model); "chat" with a fallback note means the decision model failed for this paper.',
     },
     {
       name: 'runAt',

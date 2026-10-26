@@ -5,6 +5,7 @@ import Link from 'next/link'
 
 import { computeEvalMetrics } from '@/lib/classificationEvalMetrics'
 import { CLASSIFICATION_AXES } from '@/lib/classificationTaxonomy'
+import { DECISION_MODELS, DEFAULT_DECISION_MODEL, findDecisionModelByModelId, getDecisionModel } from '@/lib/decisionModels'
 import { DEFAULT_JEV_THRESHOLDS, JEV_THRESHOLD_KEYS, normalizeJevThresholds } from '@/lib/jevDecisions'
 
 const THRESHOLD_LABELS = {
@@ -20,19 +21,35 @@ const FILTERS = [
   { key: 'errors', label: 'Errors' },
 ]
 
-// Status colours: agreement is good, a tag only Jev applied is a warning to look at, a tag
-// only the stored classification has is the more serious miss. Each chip also carries its
-// state in text, so colour is never the only signal.
+// Status colours: agreement is good, a tag only the model applied is a warning to look at, a
+// tag only the stored classification has is the more serious miss. Each chip also carries its
+// state in text, so colour is never the only signal. `jevOnly` is the stored key for "the
+// run's decision model only", whichever model that was.
 const CHIP_STYLES = {
   agree: 'bg-emerald-50 text-emerald-900 border-emerald-300',
   jevOnly: 'bg-amber-50 text-amber-900 border-amber-300',
   baselineOnly: 'bg-rose-50 text-rose-900 border-rose-300',
 }
 
-const CHIP_LABELS = {
-  agree: 'both',
-  jevOnly: 'Jev only',
-  baselineOnly: 'stored only',
+function chipLabel(state, modelName) {
+  if (state === 'jevOnly') return `${modelName} only`
+  return state === 'agree' ? 'both' : 'stored only'
+}
+
+// The run's model as the page names it. Runs stored before there was a choice of model
+// carry only the model id, and were all Jev runs.
+function describeRunModel(run) {
+  const entry = run?.decisionModel ? getDecisionModel(run.decisionModel) : findDecisionModelByModelId(run?.model)
+  return {
+    key: entry?.key || null,
+    name: entry?.shortLabel || 'Model',
+    label: entry?.label || run?.model || 'the decision model',
+    usdPerMillionInputTokens: run?.usdPerMillionInputTokens ?? entry?.usdPerMillionInputTokens ?? null,
+  }
+}
+
+function formatRate(value) {
+  return `$${Number(value).toFixed(Number(value) < 0.1 ? 3 : 2)}`
 }
 
 function formatPct(value, digits = 0) {
@@ -71,15 +88,15 @@ function StatTile({ label, value, detail }) {
   )
 }
 
-function TagChip({ tag, state, probability, threshold }) {
+function TagChip({ tag, state, probability, threshold, modelName }) {
   const nearThreshold = Number.isFinite(probability) && Number.isFinite(threshold) && Math.abs(probability - threshold) < 0.15
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs ${CHIP_STYLES[state]}`}
-      title={`${tag}: ${CHIP_LABELS[state]}${Number.isFinite(probability) ? ` (Jev p=${formatProbability(probability)})` : ''}`}
+      title={`${tag}: ${chipLabel(state, modelName)}${Number.isFinite(probability) ? ` (${modelName} p=${formatProbability(probability)})` : ''}`}
     >
       <span className="font-medium">{tag}</span>
-      <span className="text-[10px] uppercase tracking-wide opacity-70">{CHIP_LABELS[state]}</span>
+      <span className="text-[10px] uppercase tracking-wide opacity-70">{chipLabel(state, modelName)}</span>
       {Number.isFinite(probability) ? (
         <span className={`tabular-nums ${nearThreshold ? 'underline decoration-dotted' : ''}`}>
           {formatProbability(probability)}
@@ -110,7 +127,7 @@ function ThresholdSlider({ id, label, value, onChange }) {
   )
 }
 
-function PaperCard({ paper, comparison, thresholds, expanded, onToggle }) {
+function PaperCard({ paper, comparison, thresholds, expanded, onToggle, modelName }) {
   const probabilities = useMemo(() => {
     const map = new Map()
     for (const row of paper?.jev?.probabilities || []) map.set(probabilityKey(row.axis, row.tag), Number(row.p))
@@ -123,7 +140,7 @@ function PaperCard({ paper, comparison, thresholds, expanded, onToggle }) {
   )
 
   const statusChip = comparison.error
-    ? { text: 'Jev error', className: 'bg-red-100 text-red-900 border-red-300' }
+    ? { text: `${modelName} error`, className: 'bg-red-100 text-red-900 border-red-300' }
     : comparison.allExact
       ? { text: 'Exact match', className: 'bg-emerald-100 text-emerald-900 border-emerald-300' }
       : {
@@ -144,8 +161,8 @@ function PaperCard({ paper, comparison, thresholds, expanded, onToggle }) {
             {[paper.journal, paper.year, `PMID ${paper.pmid}`].filter(Boolean).join(' • ')}
             {' • stored: '}
             {paper.baseline?.model || paper.baseline?.source || 'unknown'}
-            {paper.jev?.latencyMs ? ` • Jev ${formatNumber(paper.jev.latencyMs)} ms` : ''}
-            {paper.abstractTruncated ? ' • abstract truncated for Jev' : ''}
+            {paper.jev?.latencyMs ? ` • ${modelName} ${formatNumber(paper.jev.latencyMs)} ms` : ''}
+            {paper.abstractTruncated ? ` • abstract truncated for ${modelName}` : ''}
           </p>
         </div>
         <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusChip.className}`}>
@@ -176,6 +193,7 @@ function PaperCard({ paper, comparison, thresholds, expanded, onToggle }) {
                       state={chip.state}
                       probability={probabilities.get(probabilityKey(axis.key, chip.tag))}
                       threshold={thresholds[axis.key]}
+                      modelName={modelName}
                     />
                   ))}
                 </div>
@@ -185,7 +203,7 @@ function PaperCard({ paper, comparison, thresholds, expanded, onToggle }) {
           <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-1 md:gap-3">
             <p className="text-sm font-medium text-gray-700">Exclude</p>
             <p className={`text-sm ${comparison.exclude.exact ? 'text-gray-600' : 'text-rose-800'}`}>
-              stored {comparison.exclude.baseline ? 'yes' : 'no'} • Jev {comparison.exclude.jev ? 'yes' : 'no'}
+              stored {comparison.exclude.baseline ? 'yes' : 'no'} • {modelName} {comparison.exclude.jev ? 'yes' : 'no'}
               {' '}
               <span className="text-xs text-gray-500 tabular-nums">
                 (p={formatProbability(probabilities.get(probabilityKey('exclude', 'exclude')))})
@@ -211,7 +229,7 @@ function PaperCard({ paper, comparison, thresholds, expanded, onToggle }) {
               <p className="mt-1 text-sm text-gray-700 whitespace-pre-line">{paper.abstractPreview || '—'}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-gray-500">Jev probabilities, highest first</p>
+              <p className="text-xs uppercase tracking-wide text-gray-500">{modelName} probabilities, highest first</p>
               <table className="mt-1 w-full text-xs">
                 <tbody>
                   {sortedProbabilities.slice(0, 16).map((row) => {
@@ -236,22 +254,27 @@ function PaperCard({ paper, comparison, thresholds, expanded, onToggle }) {
 }
 
 export default function ClassificationEvalClient() {
-  const [payload, setPayload] = useState({ config: null, production: null, runs: [], run: null })
+  const [payload, setPayload] = useState({ models: [], production: null, runs: [], run: null })
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState(false)
   const [message, setMessage] = useState({ type: 'idle', text: '' })
-  const [form, setForm] = useState({ count: 50, seed: 1, concurrency: 4, label: '', year: '' })
+  const [form, setForm] = useState({ decisionModel: '', count: 50, seed: 1, concurrency: 4, label: '', year: '' })
   const [thresholds, setThresholds] = useState(DEFAULT_JEV_THRESHOLDS)
   const [filter, setFilter] = useState('disagree')
   const [expanded, setExpanded] = useState({})
 
   const run = payload.run
-  const config = payload.config
   const production = payload.production
+  const selectedModel = payload.models.find((entry) => entry.decisionModel === form.decisionModel) || null
+  const runModel = useMemo(() => describeRunModel(run), [run])
+  const productionModel = getDecisionModel(production?.decisionModel)
+  const thresholdsModel = production?.thresholdsDecisionModel ? getDecisionModel(production.thresholdsDecisionModel) : null
 
   const metrics = useMemo(
-    () => (run?.papers?.length ? computeEvalMetrics(run.papers, thresholds) : null),
-    [run, thresholds]
+    () => (run?.papers?.length
+      ? computeEvalMetrics(run.papers, thresholds, { usdPerMillionInputTokens: runModel.usdPerMillionInputTokens })
+      : null),
+    [run, runModel, thresholds]
   )
 
   const runThresholds = useMemo(() => normalizeJevThresholds(run?.thresholds), [run])
@@ -274,7 +297,9 @@ export default function ClassificationEvalClient() {
       if (!res.ok || !data.ok) {
         throw new Error(data?.error || 'Failed to load classification evaluations.')
       }
-      setPayload({ config: data.config, production: data.production || null, runs: data.runs || [], run: data.run || null })
+      setPayload({ models: data.models || [], production: data.production || null, runs: data.runs || [], run: data.run || null })
+      // New runs start on the production model until someone picks another.
+      setForm((previous) => ({ ...previous, decisionModel: previous.decisionModel || data.production?.decisionModel || DEFAULT_DECISION_MODEL }))
       setThresholds(normalizeJevThresholds(data.run?.thresholds))
       setExpanded({})
     } catch (error) {
@@ -291,13 +316,14 @@ export default function ClassificationEvalClient() {
   async function runEvaluation(event) {
     event.preventDefault()
     setWorking(true)
-    setMessage({ type: 'info', text: `Classifying ${form.count} papers with Jev…` })
+    setMessage({ type: 'info', text: `Classifying ${form.count} papers with ${selectedModel?.label || 'the decision model'}…` })
     try {
       const res = await fetch('/api/admin/classification-eval', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'run',
+          decisionModel: form.decisionModel || undefined,
           count: Number(form.count),
           seed: Number(form.seed),
           concurrency: Number(form.concurrency),
@@ -350,7 +376,10 @@ export default function ClassificationEvalClient() {
 
   async function applyThresholds() {
     const summary = JEV_THRESHOLD_KEYS.map((key) => `${THRESHOLD_LABELS[key]} ${formatProbability(thresholds[key])}`).join(', ')
-    if (!window.confirm(`Use these thresholds for production classification?\n\n${summary}\n\nThey apply on the next PubMed refresh or reclassification when the classifier is set to Jev.`)) return
+    const otherModel = runModel.key && production && runModel.key !== productionModel.key
+      ? `\n\nThis run used ${runModel.label}, but production classifies with ${productionModel.label}. Thresholds tuned on one model do not carry over to the other.`
+      : ''
+    if (!window.confirm(`Use these thresholds for production classification?\n\n${summary}\n\nThey apply on the next PubMed refresh or reclassification when the classifier is set to the decision model.${otherModel}`)) return
     setWorking(true)
     setMessage({ type: 'idle', text: '' })
     try {
@@ -360,6 +389,7 @@ export default function ClassificationEvalClient() {
         body: JSON.stringify({
           action: 'apply-thresholds',
           thresholds,
+          decisionModel: runModel.key || undefined,
           source: run ? `${run.label || 'evaluation'} (${run._id})` : 'classification evaluation',
         }),
       })
@@ -372,7 +402,7 @@ export default function ClassificationEvalClient() {
         type: 'success',
         text: data.production?.backend === 'jev'
           ? 'Production thresholds saved. They apply on the next refresh or reclassification.'
-          : 'Production thresholds saved. The classifier is still set to the chat model; switch it to Jev in Sanity Studio (Site Settings → Publication Classification) when you are ready.',
+          : 'Production thresholds saved. The classifier is still set to the chat model; switch it to the decision model under Production classifier when you are ready.',
       })
     } catch (error) {
       setMessage({ type: 'error', text: error.message || 'Saving thresholds failed.' })
@@ -381,9 +411,43 @@ export default function ClassificationEvalClient() {
     }
   }
 
+  async function setDecisionModel(key) {
+    if (!production || production.decisionModel === key) return
+    const next = getDecisionModel(key)
+    const when = production.backend === 'jev'
+      ? 'This applies to the next PubMed refresh or reclassification. Existing tags are not changed until a paper is reclassified.'
+      : 'The classifier is set to the chat model, so this takes effect only once you switch it to the decision model.'
+    const thresholdNote = thresholdsModel && thresholdsModel.key !== next.key
+      ? `\n\nThe production thresholds were tuned on ${thresholdsModel.label}. Set them from a ${next.shortLabel} run before relying on it.`
+      : ''
+    if (!window.confirm(`Use ${next.label} as the decision model?\n\n${when}${thresholdNote}`)) return
+    setWorking(true)
+    setMessage({ type: 'idle', text: '' })
+    try {
+      const res = await fetch('/api/admin/classification-eval', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set-decision-model', decisionModel: key }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        throw new Error(data?.error || 'Switching the decision model failed.')
+      }
+      setPayload((previous) => ({ ...previous, production: data.production }))
+      setMessage({
+        type: 'success',
+        text: `The decision model is now ${next.label}.${data.production?.backend === 'jev' ? ' It applies on the next refresh or reclassification.' : ''}`,
+      })
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message || 'Switching the decision model failed.' })
+    } finally {
+      setWorking(false)
+    }
+  }
+
   async function setBackend(backend) {
     if (!production || production.backend === backend) return
-    const label = backend === 'jev' ? 'the Jev decision model' : 'the chat model'
+    const label = backend === 'jev' ? `the decision model (${productionModel.label})` : 'the chat model'
     if (!window.confirm(`Switch production classification to ${label}?\n\nThis applies to the next PubMed refresh or reclassification. Existing tags are not changed until a paper is reclassified.`)) return
     setWorking(true)
     setMessage({ type: 'idle', text: '' })
@@ -401,7 +465,7 @@ export default function ClassificationEvalClient() {
       setMessage({
         type: 'success',
         text: backend === 'jev'
-          ? `Production classification now uses Jev at thresholds ${JEV_THRESHOLD_KEYS.map((key) => formatProbability(data.production?.effectiveThresholds?.[key])).join(' / ')}. It applies on the next refresh or reclassification.`
+          ? `Production classification now uses ${getDecisionModel(data.production?.decisionModel).label} at thresholds ${JEV_THRESHOLD_KEYS.map((key) => formatProbability(data.production?.effectiveThresholds?.[key])).join(' / ')}. It applies on the next refresh or reclassification.`
           : 'Production classification now uses the chat model.',
       })
     } catch (error) {
@@ -438,10 +502,13 @@ export default function ClassificationEvalClient() {
         </p>
         <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Classification evaluation</h1>
         <p className="text-gray-600 max-w-3xl">
-          Jev answers one yes/no question per tag and returns a probability for each. A run classifies a
-          sample of publications with Jev and stores the result beside the classification the site already
-          holds. The stored classification is the comparison reference, not ground truth: a disagreement
-          means one of the two systems is wrong, and the per-paper view is where to decide which.
+          A decision model answers one yes/no question per tag and returns a probability for each. A run
+          classifies a sample of publications with one of them (Jev, or OpenAI&apos;s GPT-6 Luna Decisions) and
+          stores the result beside the classification the site already holds; run the same seed with each
+          model to compare them on the same papers. The stored classification is the comparison reference,
+          not ground truth: a disagreement means one of the two systems is wrong, and the per-paper view is
+          where to decide which. Each paper shows which model produced its stored tags; where that was Jev, a
+          Jev run agrees with them more readily.
         </p>
       </header>
 
@@ -454,14 +521,32 @@ export default function ClassificationEvalClient() {
           <div>
             <h2 className="text-lg font-semibold">Run a new evaluation</h2>
             <p className="text-sm text-gray-500">
-              {config?.hasApiKey
-                ? `Using ${config.model} via ${config.transport}.`
-                : config?.apiKeyEnvVar
-                  ? `No credential configured: set ${config.apiKeyEnvVar} on the server to run evaluations.`
-                  : config?.error || 'Checking configuration…'}
+              {selectedModel?.hasApiKey
+                ? `Using ${selectedModel.model} via ${selectedModel.transport}.`
+                : selectedModel?.apiKeyEnvVar
+                  ? `No credential configured: set ${selectedModel.apiKeyEnvVar} on the server to run evaluations with this model.`
+                  : selectedModel?.error || 'Checking configuration…'}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
+            <label className="text-sm col-span-2">
+              <span className="block font-medium text-gray-800">Model</span>
+              <select
+                value={form.decisionModel}
+                onChange={(event) => setForm({ ...form, decisionModel: event.target.value })}
+                disabled={working || payload.models.length === 0}
+                className="mt-1 w-full border border-gray-300 rounded px-2 py-1"
+              >
+                {payload.models.length === 0 ? <option value="">Loading…</option> : null}
+                {payload.models.map((entry) => (
+                  <option key={entry.decisionModel} value={entry.decisionModel}>
+                    {entry.label}
+                    {production?.decisionModel === entry.decisionModel ? ' (production)' : ''}
+                    {entry.hasApiKey ? '' : ' (no credential)'}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="text-sm">
               <span className="block font-medium text-gray-800">Papers</span>
               <input
@@ -516,13 +601,13 @@ export default function ClassificationEvalClient() {
             </label>
           </div>
           <p className="text-xs text-gray-500">
-            The same seed picks the same papers, so re-running after a prompt or threshold change compares
-            like with like. Runs from this page are capped at 100 papers; use
+            The same seed picks the same papers, so a run with the other model, or after a prompt or threshold
+            change, compares like with like. Runs from this page are capped at 100 papers; use
             {' '}<code className="bg-gray-100 px-1 rounded">npm run eval:jev-classification</code> for more.
           </p>
           <button
             type="submit"
-            disabled={working || !config?.hasApiKey}
+            disabled={working || !selectedModel?.hasApiKey}
             className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-50"
           >
             {working ? 'Working…' : 'Run evaluation'}
@@ -579,15 +664,15 @@ export default function ClassificationEvalClient() {
             <h2 className="text-lg font-semibold">Production classifier</h2>
             <p className="text-sm text-gray-500">
               What the site uses when it refreshes or reclassifies publications. Switching applies to the
-              next run; existing tags stay until a paper is reclassified. If Jev fails for a paper, the
-              chat model classifies it instead. The same setting is editable in Sanity Studio.
+              next run; existing tags stay until a paper is reclassified. If the decision model fails for a
+              paper, the chat model classifies it instead. The same settings are editable in Sanity Studio.
             </p>
           </div>
           {production ? (
             <div className="flex items-center gap-1 rounded-lg border border-black/10 p-1 bg-white" role="radiogroup" aria-label="Production classifier">
               {[
                 { key: 'chat', label: 'Chat model' },
-                { key: 'jev', label: 'Jev decision model' },
+                { key: 'jev', label: 'Decision model' },
               ].map((item) => (
                 <button
                   key={item.key}
@@ -609,6 +694,40 @@ export default function ClassificationEvalClient() {
           ) : null}
         </div>
         {production ? (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <p className="text-sm font-medium text-gray-800" id="decision-model-label">Decision model</p>
+            <div className="flex flex-wrap items-center gap-1 rounded-lg border border-black/10 p-1 bg-white" role="radiogroup" aria-labelledby="decision-model-label">
+              {DECISION_MODELS.map((entry) => (
+                <button
+                  key={entry.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={production.decisionModel === entry.key}
+                  onClick={() => setDecisionModel(entry.key)}
+                  disabled={working || production.decisionModel === entry.key}
+                  className={`px-3 py-1 rounded text-sm ${
+                    production.decisionModel === entry.key
+                      ? 'bg-purple text-white'
+                      : 'text-gray-700 hover:bg-gray-100 disabled:opacity-50'
+                  }`}
+                >
+                  {entry.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">
+              {production.backend === 'jev' ? 'In use now.' : 'Used once the classifier is switched to the decision model.'}
+            </p>
+          </div>
+        ) : null}
+        {production && thresholdsModel && thresholdsModel.key !== productionModel.key ? (
+          <p className="mt-3 border rounded-lg px-4 py-3 text-sm border-amber-300 bg-amber-50 text-amber-900">
+            The production thresholds were tuned on {thresholdsModel.label}, but the decision model is now
+            {' '}{productionModel.label}. Its probabilities run differently, so run an evaluation with it and use
+            its thresholds before relying on it.
+          </p>
+        ) : null}
+        {production ? (
           <dl className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 text-sm">
             {JEV_THRESHOLD_KEYS.map((key) => (
               <div key={key}>
@@ -622,13 +741,14 @@ export default function ClassificationEvalClient() {
             <div className="col-span-2 md:col-span-4 text-xs text-gray-500 space-y-0.5">
               <p>
                 {production.thresholdsUpdatedAt
-                  ? `Thresholds set ${formatDateTime(production.thresholdsUpdatedAt)}${production.thresholdsSource ? ` from ${production.thresholdsSource}` : ''}.`
+                  ? `Thresholds set ${formatDateTime(production.thresholdsUpdatedAt)}${production.thresholdsSource ? ` from ${production.thresholdsSource}` : ''}${thresholdsModel ? `, tuned on ${thresholdsModel.label}` : ''}.`
                   : 'Thresholds have not been set from an evaluation yet; defaults apply.'}
               </p>
               {production.backendUpdatedAt ? (
                 <p>
-                  Classifier set to {production.backend === 'jev' ? 'Jev' : 'the chat model'} {formatDateTime(production.backendUpdatedAt)}
-                  {production.backendUpdatedBy ? ` by ${production.backendUpdatedBy}` : ''}.
+                  Classifier last changed {formatDateTime(production.backendUpdatedAt)}
+                  {production.backendUpdatedBy ? ` by ${production.backendUpdatedBy}` : ''}; it now uses
+                  {' '}{production.backend === 'jev' ? productionModel.label : 'the chat model'}.
                 </p>
               ) : null}
             </div>
@@ -641,12 +761,16 @@ export default function ClassificationEvalClient() {
       {metrics ? (
         <>
           <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-            <StatTile label="Papers" value={formatNumber(metrics.papers)} detail={metrics.errors ? `${metrics.errors} Jev errors` : 'all classified'} />
+            <StatTile label="Papers" value={formatNumber(metrics.papers)} detail={metrics.errors ? `${metrics.errors} ${runModel.name} errors` : 'all classified'} />
             <StatTile label="Exact on every axis" value={formatPct(metrics.allExactRate)} detail={`${metrics.allExact} of ${metrics.scored}`} />
-            <StatTile label="Exclude agreement" value={formatPct(metrics.exclude.agreeRate)} detail={`stored ${metrics.exclude.baselineExcluded}, Jev ${metrics.exclude.jevExcluded}`} />
-            <StatTile label="Mean Jev latency" value={metrics.latency.meanMs ? `${formatNumber(metrics.latency.meanMs)} ms` : '—'} detail={metrics.latency.maxMs ? `max ${formatNumber(metrics.latency.maxMs)} ms` : ''} />
+            <StatTile label="Exclude agreement" value={formatPct(metrics.exclude.agreeRate)} detail={`stored ${metrics.exclude.baselineExcluded}, ${runModel.name} ${metrics.exclude.jevExcluded}`} />
+            <StatTile label={`Mean ${runModel.name} latency`} value={metrics.latency.meanMs ? `${formatNumber(metrics.latency.meanMs)} ms` : '—'} detail={metrics.latency.maxMs ? `max ${formatNumber(metrics.latency.maxMs)} ms` : ''} />
             <StatTile label="Input tokens" value={formatNumber(metrics.usage.inputTokens)} detail={`${formatNumber(Math.round(metrics.usage.inputTokens / Math.max(1, metrics.papers)))} per paper`} />
-            <StatTile label="Estimated cost" value={`$${metrics.usage.estimatedUsd.toFixed(4)}`} detail="at $0.042 / M input tokens" />
+            <StatTile
+              label="Estimated cost"
+              value={metrics.usage.estimatedUsd === null ? '—' : `$${metrics.usage.estimatedUsd.toFixed(4)}`}
+              detail={metrics.usage.usdPerMillionInputTokens === null ? 'no price recorded for this model' : `at ${formatRate(metrics.usage.usdPerMillionInputTokens)} / M input tokens`}
+            />
           </section>
 
           <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4">
@@ -655,7 +779,7 @@ export default function ClassificationEvalClient() {
                 <div>
                   <h2 className="text-lg font-semibold">Thresholds</h2>
                   <p className="text-sm text-gray-500">
-                    A tag is applied when Jev&apos;s probability reaches the axis threshold. Moving a slider
+                    A tag is applied when {runModel.name}&apos;s probability reaches the axis threshold. Moving a slider
                     re-cuts the stored probabilities; nothing is re-sent to the model.
                   </p>
                 </div>
@@ -713,7 +837,7 @@ export default function ClassificationEvalClient() {
                       <th className="py-2 pr-3 font-medium text-right">Recall</th>
                       <th className="py-2 pr-3 font-medium text-right">F1</th>
                       <th className="py-2 pr-3 font-medium text-right">Stored tags</th>
-                      <th className="py-2 font-medium text-right">Jev tags</th>
+                      <th className="py-2 font-medium text-right">{runModel.name} tags</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -738,7 +862,7 @@ export default function ClassificationEvalClient() {
             <div>
               <h2 className="text-lg font-semibold">Agreement by tag</h2>
               <p className="text-sm text-gray-500">
-                Sorted by disagreement count. &ldquo;Jev only&rdquo; counts papers where Jev applied the tag and
+                Sorted by disagreement count. &ldquo;{runModel.name} only&rdquo; counts papers where {runModel.name} applied the tag and
                 the stored classification did not; &ldquo;stored only&rdquo; is the reverse.
               </p>
             </div>
@@ -749,9 +873,9 @@ export default function ClassificationEvalClient() {
                     <th className="py-2 pr-3 font-medium">Tag</th>
                     <th className="py-2 pr-3 font-medium">Axis</th>
                     <th className="py-2 pr-3 font-medium text-right">Stored</th>
-                    <th className="py-2 pr-3 font-medium text-right">Jev</th>
+                    <th className="py-2 pr-3 font-medium text-right">{runModel.name}</th>
                     <th className="py-2 pr-3 font-medium text-right">Both</th>
-                    <th className="py-2 pr-3 font-medium text-right">Jev only</th>
+                    <th className="py-2 pr-3 font-medium text-right">{runModel.name} only</th>
                     <th className="py-2 pr-3 font-medium text-right">Stored only</th>
                     <th className="py-2 pr-3 font-medium text-right">Precision</th>
                     <th className="py-2 font-medium text-right">Recall</th>
@@ -785,7 +909,7 @@ export default function ClassificationEvalClient() {
                 <h2 className="text-lg font-semibold">Papers</h2>
                 <p className="text-sm text-gray-500">
                   Showing {visiblePapers.length} of {run.papers.length}. Chips read tag, who applied it, and
-                  Jev&apos;s probability; a dotted underline marks a probability within 0.15 of the threshold.
+                  {' '}{runModel.name}&apos;s probability; a dotted underline marks a probability within 0.15 of the threshold.
                 </p>
               </div>
               <div className="flex items-center gap-1 rounded-lg border border-black/10 p-1 bg-white">
@@ -803,7 +927,7 @@ export default function ClassificationEvalClient() {
             </div>
             <div className="flex flex-wrap gap-2 text-xs text-gray-600">
               <span className={`rounded-full border px-2 py-0.5 ${CHIP_STYLES.agree}`}>both systems applied the tag</span>
-              <span className={`rounded-full border px-2 py-0.5 ${CHIP_STYLES.jevOnly}`}>Jev only</span>
+              <span className={`rounded-full border px-2 py-0.5 ${CHIP_STYLES.jevOnly}`}>{runModel.name} only</span>
               <span className={`rounded-full border px-2 py-0.5 ${CHIP_STYLES.baselineOnly}`}>stored classification only</span>
             </div>
             {visiblePapers.length === 0 ? (
@@ -819,6 +943,7 @@ export default function ClassificationEvalClient() {
                 thresholds={thresholds}
                 expanded={Boolean(expanded[paper.pmid])}
                 onToggle={() => setExpanded({ ...expanded, [paper.pmid]: !expanded[paper.pmid] })}
+                modelName={runModel.name}
               />
             ))}
           </section>

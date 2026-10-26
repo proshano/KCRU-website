@@ -56,6 +56,33 @@ test('jev backend returns Jev tags with provider, model and probabilities', asyn
   assert.equal(result.model, 'typesafe/jev-1.13')
   assert.deepEqual(result.topics, ['Peritoneal Dialysis'])
   assert.equal(result.probabilities.length, 1)
+  // No decision model chosen: Jev's configured route, untouched.
+  assert.equal(seen[0].model, undefined)
+  assert.equal(seen[0].transport, undefined)
+})
+
+test('the decision-model setting picks the transport and model, and explicit overrides win', async () => {
+  const seen = []
+  const jevClassify = async (pub, options) => {
+    seen.push(options)
+    return jevResult
+  }
+  await classifyPublicationWithBackend(publication, { backend: 'jev', decisionModel: 'gpt-6-luna-decisions', jevClassify })
+  await classifyPublicationWithBackend(publication, { backend: 'jev', decisionModel: 'jev', jevClassify })
+  await classifyPublicationWithBackend(publication, {
+    backend: 'jev',
+    decisionModel: 'gpt-6-luna-decisions',
+    jevModel: 'openai/gpt-6-luna-decisions-20261006',
+    jevClassify,
+  })
+  assert.deepEqual(
+    seen.map(({ transport, model }) => ({ transport, model })),
+    [
+      { transport: 'openrouter', model: 'openai/gpt-6-luna-decisions' },
+      { transport: undefined, model: undefined },
+      { transport: 'openrouter', model: 'openai/gpt-6-luna-decisions-20261006' },
+    ]
+  )
 })
 
 test('jev backend falls back to the chat classifier and records why', async () => {

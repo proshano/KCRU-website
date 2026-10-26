@@ -1,3 +1,5 @@
+import { DECISION_MODELS } from '../../lib/decisionModels.js'
+
 const AXIS_FIELDS = ['topics', 'studyDesign', 'methodologicalFocus']
 
 const tagArray = (name, title) => ({
@@ -13,7 +15,7 @@ const classificationEvalRun = {
   title: 'Classification Evaluation Runs',
   type: 'document',
   description:
-    'A sample of publications classified by the Jev decision model, stored beside the classification the site already holds so the two can be compared at /admin/classification-eval.',
+    'A sample of publications classified by a decision model (Jev or GPT-6 Luna Decisions), stored beside the classification the site already holds so the two can be compared at /admin/classification-eval.',
   fields: [
     { name: 'label', title: 'Label', type: 'string' },
     { name: 'runAt', title: 'Run At', type: 'datetime', readOnly: true },
@@ -31,6 +33,19 @@ const classificationEvalRun = {
     },
     { name: 'transport', title: 'Transport', type: 'string', readOnly: true },
     { name: 'model', title: 'Model', type: 'string', readOnly: true },
+    {
+      name: 'decisionModel',
+      title: 'Decision Model',
+      type: 'string',
+      readOnly: true,
+      options: { list: DECISION_MODELS.map((entry) => ({ title: entry.label, value: entry.key })) },
+    },
+    {
+      name: 'usdPerMillionInputTokens',
+      title: 'Price Used for the Estimate (USD per million input tokens)',
+      type: 'number',
+      readOnly: true,
+    },
     { name: 'endpoint', title: 'Endpoint', type: 'url', readOnly: true },
     { name: 'requestedBy', title: 'Requested By', type: 'string', readOnly: true },
     {
@@ -126,8 +141,9 @@ const classificationEvalRun = {
               ],
             },
             {
+              // Keyed `jev` from when Jev was the only decision model; holds the run's model.
               name: 'jev',
-              title: 'Jev Classification',
+              title: 'Decision Model Classification',
               type: 'object',
               fields: [
                 ...AXIS_FIELDS.map((axis) => tagArray(axis, axis)),

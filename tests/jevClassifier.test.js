@@ -9,7 +9,14 @@ import {
   parseTaxonomyCriteria,
   probabilitiesFromAnswers,
 } from '../lib/jevClassifier.js'
-import { callJevSystemOne, describeJevConfig, resolveJevTransport } from '../lib/jevClient.js'
+import {
+  callJevSystemOne,
+  describeDecisionModelConfig,
+  describeJevConfig,
+  readsNoulCriteria,
+  resolveJevTransport,
+} from '../lib/jevClient.js'
+import { findDecisionModelByModelId, getDecisionModel, normalizeDecisionModel } from '../lib/decisionModels.js'
 
 const ALL_TAGS = CLASSIFICATION_AXES.flatMap((axis) => axis.tags)
 
@@ -72,6 +79,61 @@ test('buildJevQuestions asks one noul question per tag plus the exclude question
   assert.deepEqual(index.t_living_kidney_donation, { axis: 'topics', tag: 'Living Kidney Donation' })
   assert.match(questions.t_living_kidney_donation.criteria.true, /Do NOT use for recipient or graft outcomes/)
   assert.match(questions.t_chronic_kidney_disease.criteria.true, /Do NOT use if the study focuses on a specific cause/)
+})
+
+test('only TypeSafe models read noul criteria', () => {
+  withEnv({ ...CLEAN_ENV }, () => {
+    assert.equal(readsNoulCriteria(), true, 'default is typesafe/jev-1.13 on OpenRouter')
+    assert.equal(readsNoulCriteria({ transport: 'typesafe' }), true)
+    assert.equal(readsNoulCriteria({ transport: 'openrouter', model: 'typesafe/jev-1.14' }), true)
+    assert.equal(readsNoulCriteria({ transport: 'openrouter', model: 'openai/gpt-6-luna-decisions' }), false)
+  })
+  withEnv({ ...CLEAN_ENV, JEV_MODEL: 'openai/gpt-6-luna-decisions' }, () => {
+    assert.equal(readsNoulCriteria(), false, 'JEV_MODEL counts')
+  })
+})
+
+test('buildJevQuestions writes the definitions into the question for models that do not read criteria', () => {
+  const jev = buildJevQuestions({ transport: 'openrouter', model: 'typesafe/jev-1.13' }).questions
+  const luna = buildJevQuestions({ transport: 'openrouter', model: 'openai/gpt-6-luna-decisions' }).questions
+  assert.deepEqual(Object.keys(luna), Object.keys(jev))
+  for (const [name, question] of Object.entries(luna)) {
+    assert.equal(question.type, 'noul')
+    assert.equal('criteria' in question, false, `${name} still sends criteria`)
+    assert.ok(question.instructions.startsWith(jev[name].instructions), `${name} lost its question`)
+    assert.ok(question.instructions.includes(`Answer yes if: ${jev[name].criteria.true}`), `${name} lost its yes definition`)
+    assert.ok(question.instructions.endsWith(`Answer no if: ${jev[name].criteria.false}`), `${name} lost its no definition`)
+  }
+  assert.match(luna.t_living_kidney_donation.instructions, /Do NOT use for recipient or graft outcomes/)
+})
+
+test('decision models resolve to a transport and model, and model ids map back to them', () => {
+  assert.equal(normalizeDecisionModel(' GPT-6-Luna-Decisions '), 'gpt-6-luna-decisions')
+  assert.equal(normalizeDecisionModel('claude'), 'jev')
+  assert.equal(getDecisionModel(undefined).key, 'jev')
+  assert.equal(findDecisionModelByModelId('openai/gpt-6-luna-decisions-20261006').key, 'gpt-6-luna-decisions')
+  assert.equal(findDecisionModelByModelId('jev-latest').key, 'jev')
+  assert.equal(findDecisionModelByModelId('typesafe/jev-1.13').key, 'jev')
+  assert.equal(findDecisionModelByModelId('microsoft/microsoft-decision-1'), null)
+  assert.equal(findDecisionModelByModelId(''), null)
+
+  withEnv({ ...CLEAN_ENV, TYPESAFE_API_KEY: 'ts', OPENROUTER_API_KEY: 'or' }, () => {
+    // Jev keeps the configured route; GPT-6 Luna Decisions always goes through OpenRouter.
+    assert.deepEqual(
+      describeDecisionModelConfig('jev'),
+      { decisionModel: 'jev', label: 'Jev (TypeSafe)', ...describeJevConfig() }
+    )
+    const luna = describeDecisionModelConfig('gpt-6-luna-decisions')
+    assert.equal(luna.transport, 'openrouter')
+    assert.equal(luna.model, 'openai/gpt-6-luna-decisions')
+    assert.equal(luna.hasApiKey, true)
+    assert.equal(describeDecisionModelConfig('gpt-6-luna-decisions', { model: 'openai/gpt-6-luna-decisions-20261006' }).model, 'openai/gpt-6-luna-decisions-20261006')
+  })
+  withEnv({ ...CLEAN_ENV, TYPESAFE_API_KEY: 'ts' }, () => {
+    const luna = describeDecisionModelConfig('gpt-6-luna-decisions')
+    assert.equal(luna.hasApiKey, false)
+    assert.equal(luna.apiKeyEnvVar, 'OPENROUTER_API_KEY')
+  })
 })
 
 test('buildJevState trims the abstract to the configured limit', () => {
@@ -184,7 +246,7 @@ test('callJevSystemOne fails clearly without a credential and does not retry cli
           },
         }
       ),
-      /Jev request failed 422: bad question/
+      /jev-latest request failed 422: bad question/
     )
   })
   assert.equal(attempts, 1)
@@ -226,7 +288,34 @@ test('classifyPublicationWithJev rejects an incomplete answer set', async () => 
   await withEnv({ ...CLEAN_ENV, TYPESAFE_API_KEY: 'k' }, async () => {
     await assert.rejects(
       classifyPublicationWithJev({ title: 'T', abstract: 'A' }, { fetch: fetchImpl, retries: 0 }),
-      /Jev answered 1 of/
+      /jev-latest answered 1 of/
     )
+  })
+})
+
+test('classifyPublicationWithJev sends GPT-6 Luna Decisions through OpenRouter without criteria', async () => {
+  const { index } = buildJevQuestions()
+  const calls = []
+  const fetchImpl = async (url, init) => {
+    const body = JSON.parse(init.body)
+    calls.push({ url, body })
+    const answers = {}
+    for (const name of Object.keys(body.questions)) {
+      answers[name] = { type: 'noul', noul: index[name].tag === 'Hemodialysis' ? 0.8 : 0.1 }
+    }
+    return new Response(JSON.stringify({ model: 'openai/gpt-6-luna-decisions-20261006', answers }), { status: 200 })
+  }
+  // A TypeSafe key would route Jev to TypeSafe's API; the OpenAI model must still use OpenRouter.
+  await withEnv({ ...CLEAN_ENV, TYPESAFE_API_KEY: 'ts', OPENROUTER_API_KEY: 'or' }, async () => {
+    const result = await classifyPublicationWithJev(
+      { title: 'Dialysis', abstract: 'A cohort.', laySummary: '' },
+      { fetch: fetchImpl, transport: 'openrouter', model: 'openai/gpt-6-luna-decisions' }
+    )
+    assert.equal(calls[0].url, 'https://openrouter.ai/api/alpha/decisions')
+    assert.equal(calls[0].body.model, 'openai/gpt-6-luna-decisions')
+    assert.equal(Object.values(calls[0].body.questions).some((question) => 'criteria' in question), false)
+    assert.deepEqual(result.topics, ['Hemodialysis'])
+    assert.equal(result.model, 'openai/gpt-6-luna-decisions-20261006')
+    assert.equal(result.transport, 'openrouter')
   })
 })

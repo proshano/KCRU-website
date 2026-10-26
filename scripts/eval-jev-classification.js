@@ -44,6 +44,10 @@ function parseArgs(argv = []) {
       options.label = arg.slice('--label='.length)
       continue
     }
+    if (arg.startsWith('--decision-model=')) {
+      options.decisionModel = arg.slice('--decision-model='.length)
+      continue
+    }
     if (arg.startsWith('--model=')) {
       options.model = arg.slice('--model='.length)
       continue
@@ -67,24 +71,25 @@ function pct(value) {
 
 function printSummary(result) {
   const { run, metrics } = result
+  const cost = metrics.usage.estimatedUsd === null ? 'no price for this model' : `est. $${metrics.usage.estimatedUsd.toFixed(4)}`
   const lines = []
-  lines.push(`Jev classification evaluation${run?._id ? ` (${run._id})` : ''}`)
-  lines.push(`  model: ${run.model} via ${run.transport}`)
+  lines.push(`Decision model classification evaluation${run?._id ? ` (${run._id})` : ''}`)
+  lines.push(`  model: ${run.model} via ${run.transport}${run.decisionModel ? ` (${run.decisionModel})` : ''}`)
   lines.push(`  papers: ${metrics.papers} (scored ${metrics.scored}, errors ${metrics.errors})`)
   lines.push(`  all axes exact: ${metrics.allExact}/${metrics.scored} (${pct(metrics.allExactRate)})`)
   for (const axis of Object.values(metrics.axes)) {
     lines.push(
-      `  ${axis.label.padEnd(22)} exact ${pct(axis.exactMatchRate).padStart(4)}  P ${pct(axis.precision).padStart(4)}  R ${pct(axis.recall).padStart(4)}  F1 ${pct(axis.f1).padStart(4)}  (baseline ${axis.baselineTags} tags, jev ${axis.jevTags})`
+      `  ${axis.label.padEnd(22)} exact ${pct(axis.exactMatchRate).padStart(4)}  P ${pct(axis.precision).padStart(4)}  R ${pct(axis.recall).padStart(4)}  F1 ${pct(axis.f1).padStart(4)}  (baseline ${axis.baselineTags} tags, model ${axis.jevTags})`
     )
   }
-  lines.push(`  exclude agreement: ${pct(metrics.exclude.agreeRate)} (baseline ${metrics.exclude.baselineExcluded}, jev ${metrics.exclude.jevExcluded})`)
+  lines.push(`  exclude agreement: ${pct(metrics.exclude.agreeRate)} (baseline ${metrics.exclude.baselineExcluded}, model ${metrics.exclude.jevExcluded})`)
   lines.push(`  latency: mean ${metrics.latency.meanMs ?? '—'} ms, max ${metrics.latency.maxMs ?? '—'} ms`)
-  lines.push(`  tokens: ${metrics.usage.inputTokens} in / ${metrics.usage.outputTokens} out, est. $${metrics.usage.estimatedUsd.toFixed(4)}`)
+  lines.push(`  tokens: ${metrics.usage.inputTokens} in / ${metrics.usage.outputTokens} out, ${cost}`)
   const noisy = metrics.tags.filter((tag) => tag.disagreements > 0).slice(0, 10)
   if (noisy.length) {
     lines.push('  most-disagreed tags:')
     for (const tag of noisy) {
-      lines.push(`    ${tag.tag.padEnd(40)} agree ${tag.agree}  jev-only ${tag.jevOnly}  baseline-only ${tag.baselineOnly}`)
+      lines.push(`    ${tag.tag.padEnd(40)} agree ${tag.agree}  model-only ${tag.jevOnly}  baseline-only ${tag.baselineOnly}`)
     }
   }
   console.log(lines.join('\n'))
@@ -109,7 +114,7 @@ async function main() {
       console.log('  review at /admin/classification-eval')
     }
   } catch (error) {
-    console.error('[jev] classification evaluation failed', error)
+    console.error('[classification-eval] evaluation failed', error)
     process.exitCode = 1
   }
 }

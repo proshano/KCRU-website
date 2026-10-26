@@ -13,9 +13,10 @@ import {
   runClassificationEval,
 } from '@/lib/classificationEval'
 import { CLASSIFICATION_BACKENDS } from '@/lib/classificationSettings'
+import { DECISION_MODELS, DECISION_MODEL_KEYS, isDecisionModelKey } from '@/lib/decisionModels'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import { sanitizeString } from '@/lib/inputUtils'
-import { describeJevConfig } from '@/lib/jevClassifier'
+import { describeDecisionModelConfig } from '@/lib/jevClassifier'
 import { writeClient } from '@/lib/sanity'
 
 const CORS_HEADERS = buildCorsHeaders('GET, POST, OPTIONS')
@@ -35,12 +36,46 @@ async function getSession(request) {
   return getScopedAdminSession(token, { scope: 'approvals' })
 }
 
-function describeConfig() {
-  try {
-    return { ...describeJevConfig(), error: null }
-  } catch (error) {
-    return { transport: null, model: null, endpoint: null, hasApiKey: false, apiKeyEnvVar: null, error: error?.message || String(error) }
-  }
+// Each decision model's route and whether the server holds its credential, for the page's
+// model picker. An invalid JEV_TRANSPORT puts its error on Jev's entry instead.
+function describeModels() {
+  return DECISION_MODELS.map((entry) => {
+    try {
+      return { ...describeDecisionModelConfig(entry.key), error: null }
+    } catch (error) {
+      return {
+        decisionModel: entry.key,
+        label: entry.label,
+        transport: null,
+        model: null,
+        endpoint: null,
+        hasApiKey: false,
+        apiKeyEnvVar: null,
+        error: error?.message || String(error),
+      }
+    }
+  })
+}
+
+function missingCredentialResponse(decisionModel) {
+  const config = describeModels().find((entry) => entry.decisionModel === decisionModel)
+  if (config?.hasApiKey) return null
+  const fix = config?.apiKeyEnvVar ? ` Set ${config.apiKeyEnvVar} first.` : config?.error ? ` ${config.error}` : ''
+  return NextResponse.json(
+    { ok: false, error: `No credential for ${config?.label || decisionModel} is configured on the server, so every paper would fall back to the chat model.${fix}` },
+    { status: 400, headers: CORS_HEADERS }
+  )
+}
+
+function readDecisionModel(body) {
+  return sanitizeString(body?.decisionModel).toLowerCase()
+}
+
+function unknownDecisionModelResponse() {
+  return NextResponse.json(
+    { ok: false, error: `Decision model must be one of: ${DECISION_MODEL_KEYS.join(', ')}.` },
+    { status: 400, headers: CORS_HEADERS }
+  )
 }
 
 export async function OPTIONS() {
@@ -63,7 +98,7 @@ export async function GET(request) {
     const runId = requestedRunId || runs[0]?._id || null
     const run = runId ? await fetchClassificationEvalRun(writeClient, runId) : null
     return NextResponse.json(
-      { ok: true, adminEmail: session.email, config: describeConfig(), production, runs, run },
+      { ok: true, adminEmail: session.email, models: describeModels(), production, runs, run },
       { headers: CORS_HEADERS }
     )
   } catch (requestError) {
@@ -105,9 +140,12 @@ export async function POST(request) {
       if (!thresholds) {
         return NextResponse.json({ ok: false, error: 'Missing thresholds.' }, { status: 400, headers: CORS_HEADERS })
       }
+      // The run's model, so the page can warn when production uses a different one.
+      const decisionModel = readDecisionModel(body)
       const production = await patchPublicationClassificationSettings(writeClient, {
         thresholds,
         thresholdsSource: `${sanitizeString(body?.source) || 'classification evaluation'} by ${session.email}`,
+        thresholdsDecisionModel: isDecisionModelKey(decisionModel) ? decisionModel : null,
       })
       return NextResponse.json({ ok: true, production }, { headers: CORS_HEADERS })
     }
@@ -117,11 +155,10 @@ export async function POST(request) {
       if (!CLASSIFICATION_BACKENDS.includes(backend)) {
         return NextResponse.json({ ok: false, error: 'Backend must be "chat" or "jev".' }, { status: 400, headers: CORS_HEADERS })
       }
-      if (backend === 'jev' && !describeConfig().hasApiKey) {
-        return NextResponse.json(
-          { ok: false, error: 'No Jev credential is configured on the server, so every paper would fall back to the chat model. Set OPENROUTER_API_KEY or TYPESAFE_API_KEY first.' },
-          { status: 400, headers: CORS_HEADERS }
-        )
+      if (backend === 'jev') {
+        const { decisionModel } = await fetchPublicationClassificationSettings(writeClient)
+        const refusal = missingCredentialResponse(decisionModel)
+        if (refusal) return refusal
       }
       const production = await patchPublicationClassificationSettings(writeClient, {
         backend,
@@ -130,9 +167,29 @@ export async function POST(request) {
       return NextResponse.json({ ok: true, production }, { headers: CORS_HEADERS })
     }
 
+    if (action === 'set-decision-model') {
+      const decisionModel = readDecisionModel(body)
+      if (!isDecisionModelKey(decisionModel)) return unknownDecisionModelResponse()
+      // Only refused when it would take effect: with the chat classifier the choice waits,
+      // and switching the classifier checks the credential again.
+      const { backend } = await fetchPublicationClassificationSettings(writeClient)
+      if (backend === 'jev') {
+        const refusal = missingCredentialResponse(decisionModel)
+        if (refusal) return refusal
+      }
+      const production = await patchPublicationClassificationSettings(writeClient, {
+        decisionModel,
+        backendUpdatedBy: session.email,
+      })
+      return NextResponse.json({ ok: true, production }, { headers: CORS_HEADERS })
+    }
+
     if (action !== 'run') {
       return NextResponse.json({ ok: false, error: 'Unsupported action.' }, { status: 400, headers: CORS_HEADERS })
     }
+
+    const decisionModel = readDecisionModel(body)
+    if (decisionModel && !isDecisionModelKey(decisionModel)) return unknownDecisionModelResponse()
 
     // The route runs inside a request; larger samples belong in the script
     // (npm run eval:jev-classification), which has no execution-time ceiling.
@@ -143,6 +200,7 @@ export async function POST(request) {
       concurrency: body?.concurrency,
       label: sanitizeString(body?.label) || undefined,
       year: sanitizeString(body?.year) || undefined,
+      decisionModel: decisionModel || undefined,
       requestedBy: session.email,
     })
     const runs = await listClassificationEvalRuns(writeClient)

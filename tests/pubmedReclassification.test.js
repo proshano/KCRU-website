@@ -98,3 +98,14 @@ test('useBuiltInPrompt ignores the stored prompt, and an explicit override wins 
   assert.equal(override.prompt.source, 'override')
   assert.equal(override.usedPrompt, '| **Hypertension** | x |')
 })
+
+test('the selection reports which decision model a decision-model run would use', async () => {
+  const settings = { publicationClassification: { backend: 'jev', decisionModel: 'gpt-6-luna-decisions' } }
+  const fromSettings = await run({ match: 'donor', settings })
+  assert.equal(fromSettings.selection.backend, 'jev')
+  assert.equal(fromSettings.selection.decisionModel, 'gpt-6-luna-decisions')
+  const chat = await run({ match: 'donor', settings, backend: 'chat' })
+  assert.equal(chat.selection.decisionModel, null)
+  const jevDefault = await run({ match: 'donor', backend: 'jev' })
+  assert.equal(jevDefault.selection.decisionModel, 'jev')
+})
