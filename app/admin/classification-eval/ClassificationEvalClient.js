@@ -808,13 +808,17 @@ export default function ClassificationEvalClient() {
                 <button
                   type="button"
                   onClick={applyThresholds}
-                  disabled={working || !production || matchesProduction}
+                  disabled={working || !production || matchesProduction || !runModel.key}
                   className="inline-flex items-center justify-center bg-purple text-white px-4 py-2 rounded shadow hover:bg-purple/90 disabled:opacity-50"
                 >
                   Use these thresholds in production
                 </button>
                 <span className="text-xs text-gray-500">
-                  {matchesProduction ? 'Production already uses these values.' : 'Writes to Site Settings; takes effect on the next refresh or reclassification.'}
+                  {!runModel.key
+                    ? `This run used ${runModel.label}, which production cannot classify with, so its thresholds cannot be applied.`
+                    : matchesProduction
+                      ? 'Production already uses these values.'
+                      : 'Writes to Site Settings; takes effect on the next refresh or reclassification.'}
                 </span>
               </div>
             </div>

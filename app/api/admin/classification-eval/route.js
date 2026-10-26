@@ -140,12 +140,15 @@ export async function POST(request) {
       if (!thresholds) {
         return NextResponse.json({ ok: false, error: 'Missing thresholds.' }, { status: 400, headers: CORS_HEADERS })
       }
-      // The run's model, so the page can warn when production uses a different one.
+      // The run's model is recorded with the thresholds so the page can warn when production
+      // classifies with a different one. A run on a model outside the table (a raw --model
+      // override) cannot say, and thresholds without a known origin would read as Jev's.
       const decisionModel = readDecisionModel(body)
+      if (!isDecisionModelKey(decisionModel)) return unknownDecisionModelResponse()
       const production = await patchPublicationClassificationSettings(writeClient, {
         thresholds,
         thresholdsSource: `${sanitizeString(body?.source) || 'classification evaluation'} by ${session.email}`,
-        thresholdsDecisionModel: isDecisionModelKey(decisionModel) ? decisionModel : null,
+        thresholdsDecisionModel: decisionModel,
       })
       return NextResponse.json({ ok: true, production }, { headers: CORS_HEADERS })
     }
