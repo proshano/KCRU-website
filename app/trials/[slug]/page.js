@@ -11,10 +11,16 @@ import {
   referralOptionLabel,
   resolveStudyTeams,
   teamLabel,
-  teamStatusLabel,
   teamsAcceptingReferrals,
 } from '@/lib/studyTeams'
 import ReferralForm from './ReferralForm'
+
+// Each site starts up on its own, so the status card names every team's own status.
+const TEAM_STATUS_BADGES = {
+  enrolling: { label: 'Recruiting', className: 'bg-emerald-50 text-emerald-800' },
+  not_yet_enrolling: { label: 'Starting soon', className: 'bg-amber-50 text-amber-800' },
+  closed: { label: 'Closed', className: 'bg-gray-100 text-gray-600' },
+}
 
 // Revalidate every 12 hours
 export const revalidate = 43200
@@ -133,14 +139,19 @@ export default async function TrialDetailPage({ params }) {
     key: team._key,
     label: referralOptionLabel(team),
   }))
+  // With several teams every one is listed with its status, so it is clear which
+  // sites are recruiting. A lone recruiting team is listed only when it has a public
+  // contact, because the "Actively Recruiting" headline already gives its status.
+  const listEveryTeam = teams.length > 1
   const teamBlocks = teams
     .map((team) => ({
       key: team._key,
       siteName: teamLabel(team),
-      statusLabel: team.status === 'enrolling' ? '' : teamStatusLabel(team.status),
+      status: TEAM_STATUS_BADGES[team.status] || TEAM_STATUS_BADGES.closed,
+      enrolling: team.status === 'enrolling',
       contact: publicTeamContact(team),
     }))
-    .filter((block) => block.siteName || block.statusLabel || block.contact)
+    .filter((block) => listEveryTeam || !block.enrolling || block.contact)
 
   const trialSchema = {
     '@context': 'https://schema.org',
@@ -259,21 +270,19 @@ export default async function TrialDetailPage({ params }) {
             </div>
           </div>
           
-          {/* One block per study team: the site, whether it is enrolling yet, and its public contact */}
+          {/* One row per study team: the site, its own status, and its public contact */}
           {teamBlocks.length > 0 && (
-            <div className="mb-4 grid gap-4 sm:grid-cols-2">
+            <ul className="mb-4 space-y-3 text-sm">
               {teamBlocks.map((block) => (
-                <div key={block.key} className="text-sm">
-                  {(block.siteName || block.statusLabel) && (
-                    <p className="font-medium text-gray-900">
+                <li key={block.key}>
+                  <p className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-gray-900">
                       {block.siteName ? `${block.siteName} team` : 'Study team'}
-                      {block.statusLabel && (
-                        <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
-                          {block.statusLabel === 'Not yet enrolling' ? 'Starting soon' : block.statusLabel}
-                        </span>
-                      )}
-                    </p>
-                  )}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${block.status.className}`}>
+                      {block.status.label}
+                    </span>
+                  </p>
                   {block.contact && (
                     <div className="mt-1">
                       {block.contact.name && <p className="font-medium">{block.contact.name}</p>}
@@ -292,9 +301,9 @@ export default async function TrialDetailPage({ params }) {
                       </div>
                     </div>
                   )}
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
 
           <div className="flex flex-wrap gap-3 mt-4">
