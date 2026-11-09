@@ -3,11 +3,13 @@ import test from 'node:test'
 
 import { retainPublications } from '../lib/publicationRetention.js'
 import {
+  buildAttributionSiteContext,
   buildPublicationAttributionReviewDocument,
   canManagePublicationAttributionReviews,
   decidePublicationAttributionReview,
   filterRejectedProvenance,
   mergeApprovedReviewSnapshots,
+  resolveApprovedAttributionSiteStatus,
   resolveAutomaticallyConfirmedAttributionReviews,
   sweepCoauthorAttributions,
   upsertPublicationAttributionCandidates,
@@ -497,4 +499,101 @@ test('approval admins are authorized and decisions are reversible', async () => 
     'pmid:123',
     'doi:10.1000/candidate',
   ])
+})
+
+// Site status of approved links, as the review page shows it on each approved card.
+const SITE_ABSTRACT = 'Rationale and objective: a retrospective cohort study of kidney disease progression.'
+
+function approvedReview(publicationOverrides = {}) {
+  return buildPublicationAttributionReviewDocument({
+    researcher: researcher(),
+    publication: publication({ abstract: SITE_ABSTRACT, ...publicationOverrides }),
+    evaluation: { reason: 'Needs review.' },
+    status: 'approved',
+    reviewedBy: 'reviewer@example.test',
+    now: new Date('2026-11-07T16:20:00Z'),
+  })
+}
+
+function cachedPublication(overrides = {}) {
+  return {
+    publicationKey: 'doi:10.1000/candidate',
+    doi: '10.1000/candidate',
+    title: 'Candidate publication',
+    publicationTypes: ['Journal Article'],
+    exclude: false,
+    ...overrides,
+  }
+}
+
+function site({ publications = [], provenance = {}, refreshedAt = '2026-11-08T15:57:05Z' } = {}) {
+  return buildAttributionSiteContext({ publications, provenance, refreshedAt })
+}
+
+test('only approved reviews get a site status, and only when the cache could be read', () => {
+  const context = site({ publications: [cachedPublication()], provenance: { 'doi:10.1000/candidate': ['researcher-1'] } })
+  assert.equal(resolveApprovedAttributionSiteStatus(review('pending'), context), null)
+  assert.equal(resolveApprovedAttributionSiteStatus(review('rejected'), context), null)
+  assert.equal(resolveApprovedAttributionSiteStatus(approvedReview(), null), null)
+})
+
+test('an approved paper on the site and listed under the researcher reads as public', () => {
+  const status = resolveApprovedAttributionSiteStatus(approvedReview(), site({
+    publications: [cachedPublication()],
+    provenance: { 'doi:10.1000/candidate': ['researcher-1'] },
+  }))
+  assert.deepEqual(status, { state: 'public', anchorId: 'paper-doi-10-1000-candidate' })
+})
+
+test('a review is matched to the cached paper by DOI or PMID when its stored key differs', () => {
+  const legacyReview = { ...approvedReview({ pmid: '123' }), publicationKey: 'pmid:123' }
+  const status = resolveApprovedAttributionSiteStatus(legacyReview, site({
+    publications: [cachedPublication({ pmid: '123' })],
+    // Older caches keyed provenance by the bare PMID.
+    provenance: { 123: ['researcher-1'] },
+  }))
+  assert.equal(status.state, 'public')
+})
+
+test('an approval newer than the last refresh waits for the next one', () => {
+  const status = resolveApprovedAttributionSiteStatus(approvedReview({ source: 'openalex', abstract: '' }), site({
+    refreshedAt: '2026-11-07T15:36:00Z',
+  }))
+  assert.deepEqual(status, { state: 'awaiting-refresh' })
+})
+
+test('an approved paper found outside PubMed without text waits for an abstract', () => {
+  const status = resolveApprovedAttributionSiteStatus(
+    approvedReview({ source: 'openalex', sources: ['openalex'], abstract: '' }),
+    site({ publications: [cachedPublication({ publicationKey: 'doi:10.1000/other', doi: '10.1000/other' })] })
+  )
+  assert.deepEqual(status, { state: 'awaiting-text' })
+})
+
+test('an approved paper missing from the cache for another reason is not blamed on text', () => {
+  const withText = resolveApprovedAttributionSiteStatus(approvedReview(), site())
+  assert.deepEqual(withText, { state: 'missing' })
+  // PubMed-indexed papers never wait for text.
+  const withPmid = resolveApprovedAttributionSiteStatus(approvedReview({ pmid: '456', abstract: '' }), site())
+  assert.deepEqual(withPmid, { state: 'missing' })
+})
+
+test('an approved paper hidden from the site reads as excluded, with the reason', () => {
+  const provenance = { 'doi:10.1000/candidate': ['researcher-1'] }
+  const statusFor = (overrides) => resolveApprovedAttributionSiteStatus(approvedReview(), site({
+    publications: [cachedPublication(overrides)],
+    provenance,
+  }))
+  // The classifier's own flag, with no rule behind it (an off-topic namesake paper).
+  assert.deepEqual(statusFor({ exclude: true }), { state: 'excluded', reason: 'classification' })
+  assert.deepEqual(statusFor({ title: 'Correction: Candidate publication' }), { state: 'excluded', reason: 'correction' })
+  assert.deepEqual(statusFor({ title: 'Reply to: Candidate publication' }), { state: 'excluded', reason: 'correspondence' })
+})
+
+test('an approved paper on the site under other researchers only reads as not listed', () => {
+  const status = resolveApprovedAttributionSiteStatus(approvedReview(), site({
+    publications: [cachedPublication()],
+    provenance: { 'doi:10.1000/candidate': ['researcher-2'] },
+  }))
+  assert.deepEqual(status, { state: 'not-listed' })
 })

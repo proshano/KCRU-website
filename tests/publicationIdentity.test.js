@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   getPublicationAnchorId,
   getPublicationKey,
+  isPublicationReadyToPublish,
   mergePublications,
   normalizeDoi,
   normalizePublicationProvenance,
@@ -205,4 +206,14 @@ test('replaces longer unlabeled legacy text with a newly labeled abstract', () =
 
   assert.match(publication.abstract, /newly indexed abstract/)
   assert.equal(publication.abstractContentType, 'abstract')
+})
+
+test('papers found outside PubMed are published only once they have usable text', () => {
+  const longText = 'Rationale and objective: a retrospective cohort study of kidney disease progression.'
+  assert.equal(isPublicationReadyToPublish({ source: 'openalex', doi: '10.1/x', abstract: '' }), false)
+  assert.equal(isPublicationReadyToPublish({ source: 'crossref', doi: '10.1/x', abstract: '  too short  ' }), false)
+  assert.equal(isPublicationReadyToPublish({ source: 'openalex', doi: '10.1/x', abstract: longText }), true)
+  // A PubMed record is published as it is, abstract or not.
+  assert.equal(isPublicationReadyToPublish({ source: 'pubmed', pmid: '123', abstract: '' }), true)
+  assert.equal(isPublicationReadyToPublish({ source: 'crossref', pmid: '123', abstract: '' }), true)
 })

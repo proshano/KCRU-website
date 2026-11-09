@@ -4,14 +4,35 @@ import { getScopedAdminSession } from '@/lib/adminSessions'
 import { getSessionAccess } from '@/lib/authAccess'
 import { buildCorsHeaders, extractBearerToken } from '@/lib/httpUtils'
 import {
+  buildAttributionSiteContext,
   canManagePublicationAttributionReviews,
   decidePublicationAttributionReview,
   fetchPublicationAttributionReviews,
+  resolveApprovedAttributionSiteStatus,
 } from '@/lib/publicationAttributionReview'
+import { mergeWithClassifications } from '@/lib/publications'
+import { readCache } from '@/lib/pubmedCache'
 import { sanityFetch, writeClient } from '@/lib/sanity'
 import { sanitizeString } from '@/lib/studySubmissions'
 
 const CORS_HEADERS = buildCorsHeaders('GET, PATCH, OPTIONS')
+
+// The public publication list as /publications reads it, so each approved card can say
+// whether its paper is on the site. Null when the cache cannot be read; the reviews still load.
+async function loadPublicSiteContext() {
+  try {
+    const cache = await readCache()
+    if (!cache) return null
+    return buildAttributionSiteContext({
+      publications: await mergeWithClassifications(cache.publications || []),
+      provenance: cache.provenance || {},
+      refreshedAt: cache.generatedAt || null,
+    })
+  } catch (error) {
+    console.error('[publication-attribution-review] Could not read the public publication cache', error)
+    return null
+  }
+}
 
 async function getReviewSession(request) {
   const sessionAccess = await getSessionAccess()
@@ -38,23 +59,33 @@ export async function GET(request) {
 
   try {
     const fetchClient = writeClient.config().token ? writeClient : { fetch: sanityFetch }
-    const reviews = await fetchPublicationAttributionReviews(fetchClient)
+    const [reviews, siteContext] = await Promise.all([
+      fetchPublicationAttributionReviews(fetchClient),
+      loadPublicSiteContext(),
+    ])
     const pending = reviews
       .filter((review) => review.status === 'pending')
       .sort((left, right) => String(right.firstSeenAt || '').localeCompare(String(left.firstSeenAt || '')))
     const decisions = reviews
       .filter((review) => review.status !== 'pending')
       .sort((left, right) => String(right.reviewedAt || '').localeCompare(String(left.reviewedAt || '')))
+      .map((review) => ({ ...review, siteStatus: resolveApprovedAttributionSiteStatus(review, siteContext) }))
 
     return NextResponse.json({
       ok: true,
       adminEmail: session.email,
       pending,
       decisions,
+      publicSite: siteContext
+        ? { checked: true, refreshedAt: siteContext.refreshedAt || null }
+        : { checked: false, refreshedAt: null },
       counts: {
         pending: pending.length,
         approved: decisions.filter((review) => review.status === 'approved').length,
         rejected: decisions.filter((review) => review.status === 'rejected').length,
+        // Still off the site after a refresh, as opposed to approved since the last one.
+        approvedNotOnSite: decisions.filter((review) => review.siteStatus && !['public', 'awaiting-refresh'].includes(review.siteStatus.state)).length,
+        approvedAwaitingRefresh: decisions.filter((review) => review.siteStatus?.state === 'awaiting-refresh').length,
       },
     }, { headers: CORS_HEADERS })
   } catch (requestError) {
