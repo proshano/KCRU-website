@@ -4,12 +4,17 @@ import test from 'node:test'
 import {
   getPublicationAnchorId,
   getPublicationKey,
+  isPlaceholderPublicationText,
   isPublicationReadyToPublish,
   mergePublications,
+  needsPublicationText,
   normalizeDoi,
   normalizePublicationProvenance,
   publicationAnchorFromKey,
+  replacesPlaceholderText,
   revealLinkedPublication,
+  selectPreferredAbstractContent,
+  withoutPlaceholderSummary,
   withPublicationKey,
 } from '../lib/publicationIdentity.js'
 
@@ -206,6 +211,52 @@ test('replaces longer unlabeled legacy text with a newly labeled abstract', () =
 
   assert.match(publication.abstract, /newly indexed abstract/)
   assert.equal(publication.abstractContentType, 'abstract')
+})
+
+const MEETING_TITLE = 'Does Final Peritoneal Dialysis Catheter Tip Position Predict Early Catheter Dysfunction?'
+const MEETING_URL = 'https://www.ovid.com/jnls/jasn/fulltext/10.1681/asn.20233411s1903b~does-final-peritoneal-dialysis-catheter-tip-position-predict'
+
+test('recognises a link, a citation string or the title stored in place of text', () => {
+  assert.equal(isPlaceholderPublicationText(MEETING_URL, MEETING_TITLE), true)
+  assert.equal(isPlaceholderPublicationText(MEETING_TITLE, MEETING_TITLE), true)
+  assert.equal(isPlaceholderPublicationText('Does Final Peritoneal Dialysis Catheter Tip Position Predict', MEETING_TITLE), true)
+  assert.equal(isPlaceholderPublicationText('citation_journal_title=Clin Res Cardiol; citation_title=Something', 'Other'), true)
+
+  const abstract = 'Background: It is believed that an optimal catheter position matters. Results: tip position did not predict dysfunction.'
+  assert.equal(isPlaceholderPublicationText(abstract, MEETING_TITLE), false)
+  assert.equal(isPlaceholderPublicationText(`${MEETING_TITLE} Background: tip position did not predict dysfunction.`, MEETING_TITLE), false)
+  assert.equal(isPlaceholderPublicationText('', MEETING_TITLE), false)
+})
+
+test('real text replaces a placeholder, which is kept only while it is all there is', () => {
+  const placeholder = { source: 'crossref', doi: '10.1681/asn.20233411s1903b', title: MEETING_TITLE, abstract: MEETING_URL, abstractContentType: 'abstract', abstractSource: 'publisher metadata' }
+  const body = 'Background: It is believed that an optimal catheter position matters. Results: tip position did not predict dysfunction. '.repeat(5)
+
+  const replaced = selectPreferredAbstractContent(placeholder, { abstract: body, abstractContentType: 'article_body', abstractSource: 'publisher HTML' })
+  assert.match(replaced.abstract, /^Background/)
+  assert.equal(replaced.abstractContentType, 'article_body')
+
+  const kept = selectPreferredAbstractContent({ ...placeholder, abstract: null }, placeholder)
+  assert.equal(kept.abstract, MEETING_URL)
+  // The placeholder keeps the paper on the site; the backfill still looks for text.
+  assert.equal(isPublicationReadyToPublish(placeholder), true)
+  assert.equal(needsPublicationText(placeholder), true)
+  assert.equal(needsPublicationText({ ...placeholder, abstract: body }), false)
+  assert.equal(needsPublicationText({ ...placeholder, abstract: '' }), true)
+})
+
+test('the summary written from a placeholder is dropped once real text arrives', () => {
+  const placeholder = { title: MEETING_TITLE, abstract: MEETING_URL, laySummary: 'The information provided does not include the results.' }
+  assert.deepEqual(withoutPlaceholderSummary(placeholder), { laySummary: null })
+  assert.deepEqual(withoutPlaceholderSummary({ ...placeholder, laySummary: null }), {})
+  assert.deepEqual(withoutPlaceholderSummary({ ...placeholder, abstract: 'Background: a real abstract with methods and results that is long enough.' }), {})
+
+  const realText = 'Background: a real abstract from OpenAlex with methods, results and a conclusion.'
+  assert.equal(replacesPlaceholderText(MEETING_URL, realText, MEETING_TITLE), true)
+  assert.equal(replacesPlaceholderText(MEETING_URL, MEETING_URL, MEETING_TITLE), false)
+  assert.equal(replacesPlaceholderText(MEETING_URL, MEETING_TITLE, MEETING_TITLE), false)
+  assert.equal(replacesPlaceholderText(realText, `${realText} More.`, MEETING_TITLE), false)
+  assert.equal(replacesPlaceholderText(null, realText, MEETING_TITLE), false)
 })
 
 test('papers found outside PubMed are published only once they have usable text', () => {

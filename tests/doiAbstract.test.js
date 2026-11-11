@@ -3,10 +3,82 @@ import test from 'node:test'
 
 import {
   extractArticleBodyText,
+  extractMetaAbstract,
   fetchAbstractFromDoi,
   fetchPublicationTextFromDoi,
   transcribePublisherFirstPage,
 } from '../lib/doiAbstract.js'
+
+// The meta tags of an Ovid page for a JASN meeting abstract (November 2026): no abstract
+// tag, a description saying so, and a URL and title longer than any description.
+const OVID_TITLE = 'Large Language Model-Assisted Screening in a Systematic Review on the Use, Administration, and Interpretation of Patient-Reported Outcome Measures in Dialysis Randomized Controlled Trials'
+const OVID_META = `
+  <meta name="Description" content="Abstract was not provided for this article."/>
+  <meta name="Title" content="${OVID_TITLE}"/>
+  <meta name="dc.identifier" content="doi:10.1681/ASN.2026rnpqqjxm"/>
+  <meta property="og:title" content="Large Language Model-Assisted Screening in a... : Journal of the American Society of Nephrology"/>
+  <meta property="og:description" content="Abstract was not provided for this article."/>
+  <meta property="og:url" content="https://www.ovid.com/jnls/jasn/fulltext/10.1681/asn.2026rnpqqjxm~large-language-model-assisted-screening-in-a-systematic"/>`
+
+test('meta tags other than abstracts and descriptions are never taken as the abstract', () => {
+  assert.equal(extractMetaAbstract(`<html><head>${OVID_META}</head></html>`), null)
+
+  const springer = '<meta name="citation_reference" content="citation_journal_title=Clin Res Cardiol; citation_title=The SGLT2 inhibitor empagliflozin reduces tissue sodium content in patients with chronic heart failure; citation_author=X"/>'
+  assert.equal(extractMetaAbstract(`<html><head>${springer}</head></html>`), null)
+
+  const abstract = 'Background: this is the abstract a repository exposes under a tag of its own name, with methods and results. '.repeat(2)
+  assert.equal(
+    extractMetaAbstract(`<html><head><meta name="eprints.abstract" content="${abstract}"/></head></html>`),
+    abstract.trim()
+  )
+
+  const abstractUrl = '<meta name="citation_abstract_html_url" content="https://journal.example.org/article/10.1000/xyz/abstract-page-for-this-article-with-a-long-path"/>'
+  assert.equal(extractMetaAbstract(`<html><head>${abstractUrl}</head></html>`), null)
+})
+
+test('reads an Ovid meeting abstract from the article body without the citation header', () => {
+  const section = (heading, text) => `<section class="lww-article__section js-lww-article-section"><h2 class="js-lww-content-heading"><b>${heading}:</b></h2><p>${text}</p></section>`
+  const html = `<html><head>${OVID_META}</head><body><article>
+    <div class="lww-article__citation-info"><span>Journal of the American Society of Nephrology</span> 37(10S), October 2026. DOI: 10.1681/ASN.2026rnpqqjxm</div>
+    <div class="lww-article__body js-lww-article-body">
+      ${section('Background', 'Patients receiving dialysis prioritize patient-reported outcome measures, yet trials that report them are hard to identify. '.repeat(2))}
+      ${section('Methods', 'We built a reference standard of 172 eligible and 516 ineligible records and evaluated twelve models. '.repeat(2))}
+      ${section('Results', 'The strongest model reached a sensitivity of 92.5% and a specificity of 94.0%. '.repeat(2))}
+      ${section('Conclusion', 'Language model screening identified these trials accurately and reduced reviewer workload. '.repeat(2))}
+    </div></article><footer>Site footer</footer></body></html>`
+
+  const text = extractArticleBodyText(html)
+  assert.match(text, /^Background: Patients receiving dialysis/)
+  assert.match(text, /Results: The strongest model/)
+  assert.match(text, /Conclusion: Language model screening/)
+  assert.doesNotMatch(text, /October 2026|Site footer/)
+})
+
+test('a paywalled landing page is not taken as article text', () => {
+  const filler = 'Pediatric Nephrology Letter to the Editors Published: 22 January 2026 Volume 41 Cite this article Save article. '.repeat(6)
+  const html = `<html><body><article><p>${filler}</p><p>Access this article. Log in via an institution. Buy article PDF. Price includes VAT (Canada). Instant access to the full article PDF. Institutional subscriptions</p></article></body></html>`
+  assert.equal(extractArticleBodyText(html), null)
+})
+
+test('a link or the title returned in place of text moves on to the next source', async () => {
+  const calls = []
+  const abstract = 'Background: the real abstract, with methods, results and a conclusion, from the third source. '.repeat(2)
+  const result = await fetchPublicationTextFromDoi('10.1681/asn.2026rnpqqjxm', {
+    title: OVID_TITLE,
+    sourceFetchers: [
+      {
+        name: 'publisher metadata',
+        fetch: async () => { calls.push('url'); return 'https://www.ovid.com/jnls/jasn/fulltext/10.1681/asn.2026rnpqqjxm~large-language-model-assisted-screening-in-a-systematic' },
+      },
+      { name: 'Crossref', fetch: async () => { calls.push('title'); return OVID_TITLE } },
+      { name: 'OpenAlex', fetch: async () => { calls.push('abstract'); return abstract } },
+    ],
+  })
+
+  assert.equal(result?.text, abstract.trim())
+  assert.equal(result?.source, 'OpenAlex')
+  assert.deepEqual(calls, ['url', 'title', 'abstract'])
+})
 
 test('continues through abstract sources after empty and unusably short responses', async () => {
   const calls = []
