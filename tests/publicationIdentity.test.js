@@ -228,6 +228,37 @@ test('recognises a link, a citation string or the title stored in place of text'
   assert.equal(isPlaceholderPublicationText('', MEETING_TITLE), false)
 })
 
+test('recognises the other things the old backfill stored: settings, author lists, notices, a reworded title', () => {
+  // What Cambridge serves as `citation_abstract`: a link to the first-page image, without a scheme.
+  assert.equal(
+    isPlaceholderPublicationText('//static.cambridge.org/content/id/urn%3Acambridge.org%3Aid%3Aarticle%3AS0317167125000587/resource/name/firstPage-pdf-S0317167125000587a.jpg', 'Tuberous Sclerosis Complex'),
+    true
+  )
+  assert.equal(isPlaceholderPublicationText('背景：慢性肾脏病患者的预后尚不清楚。方法：我们进行了一项队列研究，纳入了透析患者/移植患者。', '慢性肾脏病'), false)
+
+  // Each of these was in the cache on 2026-11-11.
+  assert.equal(isPlaceholderPublicationText('width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no', 'A Kidney Substudy'), true)
+  assert.equal(isPlaceholderPublicationText('Gunaratnam, Lakshman;Suri, Rita S.;Wehrli, Bret;Ashe, Kassem A.;Chu, Michael W. A.;Wang, Carol', 'Valve Replacement'), true)
+  assert.equal(
+    isPlaceholderPublicationText('An abstract is not available for this content so a preview has been provided. Please use the Get access link above for information on how to access this content.', 'Tuberous Sclerosis Complex'),
+    true
+  )
+  assert.equal(
+    isPlaceholderPublicationText(
+      'Progressive White Matter Injury Dominates in Patients Receiving Hemodialysis Over Peritoneal Dialysis After One Year of Dialysis',
+      'Progressive White Matter Injury Dominates in Patients Receiving Hemodialysis over Peritoneal Dialysis after 1 Year of Dialysis.'
+    ),
+    true
+  )
+
+  // Real text that shares words with these is kept.
+  const systematicReview = 'Background: screening is slow. Methods: records with no abstract were screened in full text by two reviewers; data were extracted in duplicate. Results: 172 of 688 records were eligible and agreement was high. Conclusion: the approach is feasible for future reviews of dialysis trials.'
+  assert.equal(isPlaceholderPublicationText(systematicReview, 'Screening in a Systematic Review'), false)
+  const oneSentence = 'ABSTRACT The novel HLA‐C*01:303 allele was identified in a Canadian donor of Dutch descent by next‐generation sequencing.'
+  assert.equal(isPlaceholderPublicationText(oneSentence, 'Characterisation of the novel HLA‐C*01:303 allele'), false)
+  assert.equal(isPlaceholderPublicationText('We compared hemodialysis; peritoneal dialysis; and transplantation, in adults.', 'Modalities'), false)
+})
+
 test('real text replaces a placeholder, which is kept only while it is all there is', () => {
   const placeholder = { source: 'crossref', doi: '10.1681/asn.20233411s1903b', title: MEETING_TITLE, abstract: MEETING_URL, abstractContentType: 'abstract', abstractSource: 'publisher metadata' }
   const body = 'Background: It is believed that an optimal catheter position matters. Results: tip position did not predict dysfunction. '.repeat(5)

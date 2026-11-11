@@ -58,6 +58,52 @@ test('a paywalled landing page is not taken as article text', () => {
   const filler = 'Pediatric Nephrology Letter to the Editors Published: 22 January 2026 Volume 41 Cite this article Save article. '.repeat(6)
   const html = `<html><body><article><p>${filler}</p><p>Access this article. Log in via an institution. Buy article PDF. Price includes VAT (Canada). Instant access to the full article PDF. Institutional subscriptions</p></article></body></html>`
   assert.equal(extractArticleBodyText(html), null)
+
+  // One such phrase in an article's own prose does not make it a paywall page.
+  const prose = 'Open access changed how libraries pay: institutional subscriptions fell while article charges rose across the journals studied. '.repeat(6)
+  assert.match(extractArticleBodyText(`<html><body><article><p>${prose}</p></article></body></html>`), /libraries pay/)
+})
+
+test('comparison signs in fetched text survive, from an API, a meta tag or a page', async () => {
+  const abstract = 'Among adults with eGFR <60 mL/min/1.73 m2 and ACR >30 mg/mmol, the hazard ratio was 0.80 (P<0.001) over a follow-up of >5 years.'
+  const fromApi = await fetchPublicationTextFromDoi('10.1000/signs', {
+    sourceFetchers: [{ name: 'OpenAlex', fetch: async () => abstract }],
+  })
+  assert.equal(fromApi?.text, abstract)
+
+  const escaped = '<meta name="citation_abstract" content="Among adults with eGFR &lt;60 mL/min/1.73 m2 and ACR &gt;30 mg/mmol, the hazard ratio was 0.80 (&lt;i&gt;P&lt;/i&gt;&lt;0.001) over a follow-up of &gt;5 years.">'
+  assert.equal(
+    extractMetaAbstract(escaped),
+    'Among adults with eGFR <60 mL/min/1.73 m2 and ACR >30 mg/mmol, the hazard ratio was 0.80 ( P <0.001) over a follow-up of >5 years.'
+  )
+
+  // An unescaped ">" inside the quoted value used to end the tag and lose the abstract.
+  const unescaped = '<meta name="citation_abstract" content="Among adults with eGFR >60 mL/min/1.73 m2 the hazard ratio was 0.80 over a follow-up of five years in the cohort."><meta name="x" content="y">'
+  assert.match(extractMetaAbstract(unescaped), /^Among adults with eGFR >60 .* in the cohort\.$/)
+
+  const paragraph = 'Patients with eGFR &lt;60 mL/min and ACR &gt;30 mg/mmol were followed, and the detailed results are reported here. '.repeat(6)
+  assert.match(
+    extractArticleBodyText(`<html><body><article><button>Open multimedia modal</button><p>${paragraph}</p></article></body></html>`),
+    /^Patients with eGFR <60 mL\/min and ACR >30 mg\/mmol were followed/
+  )
+})
+
+test('a notice in place of an abstract is rejected, the same words inside a real abstract are not', async () => {
+  const fetchOne = (text) => fetchAbstractFromDoi('10.1000/notice', { sourceFetchers: [{ name: 'only', fetch: async () => text }] })
+  assert.equal(await fetchOne('No abstract available for this article. Please see the full text PDF.'), null)
+
+  assert.equal(await fetchOne('An abstract is not available for this content so a preview has been provided. Please use the Get access link above.'), null)
+
+  const real = 'Background: screening is slow. Methods: records with no abstract were screened in full text by two reviewers, and data were extracted in duplicate. Results: 172 of 688 records were eligible, and agreement between reviewers was high throughout the review. Conclusion: the approach is feasible.'
+  assert.equal(await fetchOne(real), real)
+})
+
+test('a description that only repeats the title is skipped in favour of another tag', () => {
+  const title = 'Kidney Sodium Magnetic Resonance Imaging and the Concept of Residual Kidney Function in People Receiving Maintenance Hemodialysis: A Cohort Study'
+  const abstract = 'Background: residual kidney function matters. Methods: sodium imaging in 40 patients. Results: sodium content tracked urine volume. Conclusion: imaging adds information.'
+  const html = `<meta name="description" content="${title}"><meta property="og:description" content="${abstract}">`
+  assert.equal(extractMetaAbstract(html, title), abstract)
+  assert.equal(extractMetaAbstract(`<meta name="description" content="${title}">`, title), null)
 })
 
 test('a link or the title returned in place of text moves on to the next source', async () => {

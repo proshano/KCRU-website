@@ -234,6 +234,13 @@ test('reconstructs OpenAlex inverted-index abstracts in word order', () => {
   )
 })
 
+test('an OpenAlex abstract keeps the text between a less-than and a later greater-than sign', () => {
+  // "(eGFR <15) within 2 and 5 years … >0.90" was cut down to "(eGFR 0.90" before.
+  const words = ['kidney', 'failure', '(eGFR', '<15)', 'within', '2', 'and', '5', 'years.', 'C-statistics', 'were', '>0.90.']
+  const index = Object.fromEntries(words.map((word, position) => [word, [position]]))
+  assert.equal(reconstructOpenAlexAbstract(index), words.join(' '))
+})
+
 test('secondary discovery rejects an ORCID result whose authors do not match the researcher', async () => {
   const fetchFn = async () => new Response(JSON.stringify({
     message: {
